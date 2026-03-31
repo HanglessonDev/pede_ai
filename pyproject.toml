@@ -1,0 +1,60 @@
+[project]
+name = "pede-ai"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.135.2",
+    "langchain-community>=0.4.1",
+    "langchain-ollama>=1.0.1",
+    "langgraph>=1.1.3",
+    "langgraph-checkpoint-sqlite>=3.0.3",
+    "pydantic>=2.12.5",
+    "pyyaml>=6.0.3",
+    "uvicorn>=0.42.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.:UserWarning",
+]
+
+[tool.pyright]
+typeCheckingMode = "basic"
+reportMissingTypeStubs = false
+
+[dependency-groups]
+dev = ["pyright>=1.1.408", "ruff>=0.15.7", "taskipy>=1.14.1", "typer>=0.24.1"]
+test = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.1.0",
+    "pytest-icdiff>=0.9",
+    "pytest-mock>=3.15.1",
+    "pytest-sugar>=1.1.1",
+]
+
+# ── RUFF CONFIGURATION ───────────
+[tool.ruff]
+target-version = "py312"
+exclude = ["*.yml", "*.yaml"]
+
+[tool.ruff.lint]
+select = ["B", "F", "S", "SIM", "UP", "RUF", "PERF", "PL"]
+ignore = ["E501", "S101", "PLR0913", "RUF001", "PLR2004"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+"**/tests/**" = ["S101", "PLR2004", "S607", "PLC0415"]
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+
+[tool.ruff.format]
+quote-style = "single"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+[tool.taskipy.tasks]

@@ -1,0 +1,52 @@
+classificador_intencoes:
+  intencoes_validas:
+    - saudacao
+    - pedir
+    - remover
+    - trocar
+    - carrinho
+    - duvida
+    - confirmar
+    - negar
+    - cancelar
+  prompt: |
+    Classifique a intenção do usuário em UMA palavra.
+    Responda APENAS a palavra, sem pontuação, sem explicação.
+
+    INTENÇÕES POSSÍVEIS:
+    - saudacao: cliente cumprimenta
+    - pedir: cliente quer adicionar item
+    - remover: cliente quer tirar item do carrinho
+    - trocar: cliente quer mudar item ou quantidade
+    - carrinho: cliente quer ver itens ou total
+    - duvida: cliente tem pergunta
+    - confirmar: cliente responde sim
+    - negar: cliente responde não
+    - cancelar: cliente quer cancelar tudo
+
+    SE HOUVER MÚLTIPLAS INTENÇÕES, retorne a MAIS IMPORTANTE:
+    cancelar > remover > trocar > pedir > carrinho > duvida > confirmar > negar > saudacao
+
+    EXEMPLOS:
+    "oi" → saudacao
+    "bom dia" → saudacao
+    "bom dia, quero um xtudo" → pedir
+    "2 xbacon" → pedir
+    "quero uma pizza" → pedir
+    "tira a coca" → remover
+    "sem a batata" → remover
+    "muda pra xsalada" → trocar
+    "troca coca por suco" → trocar
+    "me mostra meu pedido" → carrinho
+    "qual o total?" → carrinho
+    "vocês entregam?" → duvida
+    "qual o preço do xbacon?" → duvida
+    "sim" → confirmar
+    "pode ser" → confirmar
+    "não" → negar
+    "cancela tudo" → cancelar
+    "esquece" → cancelar
+    "oi, cancela tudo" → cancelar
+
+    SUA VEZ:
+    "{mensagem}" →

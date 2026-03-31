@@ -1,0 +1,159 @@
+# ── Dados do Restaurante ──────────────────────────────────────────────────
+tenant_id: restaurante_teste
+tenant_nome: "Lanchonete do Zé"
+
+# ── Lanches ────────────────────────────────────────────────────────────────
+itens:
+  # Tipo 1: preço fixo, sem variantes
+  - id: lanche_002
+    nome: X-Salada
+    categoria: lanche
+    aliases: [x salada, xsalada, "x-sal"]
+    preco: 1800
+    tamanhos: []
+    complementos:
+      - nome: queijo
+        preco: 0
+      - nome: bacon
+        preco: 0
+      - nome: cheddar
+        preco: 0
+    remocoes_comuns: [sem cebola, sem tomate, sem alface]
+
+  - id: lanche_003
+    nome: X-Tudo
+    categoria: lanche
+    aliases: [x tudo, xtudo, "x-td"]
+    preco: 2000
+    complementos:
+      - nome: queijo
+        preco: 0
+      - nome: bacon
+        preco: 0
+      - nome: cheddar
+        preco: 0
+    remocoes_comuns: [sem cebola, sem tomate, sem alface]
+
+  # Tipo 2: preço por variante (simples/duplo/triplo)
+  - id: lanche_001
+    nome: Hambúrguer
+    categoria: lanche
+    aliases: [hamburguer, burger, hambug]
+    preco: null
+    variantes:
+      - opcao: simples
+        preco: 1500
+      - opcao: duplo
+        preco: 2000
+      - opcao: triplo
+        preco: 2500
+    complementos:
+      - nome: cheddar
+        preco: 0
+      - nome: bacon
+        preco: 0
+      - nome: ovo
+        preco: 0
+    remocoes_comuns: [sem cebola, sem tomate, sem alface]
+
+  # ── Acompanhamentos ──────────────────────────────────────────────────────
+  - id: acomp_001
+    nome: Batata Frita
+    categoria: acompanhamento
+    aliases: [batata, fritas, batatinha, batata frita]
+    variantes:
+      - opcao: pequena
+        preco: 900
+      - opcao: media
+        preco: 1500
+      - opcao: grande
+        preco: 2000
+    complementos:
+      - nome: cheddar
+        preco: 0
+      - nome: bacon
+        preco: 0
+      - nome: cheddar com bacon
+        preco: 0
+    remocoes_comuns: [sem sal]
+
+  # ── Bebidas ──────────────────────────────────────────────────────────────
+  # Tipo 3: preço por tamanho
+  - id: bebida_001
+    nome: Coca-Cola
+    categoria: bebida
+    aliases: [coca, coca cola, cocacola]
+    preco: null
+    variantes:
+      - opcao: lata
+        preco: 500
+      - opcao: 350ml
+        preco: 500
+      - opcao: 600ml
+        preco: 700
+      - opcao: 1 litro
+        preco: 1000
+    complementos: []
+    remocoes_comuns: []
+
+  - id: bebida_002
+    nome: Coca-Cola Zero
+    categoria: bebida
+    aliases: [coca zero, coca cola zero, cocazero]
+    preco: null
+    variantes:
+      - opcao: lata
+        preco: 350
+      - opcao: 350ml
+        preco: 350
+      - opcao: 1 litro
+        preco: 600
+      - opcao: 2 litros
+        preco: 999
+    complementos: []
+    remocoes_comuns: []
+
+  - id: bebida_003
+    nome: Suco Natural (Limão)
+    categoria: bebida
+    aliases: [suco de limão, suco limao, limonada]
+    preco: null
+    variantes:
+      - opcao: 300ml
+        preco: 500
+      - opcao: 500ml
+        preco: 500
+    complementos: []
+    remocoes_comuns: []
+
+  - id: bebida_004
+    nome: Suco Natural (Laranja)
+    categoria: bebida
+    aliases: [suco de laranja, suco laranja]
+    preco: null
+    variantes:
+      - opcao: 300ml
+        preco: 500
+      - opcao: 500ml
+        preco: 500
+    complementos: []
+    remocoes_comuns: []
+
+# ── Palavras de remoção genéricas ──────────────────────────────────────────
+remocoes_genericas:
+  - sem
+  - tira
+  - retira
+  - remove
+  - nao coloca
+
+# ── Observações genéricas ──────────────────────────────────────────────────
+observacoes_genericas:
+  - bem passado
+  - mal passado
+  - ao ponto
+  - bem gelado
+  - quente
+  - caprichado
+  - com bastante
+  - pouco
