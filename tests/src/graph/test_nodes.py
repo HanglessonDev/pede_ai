@@ -149,41 +149,19 @@ class TestNodeHandlerCarrinho:
 class TestNodeHandlerPedir:
     """Testes para node_handler_pedir."""
 
-    @patch('src.graph.nodes.get_variantes')
-    @patch('src.graph.nodes.get_preco_item')
-    @patch('src.graph.nodes.get_item_por_id')
-    def test_item_sem_variante_adiciona_ao_carrinho(self, mock_get_item, mock_preco, mock_variantes):
-        """Item sem variante deve ser adicionado ao carrinho."""
-        mock_get_item.return_value = {'id': 'lanche_001', 'nome': 'Hamburguer', 'preco': 1500, 'variantes': []}
-        mock_preco.return_value = 1500
-        mock_variantes.return_value = ['simples', 'duplo']
-        state = {'itens_extraidos': [{'item_id': 'lanche_001', 'quantidade': 1, 'variante': None, 'remocoes': []}], 'carrinho': [], 'fila_clarificacao': []}
+    @patch('src.graph.nodes.processar_pedido')
+    def test_delega_para_handler_pedir(self, mock_processar):
+        """Deve delegar processamento para o handler."""
+        from src.graph.handlers.pedir import ResultadoPedir
+        mock_processar.return_value = ResultadoPedir(
+            carrinho=[{'item_id': 'lanche_001', 'preco': 1500}],
+            fila=[],
+            resposta='1x Hambúrguer — R$ 15.00',
+        )
+        state = {'itens_extraidos': [{'item_id': 'lanche_001', 'quantidade': 1}], 'carrinho': [], 'fila_clarificacao': []}
         result = node_handler_pedir(state)  # type: ignore
+        assert mock_processar.called
         assert len(result['carrinho']) == 1
-
-    @patch('src.graph.nodes.get_variantes')
-    @patch('src.graph.nodes.get_preco_item')
-    @patch('src.graph.nodes.get_item_por_id')
-    def test_item_com_variante_valida(self, mock_get_item, mock_preco, mock_variantes):
-        """Item com variante valida deve usar preco da variante."""
-        mock_get_item.return_value = {'id': 'lanche_001', 'nome': 'Hamburguer', 'preco': None, 'variantes': [{'opcao': 'duplo', 'preco': 2000}]}
-        mock_preco.return_value = None
-        mock_variantes.return_value = ['simples', 'duplo']
-        state = {'itens_extraidos': [{'item_id': 'lanche_001', 'quantidade': 1, 'variante': 'duplo', 'remocoes': []}], 'carrinho': [], 'fila_clarificacao': []}
-        result = node_handler_pedir(state)  # type: ignore
-        assert result['carrinho'][0]['preco'] == 2000
-
-    @patch('src.graph.nodes.get_variantes')
-    @patch('src.graph.nodes.get_preco_item')
-    @patch('src.graph.nodes.get_item_por_id')
-    def test_item_precisa_clarificacao_vai_para_fila(self, mock_get_item, mock_preco, mock_variantes):
-        """Item que precisa clarificacao vai para fila."""
-        mock_get_item.return_value = {'id': 'lanche_001', 'nome': 'Hamburguer', 'preco': None, 'variantes': [{'opcao': 'simples', 'preco': 1500}]}
-        mock_preco.return_value = None
-        mock_variantes.return_value = ['simples', 'duplo']
-        state = {'itens_extraidos': [{'item_id': 'lanche_001', 'quantidade': 1, 'variante': None, 'remocoes': []}], 'carrinho': [], 'fila_clarificacao': []}
-        result = node_handler_pedir(state)  # type: ignore
-        assert len(result['fila_clarificacao']) == 1
 
     def test_itens_extraidos_vazio(self):
         """Itens extraidos vazio deve retornar listas vazias."""
@@ -210,154 +188,51 @@ class TestNodeHandlerConfirmar:
         assert 'confirmado' in result['resposta'].lower()
         assert '15.00' in result['resposta']
 
-    @patch('src.graph.nodes.extrair_variante')
-    @patch('src.graph.nodes.get_preco_item')
-    @patch('src.graph.nodes.get_variantes')
-    def test_variante_valida_adiciona_ao_carrinho(self, mock_variantes, mock_preco, mock_extrair):
-        """Variante válida deve adicionar item ao carrinho e remover da fila."""
-        mock_extrair.return_value = 'duplo'
-        mock_preco.return_value = None
-        mock_variantes.return_value = ['simples', 'duplo', 'triplo']
-        fila_item = {
-            'item': {'item_id': 'lanche_001', 'quantidade': 1, 'variante': None, 'remocoes': []},
-            'item_id': 'lanche_001',
-            'nome': 'Hambúrguer',
-            'campo': 'variante',
-            'opcoes': ['simples', 'duplo', 'triplo'],
-        }
+    @patch('src.graph.nodes.clarificar')
+    def test_clarificando_variante_delega_para_handler(self, mock_clarificar):
+        """Etapa clarificando_variante deve delegar para o handler."""
+        from src.graph.handlers.clarificacao import ResultadoClarificacao
+        mock_clarificar.return_value = ResultadoClarificacao(
+            tipo='sucesso',
+            resposta='1x Hambúrguer — R$ 15.00',
+            etapa='inicio',
+            carrinho=[{'item_id': 'lanche_001', 'quantidade': 1, 'preco': 1500}],
+            fila=[],
+            tentativas=0,
+        )
         state = {
             'mensagem_atual': 'duplo',
             'carrinho': [],
-            'fila_clarificacao': [fila_item],
+            'fila_clarificacao': [{'item_id': 'lanche_001'}],
             'etapa': 'clarificando_variante',
             'tentativas_clarificacao': 0,
         }
         result = node_handler_confirmar(state)  # type: ignore
+        assert mock_clarificar.called
         assert len(result['carrinho']) == 1
-        assert result['carrinho'][0]['preco'] > 0
-        assert len(result['fila_clarificacao']) == 0
         assert result['etapa'] == 'inicio'
-        assert result['tentativas_clarificacao'] == 0
 
-    @patch('src.graph.nodes.extrair_variante')
-    @patch('src.graph.nodes.get_preco_item')
-    @patch('src.graph.nodes.get_variantes')
-    def test_variante_valida_com_multiplos_itens_na_fila(self, mock_variantes, mock_preco, mock_extrair):
-        """Variante válida com múltiplos itens na fila deve avançar para o próximo."""
-        mock_extrair.return_value = 'simples'
-        mock_preco.return_value = None
-        mock_variantes.return_value = ['simples', 'duplo']
-        fila_item_1 = {
-            'item': {'item_id': 'lanche_001', 'quantidade': 1, 'variante': None, 'remocoes': []},
-            'item_id': 'lanche_001',
-            'nome': 'Hambúrguer',
-            'campo': 'variante',
-            'opcoes': ['simples', 'duplo'],
-        }
-        fila_item_2 = {
-            'item': {'item_id': 'acomp_001', 'quantidade': 1, 'variante': None, 'remocoes': []},
-            'item_id': 'acomp_001',
-            'nome': 'Batata Frita',
-            'campo': 'variante',
-            'opcoes': ['pequena', 'media', 'grande'],
-        }
+    @patch('src.graph.nodes.clarificar')
+    def test_clarificando_variante_com_carrinho_existente(self, mock_clarificar):
+        """Carrinho existente deve ser preservado ao adicionar novo item."""
+        from src.graph.handlers.clarificacao import ResultadoClarificacao
+        mock_clarificar.return_value = ResultadoClarificacao(
+            tipo='sucesso',
+            resposta='1x Batata — R$ 10.00',
+            etapa='inicio',
+            carrinho=[{'item_id': 'acomp_001', 'quantidade': 1, 'preco': 1000}],
+            fila=[],
+            tentativas=0,
+        )
         state = {
-            'mensagem_atual': 'simples',
-            'carrinho': [],
-            'fila_clarificacao': [fila_item_1, fila_item_2],
+            'mensagem_atual': 'media',
+            'carrinho': [{'item_id': 'lanche_001', 'preco': 1500}],
+            'fila_clarificacao': [{'item_id': 'acomp_001'}],
             'etapa': 'clarificando_variante',
             'tentativas_clarificacao': 0,
         }
         result = node_handler_confirmar(state)  # type: ignore
-        assert len(result['carrinho']) == 1
-        assert len(result['fila_clarificacao']) == 1
-        assert result['fila_clarificacao'][0]['item_id'] == 'acomp_001'
-        assert 'Batata Frita' in result['resposta']
-        assert result['etapa'] == 'clarificando_variante'
-
-    @patch('src.graph.nodes.extrair_variante')
-    @patch('src.graph.nodes.get_variantes')
-    def test_variante_invalida_incrementa_tentativas(self, mock_variantes, mock_extrair):
-        """Variante inválida deve incrementar tentativas e re-prompt."""
-        mock_extrair.return_value = None
-        mock_variantes.return_value = ['simples', 'duplo', 'triplo']
-        fila_item = {
-            'item': {'item_id': 'lanche_001', 'quantidade': 1, 'variante': None, 'remocoes': []},
-            'item_id': 'lanche_001',
-            'nome': 'Hambúrguer',
-            'campo': 'variante',
-            'opcoes': ['simples', 'duplo', 'triplo'],
-        }
-        state = {
-            'mensagem_atual': 'quadruplo',
-            'carrinho': [],
-            'fila_clarificacao': [fila_item],
-            'etapa': 'clarificando_variante',
-            'tentativas_clarificacao': 0,
-        }
-        result = node_handler_confirmar(state)  # type: ignore
-        assert result['tentativas_clarificacao'] == 1
-        assert len(result['fila_clarificacao']) == 1
-        assert result['etapa'] == 'clarificando_variante'
-        assert 'disponível' in result['resposta'].lower() or 'opção' in result['resposta'].lower()
-
-    @patch('src.graph.nodes.extrair_variante')
-    @patch('src.graph.nodes.get_variantes')
-    def test_tres_tentativas_falhas_remove_item_da_fila(self, mock_variantes, mock_extrair):
-        """Após 3 tentativas falhas, item deve ser removido da fila."""
-        mock_extrair.return_value = None
-        mock_variantes.return_value = ['simples', 'duplo', 'triplo']
-        fila_item = {
-            'item': {'item_id': 'lanche_001', 'quantidade': 1, 'variante': None, 'remocoes': []},
-            'item_id': 'lanche_001',
-            'nome': 'Hambúrguer',
-            'campo': 'variante',
-            'opcoes': ['simples', 'duplo', 'triplo'],
-        }
-        state = {
-            'mensagem_atual': 'pizza',
-            'carrinho': [],
-            'fila_clarificacao': [fila_item],
-            'etapa': 'clarificando_variante',
-            'tentativas_clarificacao': 2,
-        }
-        result = node_handler_confirmar(state)  # type: ignore
-        assert len(result['fila_clarificacao']) == 0
-        assert result['etapa'] == 'inicio'
-        assert 'consegui' in result['resposta'].lower() or 'entendi' in result['resposta'].lower()
-
-    @patch('src.graph.nodes.extrair_variante')
-    @patch('src.graph.nodes.get_variantes')
-    def test_tres_tentativas_falhas_com_multiplos_itens(self, mock_variantes, mock_extrair):
-        """Após 3 tentativas falhas com múltiplos itens, deve avançar para o próximo."""
-        mock_extrair.return_value = None
-        mock_variantes.return_value = ['simples', 'duplo']
-        fila_item_1 = {
-            'item': {'item_id': 'lanche_001', 'quantidade': 1, 'variante': None, 'remocoes': []},
-            'item_id': 'lanche_001',
-            'nome': 'Hambúrguer',
-            'campo': 'variante',
-            'opcoes': ['simples', 'duplo'],
-        }
-        fila_item_2 = {
-            'item': {'item_id': 'acomp_001', 'quantidade': 1, 'variante': None, 'remocoes': []},
-            'item_id': 'acomp_001',
-            'nome': 'Batata Frita',
-            'campo': 'variante',
-            'opcoes': ['pequena', 'media', 'grande'],
-        }
-        state = {
-            'mensagem_atual': 'pizza',
-            'carrinho': [],
-            'fila_clarificacao': [fila_item_1, fila_item_2],
-            'etapa': 'clarificando_variante',
-            'tentativas_clarificacao': 2,
-        }
-        result = node_handler_confirmar(state)  # type: ignore
-        assert len(result['fila_clarificacao']) == 1
-        assert result['fila_clarificacao'][0]['item_id'] == 'acomp_001'
-        assert result['tentativas_clarificacao'] == 0
-        assert result['etapa'] == 'clarificando_variante'
+        assert len(result['carrinho']) == 2
 
 
 # ══════════════════════════════════════════════════════════════════════════════
