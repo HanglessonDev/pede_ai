@@ -1,3 +1,15 @@
+"""
+Extrator spaCy para NLP em português.
+
+Processa mensagens do usuário para extrair itens do cardápio,
+quantidades, variantes e remoções usando o modelo pt_core_news_sm.
+
+Example:
+    >>> from src.extratores import extrair
+    >>> extrair('2 x-bacon sem cebola')
+    [{'item_id': 'lanche_003', 'quantidade': 2, 'variante': None, 'remocoes': ['cebola']}]
+"""
+
 import re
 import unicodedata
 
@@ -32,6 +44,22 @@ NUMEROS_ESCRITOS = {
 
 
 def normalizar(texto: str) -> str:
+    """
+    Normaliza um texto para busca fuzzy.
+
+    Aplica lowercase, normalização Unicode (remove acentos),
+    remove pontuação e normaliza espaços.
+
+    Args:
+        texto: Texto original a ser normalizado.
+
+    Returns:
+        Texto normalizado em minúsculas sem acentos.
+
+    Example:
+        >>> normalizar('X-Tudo!')
+        'xtudo'
+    """
     texto = texto.lower()
     texto = unicodedata.normalize('NFKD', texto)
     texto = texto.encode('ascii', 'ignore').decode('utf-8')
@@ -47,6 +75,19 @@ def normalizar(texto: str) -> str:
 def _adicionar_pattern(
     lista_patterns: list[dict], vistos: set, label: str, texto_bruto: str, item_id: str
 ):
+    """
+    Adiciona patterns de entidade ao lista de patterns.
+
+    Gera múltiplas representações do mesmo texto (tokenizado,
+    com hífen, etc.) para melhorar o matching.
+
+    Args:
+        lista_patterns: Lista de patterns para adicionar.
+        vistos: Conjunto de patterns já adicionados (para evitar duplicatas).
+        label: Rótulo da entidade (ITEM, VARIANTE, etc.).
+        texto_bruto: Texto original do item/variante.
+        item_id: ID do item no cardápio.
+    """
     texto = normalizar(texto_bruto)
     chave = (label, texto)
     if chave not in vistos:
@@ -67,6 +108,24 @@ def _adicionar_pattern(
 
 
 def gerar_patterns(cardapio: dict) -> list[dict]:
+    """
+    Gera patterns de entidade para o EntityRuler do spaCy.
+
+    Cria patterns para todos os itens, aliases, variantes do cardápio
+    e números escritos por extenso.
+
+    Args:
+        cardapio: Dicionário com dados do cardápio.
+
+    Returns:
+        Lista de patterns no formato spaCy EntityRuler.
+
+    Example:
+        >>> cardapio = get_cardapio()
+        >>> patterns = gerar_patterns(cardapio)
+        >>> len(patterns) > 0
+        True
+    """
     patterns = []
     vistos = set()
 
@@ -92,7 +151,18 @@ def gerar_patterns(cardapio: dict) -> list[dict]:
 
 
 def _pular_artigos(tokens: list, indice: int) -> int:
-    """Pula artigos e preposições a partir do índice."""
+    """
+    Pula artigos e preposições a partir do índice.
+
+    Ignora tokens com POS em POS_IGNORAVEIS (DET, ADP).
+
+    Args:
+        tokens: Lista de tokens do documento spaCy.
+        indice: Índice inicial para começar a verificação.
+
+    Returns:
+        Novo índice após pular artigos/preposições.
+    """
     while indice < len(tokens) and tokens[indice].pos_ in POS_IGNORAVEIS:
         indice += 1
     return indice
@@ -102,11 +172,19 @@ def _deve_parar_no_conectivo(tokens: list, indice_conectivo: int) -> bool:
     """
     Decide se deve parar no conectivo 'e'/'ou'.
 
-    Para se o próximo token não-artigo for outro sinal de remoção
-    ou uma quantidade (início de novo item).
-    Ex: 'sem cebola e sem tomate' → para (novo sinal de remoção)
-    Ex: 'tira tomate e cebola' → continua (mesmo sinal)
-    Ex: 'sem cebola e 1 x-salada' → para (quantidade = novo item)
+    Args:
+        tokens: Lista de tokens do documento spaCy.
+        indice_conectivo: Índice do token conectivo ('e' ou 'ou').
+
+    Returns:
+        True se deve parar no conectivo, False para continuar.
+
+    Note:
+        Para se o próximo token não-artigo for outro sinal de remoção
+        ou uma quantidade (início de novo item).
+        Ex: 'sem cebola e sem tomate' → para (novo sinal de remoção)
+        Ex: 'tira tomate e cebola' → continua (mesmo sinal)
+        Ex: 'sem cebola e 1 x-salada' → para (quantidade = novo item)
     """
     indice = _pular_artigos(tokens, indice_conectivo + 1)
     if indice >= len(tokens):
@@ -180,6 +258,27 @@ _ruler.add_patterns(_patterns)
 
 
 def extrair(mensagem: str) -> list[dict]:
+    """
+    Extrai itens do cardápio de uma mensagem do usuário.
+
+    Processa a mensagem usando spaCy com EntityRuler treinado
+    para identificar itens, quantidades, variantes e remoções.
+
+    Args:
+        mensagem: Texto da mensagem do usuário.
+
+    Returns:
+        Lista de dicionários com as chaves:
+            - item_id: ID do item no cardápio.
+            - quantidade: Quantidade solicitada.
+            - variante: Variante selecionada (ou None).
+            - remocoes: Lista de ingredientes a remover.
+
+    Example:
+        >>> from src.extratores import extrair
+        >>> extrair('2 x-bacon sem cebola')
+        [{'item_id': 'lanche_003', 'quantidade': 2, 'variante': None, 'remocoes': ['cebola']}]
+    """
     doc = _nlp(mensagem)
 
     qtd_pendente = 1

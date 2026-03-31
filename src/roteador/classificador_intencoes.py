@@ -34,14 +34,18 @@ def classificar_intencao(mensagem: str) -> str:
     Returns:
         Nome da intenção classificada ou 'desconhecido' se não for válida.
 
+    Raises:
+        Exception: Se o modelo LLM falhar ao processar a mensagem.
+
     Example:
-        ```python
-        from src.roteador import classificar_intencao
+        >>> from src.roteador import classificar_intencao
         
-        classificar_intencao('oi')  # 'saudacao'
-        classificar_intencao('quero um xtudo')  # 'pedir'
-        classificar_intencao('tira a coca')  # 'remover'
-        ```
+        >>> classificar_intencao('oi')
+        'saudacao'
+        >>> classificar_intencao('quero um xtudo')
+        'pedir'
+        >>> classificar_intencao('tira a coca')
+        'remover'
     """
     resposta = modelo_llm.invoke(PROMPT.format(mensagem=mensagem))
     intencao = resposta.strip().lower().split()[0]
