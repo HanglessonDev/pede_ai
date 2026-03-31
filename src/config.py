@@ -73,8 +73,10 @@ def get_prompt(nome: str) -> str:
         KeyError: Se o prompt não existir.
 
     Example:
-        >>> get_prompt('classificador_intencoes')
-        'Classifique a intenção...'
+        ```python
+        from src.config import get_prompt
+        prompt = get_prompt('classificador_intencoes')
+        ```
     """
     return _ConfigCache.carregar_prompts()[nome]['prompt']
 
@@ -95,9 +97,10 @@ def get_cardapio() -> dict:
         Dicionário com todos os itens, remoções e observações.
 
     Example:
-        >>> cardapio = get_cardapio()
-        >>> len(cardapio['itens'])
-        7
+        ```python
+        cardapio = get_cardapio()
+        len(cardapio['itens'])  # 7
+        ```
     """
     return _ConfigCache.carregar_cardapio()
 
@@ -113,8 +116,10 @@ def get_item_por_id(item_id: str) -> dict | None:
         Dados do item ou None se não encontrado.
 
     Example:
-        >>> get_item_por_id('lanche_001')
-        {'id': 'lanche_001', 'nome': 'Hambúrguer', ...}
+        ```python
+        item = get_item_por_id('lanche_001')
+        # {'id': 'lanche_001', 'nome': 'Hambúrguer', ...}
+        ```
     """
     return _ConfigCache.indexar_itens_por_id().get(item_id)
 
@@ -130,8 +135,10 @@ def get_itens_por_categoria(categoria: str) -> list[dict]:
         Lista de itens da categoria.
 
     Example:
-        >>> get_itens_por_categoria('lanche')
-        [{'id': 'lanche_002', 'nome': 'X-Salada', ...}, ...]
+        ```python
+        itens = get_itens_por_categoria('lanche')
+        # [{'id': 'lanche_002', 'nome': 'X-Salada', ...}, ...]
+        ```
     """
     cardapio = _ConfigCache.carregar_cardapio()
     return [item for item in cardapio['itens'] if item['categoria'] == categoria]
