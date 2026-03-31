@@ -11,8 +11,8 @@ Example:
     True
 """
 
-from src.config import get_item_por_id, get_tenant_nome
-from src.extratores import extrair
+from src.config import get_item_por_id, get_nome_item, get_preco_item, get_tenant_nome, get_variantes
+from src.extratores import extrair, extrair_variante
 from src.graph.state import State
 from src.roteador import classificar_intencao
 
@@ -57,6 +57,33 @@ def node_extrator(state: State) -> dict:
     return {'itens_extraidos': []}
 
 
+def _calcular_preco_item(item: dict, item_data: dict) -> int | None:
+    """Calcula o preço total de um item considerando quantidade e variantes.
+
+    Args:
+        item: Dicionário do item extraído com ``quantidade`` e opcional ``variante``.
+        item_data: Dados completos do item do cardápio.
+
+    Returns:
+        Preço total em centavos ou None se não foi possível calcular.
+    """
+    preco_base = get_preco_item(item['item_id'])
+    variante = item.get('variante')
+    quantidade = item['quantidade']
+
+    if preco_base is not None:
+        return preco_base * quantidade
+
+    variantes_validas = get_variantes(item['item_id'])
+    if variante and variante in variantes_validas:
+        variante_obj = next(
+            v for v in item_data['variantes'] if v['opcao'] == variante
+        )
+        return variante_obj['preco'] * quantidade
+
+    return None
+
+
 def node_handler_pedir(state: State) -> dict:
     """Processa itens extraídos e os adiciona ao carrinho.
 
@@ -80,27 +107,14 @@ def node_handler_pedir(state: State) -> dict:
         if item_data is None:
             continue
 
-        preco = item_data.get('preco')
-        variante_extraida = item.get('variante')
-        variantes_validas = [v['opcao'] for v in item_data.get('variantes', [])]
+        preco_total = _calcular_preco_item(item, item_data)
 
-        if preco is not None:
-            item['preco'] = preco * item['quantidade']
+        if preco_total is not None:
+            item['preco'] = preco_total
             carrinho.append(item)
             itens_adicionados.append(
                 (item_data['nome'], item['quantidade'], item['preco'])
             )
-
-        elif variante_extraida and variante_extraida in variantes_validas:
-            variante_obj = next(
-                v for v in item_data['variantes'] if v['opcao'] == variante_extraida
-            )
-            item['preco'] = variante_obj['preco'] * item['quantidade']
-            carrinho.append(item)
-            itens_adicionados.append(
-                (item_data['nome'], item['quantidade'], item['preco'])
-            )
-
         else:
             fila.append(
                 {
@@ -108,7 +122,7 @@ def node_handler_pedir(state: State) -> dict:
                     'item_id': item['item_id'],
                     'nome': item_data['nome'],
                     'campo': 'variante',
-                    'opcoes': variantes_validas,
+                    'opcoes': get_variantes(item['item_id']),
                 }
             )
 
@@ -163,10 +177,7 @@ def node_handler_carrinho(state: State) -> dict:
     linhas = []
     total = 0
     for item in carrinho:
-        item_data = get_item_por_id(item['item_id'])
-        if item_data is None:
-            continue
-        nome = item_data['nome']
+        nome = get_nome_item(item['item_id']) or item['item_id']
         preco = item['preco']
         linhas.append(f'{item["quantidade"]}x {nome} - R$ {preco / 100:.2f}')
         total += preco
@@ -177,21 +188,24 @@ def node_handler_carrinho(state: State) -> dict:
 def node_handler_confirmar(state: State) -> dict:
     """Processa confirmação do usuário.
 
-    Dependendo da etapa atual, confirma uma variante ou
-    finaliza o pedido com o total.
+    Dependendo da etapa atual, confirma uma variante,
+    finaliza o pedido com o total ou lida com tentativas
+    de clarificação inválidas.
 
     Args:
         state: Estado atual do grafo de atendimento.
 
     Returns:
-        Dicionário com ``resposta`` e opcionalmente ``etapa`` atualizados.
+        Dicionário com ``resposta`` e opcionalmente ``etapa``,
+        ``carrinho``, ``fila_clarificacao`` e ``tentativas_clarificacao``
+        atualizados.
     """
     etapa = state.get('etapa', '')
     carrinho = state.get('carrinho', [])
 
     match etapa:
         case 'clarificando_variante':
-            return {'resposta': 'Variante confirmada.', 'etapa': etapa}
+            return _processar_clarificacao(state)
         case _:
             if carrinho:
                 total = sum(item.get('preco', 0) for item in carrinho)
@@ -199,6 +213,122 @@ def node_handler_confirmar(state: State) -> dict:
                 return {'resposta': resposta, 'etapa': 'finalizado'}
 
             return {'resposta': 'Não tenho nada no carrinho para confirmar.'}
+
+
+def _processar_clarificacao(state: State) -> dict:
+    """Processa a resposta do usuário durante clarificação de variante.
+
+    Tenta extrair uma variante válida da mensagem. Se válida,
+    calcula o preço e adiciona ao carrinho. Se inválida, incrementa
+    o contador de tentativas e faz re-prompt (até 3 tentativas).
+
+    Args:
+        state: Estado atual do grafo de atendimento.
+
+    Returns:
+        Dicionário com estado atualizado.
+    """
+    fila = list(state.get('fila_clarificacao', []))
+    carrinho = list(state.get('carrinho', []))
+    tentativas = state.get('tentativas_clarificacao', 0)
+    mensagem = state.get('mensagem_atual', '')
+
+    if not fila:
+        return {'resposta': '', 'etapa': 'inicio'}
+
+    item_fila = fila[0]
+    item_id = item_fila['item_id']
+    nome = item_fila['nome']
+    opcoes = item_fila['opcoes']
+    item_dados = item_fila['item']
+
+    variante = extrair_variante(mensagem, item_id)
+
+    if variante is not None:
+        # Variante válida: calcula preço e adiciona ao carrinho
+        item_data = get_item_por_id(item_id)
+        if item_data is None:
+            fila.pop(0)
+            return {
+                'fila_clarificacao': fila,
+                'tentativas_clarificacao': 0,
+                'resposta': 'Erro ao processar item.',
+                'etapa': 'inicio' if not fila else 'clarificando_variante',
+            }
+
+        variante_obj = next(
+            (v for v in item_data.get('variantes', []) if v['opcao'] == variante),
+            None,
+        )
+        if variante_obj is None:
+            fila.pop(0)
+            return {
+                'fila_clarificacao': fila,
+                'tentativas_clarificacao': 0,
+                'resposta': 'Erro ao processar variante.',
+                'etapa': 'inicio' if not fila else 'clarificando_variante',
+            }
+
+        preco_total = variante_obj['preco'] * item_dados['quantidade']
+        item_dados['variante'] = variante
+        item_dados['preco'] = preco_total
+        carrinho.append(item_dados)
+
+        fila.pop(0)
+        tentativas = 0
+
+        if fila:
+            proxima = fila[0]
+            opcoes_str = ', '.join(proxima['opcoes'])
+            resposta = f'{proxima["nome"]}: qual opção? {opcoes_str}'
+        else:
+            linhas = [
+                f'{it["quantidade"]}x {get_nome_item(it["item_id"]) or it["item_id"]} — R$ {it["preco"] / 100:.2f}'
+                for it in carrinho
+            ]
+            resposta = '\n'.join(linhas)
+
+        return {
+            'carrinho': carrinho,
+            'fila_clarificacao': fila,
+            'tentativas_clarificacao': tentativas,
+            'resposta': resposta,
+            'etapa': 'inicio' if not fila else 'clarificando_variante',
+        }
+
+    # Variante inválida: incrementa tentativas
+    tentativas += 1
+
+    if tentativas >= 3:
+        # Desistiu: remove item da fila
+        fila.pop(0)
+        tentativas = 0
+        if fila:
+            proxima = fila[0]
+            opcoes_str = ', '.join(proxima['opcoes'])
+            resposta = f'Não consegui entender. {proxima["nome"]}: qual opção? {opcoes_str}'
+            return {
+                'fila_clarificacao': fila,
+                'tentativas_clarificacao': tentativas,
+                'resposta': resposta,
+                'etapa': 'clarificando_variante',
+            }
+        return {
+            'fila_clarificacao': fila,
+            'tentativas_clarificacao': tentativas,
+            'resposta': 'Não consegui entender a opção. Vamos continuar com o pedido.',
+            'etapa': 'inicio',
+        }
+
+    # Re-prompt
+    opcoes_str = ', '.join(opcoes)
+    resposta = f'Essa opção não está disponível. {nome}: {opcoes_str}?'
+    return {
+        'fila_clarificacao': fila,
+        'tentativas_clarificacao': tentativas,
+        'resposta': resposta,
+        'etapa': 'clarificando_variante',
+    }
 
 
 def node_handler_cancelar(state: State) -> dict:

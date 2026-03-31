@@ -330,4 +330,37 @@ def extrair(mensagem: str) -> list[dict]:
     return itens
 
 
+def extrair_variante(mensagem: str, item_id: str) -> str | None:
+    """
+    Extrai e valida uma variante de uma mensagem para um item específico.
+
+    Usa o EntityRuler para identificar apenas variantes que pertencem
+    ao item especificado. Retorna None se nenhuma variante válida for
+    encontrada ou se a mensagem for vazia.
+
+    Args:
+        mensagem: Texto da mensagem do usuário.
+        item_id: ID do item no cardápio para validação.
+
+    Returns:
+        Texto da variante válida ou None.
+
+    Example:
+        >>> from src.extratores import extrair_variante
+        >>> extrair_variante('duplo', 'lanche_001')
+        'duplo'
+        >>> extrair_variante('lata', 'lanche_001')  # lata é de bebida
+        None
+    """
+    if not mensagem or not mensagem.strip():
+        return None
+
+    doc = _nlp(mensagem)
+    for ent in doc.ents:
+        if ent.label_ == 'VARIANTE' and ent.ent_id_ == item_id:
+            return ent.text
+
+    return None
+
+
 __all__ = ['extrair']

@@ -473,3 +473,103 @@ class TestConsistencia:
         cardapio = get_cardapio()
         ids = [item['id'] for item in cardapio['itens']]
         assert len(ids) == len(set(ids))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TESTES DE extrair_variante
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestExtrairVariante:
+    """Testes para extrair_variante()."""
+
+    def test_variante_valida_retorna_texto(self):
+        """Variante válida para o item deve retornar o texto."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('duplo', 'lanche_001')
+        assert result == 'duplo'
+
+    def test_variante_valida_com_frase_completa(self):
+        """Variante válida em frase deve ser extraída."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('eu quero o duplo', 'lanche_001')
+        assert result == 'duplo'
+
+    def test_variante_de_outro_item_retorna_none(self):
+        """Variante que pertence a outro item deve retornar None."""
+        from src.extratores.spacy_extrator import extrair_variante
+        # 'lata' é variante de bebida_001, não de lanche_001
+        result = extrair_variante('lata', 'lanche_001')
+        assert result is None
+
+    def test_variante_inexistente_retorna_none(self):
+        """Variante que não existe deve retornar None."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('quadruplo', 'lanche_001')
+        assert result is None
+
+    def test_mensagem_irrelevante_retorna_none(self):
+        """Mensagem sem variante deve retornar None."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('quero pizza', 'lanche_001')
+        assert result is None
+
+    def test_mensagem_vazia_retorna_none(self):
+        """Mensagem vazia deve retornar None."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('', 'lanche_001')
+        assert result is None
+
+    def test_mensagem_somente_espacos_retorna_none(self):
+        """Mensagem com apenas espaços deve retornar None."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('   ', 'lanche_001')
+        assert result is None
+
+    def test_variante_simples_valida(self):
+        """Variante 'simples' deve ser reconhecida para lanche_001."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('simples', 'lanche_001')
+        assert result == 'simples'
+
+    def test_variante_triplo_valida(self):
+        """Variante 'triplo' deve ser reconhecida para lanche_001."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('triplo', 'lanche_001')
+        assert result == 'triplo'
+
+    def test_variante_pequena_valida(self):
+        """Variante 'pequena' deve ser reconhecida para acomp_001."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('pequena', 'acomp_001')
+        assert result == 'pequena'
+
+    def test_variante_grande_valida(self):
+        """Variante 'grande' deve ser reconhecida para acomp_001."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('grande', 'acomp_001')
+        assert result == 'grande'
+
+    def test_variante_lata_valida_para_bebida(self):
+        """Variante 'lata' deve ser reconhecida para bebida_001."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('lata', 'bebida_001')
+        assert result == 'lata'
+
+    def test_variante_litro_valida_para_bebida(self):
+        """Variante '1 litro' deve ser reconhecida para bebida_001."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('1 litro', 'bebida_001')
+        assert result == '1 litro'
+
+    def test_item_sem_variantes_retorna_none(self):
+        """Item sem variantes deve sempre retornar None."""
+        from src.extratores.spacy_extrator import extrair_variante
+        # lanche_002 (X-Salada) não tem variantes
+        result = extrair_variante('simples', 'lanche_002')
+        assert result is None
+
+    def test_item_inexistente_retorna_none(self):
+        """Item inexistente deve retornar None."""
+        from src.extratores.spacy_extrator import extrair_variante
+        result = extrair_variante('duplo', 'item_inexistente')
+        assert result is None

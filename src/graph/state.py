@@ -25,6 +25,7 @@ class State(TypedDict):
         fila_clarificacao: Fila de itens que precisam de clarificação.
         etapa: Etapa atual do fluxo de atendimento.
         resposta: Resposta gerada para o usuário.
+        tentativas_clarificacao: Contador de tentativas para o item atual em clarificação.
     """
 
     mensagem_atual: str
@@ -34,3 +35,4 @@ class State(TypedDict):
     fila_clarificacao: list
     etapa: str
     resposta: str
+    tentativas_clarificacao: int

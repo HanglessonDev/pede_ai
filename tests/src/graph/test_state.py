@@ -36,6 +36,7 @@ class TestStateTypedDict:
             'fila_clarificacao',
             'etapa',
             'resposta',
+            'tentativas_clarificacao',
         }
         assert set(annots.keys()) == campos_esperados
 
@@ -54,6 +55,7 @@ class TestStateTypedDict:
         ('fila_clarificacao', list),
         ('etapa', str),
         ('resposta', str),
+        ('tentativas_clarificacao', int),
     ])
     def test_tipos_campos(self, campo, expected_type):
         """Cada campo deve ter o tipo correto."""
@@ -76,6 +78,7 @@ class TestStateTypedDict:
             'fila_clarificacao': [],
             'etapa': 'inicio',
             'resposta': '',
+            'tentativas_clarificacao': 0,
         }
         assert isinstance(state, dict)
         for key in State.__annotations__:
@@ -149,6 +152,7 @@ class TestConsistencia:
             'fila_clarificacao',
             'etapa',
             'resposta',
+            'tentativas_clarificacao',
         }
         annotations = set(State.__annotations__.keys())
         assert annotations == obrigatorios
@@ -176,6 +180,7 @@ class TestInstanciacao:
             'fila_clarificacao': [],
             'etapa': '',
             'resposta': '',
+            'tentativas_clarificacao': 0,
         }
         assert all(k in state for k in State.__annotations__)
 
