@@ -1,5 +1,5 @@
 """
-Testes de alta qualidade para o módulo src/cardapio.py.
+Testes de alta qualidade para o módulo src/config/cardapio.py.
 
 Características:
 - Parametrização para evitar código repetitivo
@@ -10,7 +10,7 @@ Características:
 
 import pytest
 
-from src.cardapio import (
+from src.config import (
     get_cardapio,
     get_item_por_id,
     get_itens_por_categoria,
@@ -364,10 +364,14 @@ class TestCache:
 
     def test_cache_persiste_entre_chamadas(self):
         """Cache deve persistir entre chamadas."""
+        from src.config.cardapio import _CardapioCache
         original_len = len(get_cardapio()['itens'])
         get_cardapio()['itens'].append({'test': 'modificado'})
         # O cache deve refletir a modificação
         assert len(get_cardapio()['itens']) == original_len + 1
+        # Limpar cache para não afetar outros testes
+        _CardapioCache._cardapio = None
+        _CardapioCache._itens_por_id = None
 
     def test_item_por_id_cache_e_singleton(self):
         """get_item_por_id deve usar cache."""

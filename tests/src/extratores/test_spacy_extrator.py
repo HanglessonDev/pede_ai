@@ -20,7 +20,7 @@ from src.extratores.spacy_extrator import (
     CONECTIVOS,
     NUMEROS_ESCRITOS,
 )
-from src.cardapio import get_cardapio
+from src.config import get_cardapio
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -348,7 +348,7 @@ class TestExtrair:
         result = extrair('hamburguer')
         if result:
             item_id = result[0]['item_id']
-            from src.cardapio import get_item_por_id
+            from src.config import get_item_por_id
             assert get_item_por_id(item_id) is not None
 
     @pytest.mark.parametrize('mensagem', [
@@ -381,13 +381,13 @@ class TestIntegridade:
 
     def test_cardapio_tem_itens_para_extracao(self):
         """Cardápio deve ter itens para testar extração."""
-        from src.cardapio import get_cardapio
+        from src.config import get_cardapio
         cardapio = get_cardapio()
         assert len(cardapio['itens']) > 0
 
     def test_nomes_itens_normalizados_existem(self):
         """Nomes normalizados dos itens devem existir."""
-        from src.cardapio import get_cardapio
+        from src.config import get_cardapio
         cardapio = get_cardapio()
         for item in cardapio['itens']:
             nome_normalizado = normalizar(item['nome'])
@@ -395,7 +395,7 @@ class TestIntegridade:
 
     def test_aliases_tambem_normalizados(self):
         """Aliases devem ser normalizados corretamente."""
-        from src.cardapio import get_cardapio
+        from src.config import get_cardapio
         cardapio = get_cardapio()
         for item in cardapio['itens']:
             if item.get('aliases'):
@@ -455,7 +455,7 @@ class TestConsistencia:
 
     def test_normalizar_e_gerar_patterns_consistentes(self):
         """Patterns devem ser gerados a partir do cardapio."""
-        from src.cardapio import get_cardapio
+        from src.config import get_cardapio
         cardapio = get_cardapio()
         patterns = gerar_patterns(cardapio)
         
@@ -469,7 +469,7 @@ class TestConsistencia:
 
     def test_itens_cardapio_tem_ids_unicos(self):
         """IDs dos itens devem ser únicos."""
-        from src.cardapio import get_cardapio
+        from src.config import get_cardapio
         cardapio = get_cardapio()
         ids = [item['id'] for item in cardapio['itens']]
         assert len(ids) == len(set(ids))

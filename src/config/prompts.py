@@ -1,7 +1,7 @@
 """
-Configuração do Pede AI.
+Configuração de Prompts e Tenant do Pede AI.
 
-Fornece acesso centralizado a prompts e configurações.
+Fornece acesso centralizado a prompts, intenções válidas e informações do tenant.
 
 Example:
     >>> from src.config import get_prompt, get_intencoes_validas, get_tenant_nome
@@ -15,21 +15,10 @@ from pathlib import Path
 
 import yaml
 
+from src.config.cardapio import get_cardapio
 
-CONFIG_DIR = Path(__file__).parent.parent / 'config'
 
-
-# ── Re-exports de cardapio.py (compatibilidade) ──────────────────────────────
-from src.cardapio import (
-    get_cardapio,
-    get_item_por_id,
-    get_itens_por_categoria,
-    get_nome_item,
-    get_observacoes_genericas,
-    get_preco_item,
-    get_remocoes_genericas,
-    get_variantes,
-)
+CONFIG_DIR = Path(__file__).parent.parent.parent / 'config'
 
 
 class _PromptsCache:
@@ -107,25 +96,10 @@ def get_tenant_nome() -> str:
     return get_cardapio()['tenant_nome']
 
 
-# ── exports ────────────────────────────────────────────────────────────────
 __all__ = [
-    'CONFIG_DIR',
-    'get_cardapio',
     'get_intencoes_validas',
-    'get_item_por_id',
-    'get_itens_por_categoria',
-    'get_nome_item',
-    'get_observacoes_genericas',
-    'get_preco_item',
     'get_prompt',
-    'get_remocoes_genericas',
     'get_tenant_id',
     'get_tenant_info',
     'get_tenant_nome',
-    'get_variantes',
 ]
-
-if __name__ == '__main__':
-    print(get_tenant_info())
-    print(get_item_por_id('lanche_001'))
-    print(get_prompt('classificador_intencoes')[:50])

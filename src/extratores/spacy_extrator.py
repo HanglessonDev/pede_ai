@@ -15,7 +15,7 @@ import unicodedata
 
 import spacy
 
-from src.cardapio import get_cardapio
+from src.config import get_cardapio
 
 # ── Constantes ──────────────────────────────────────────────────────────────
 

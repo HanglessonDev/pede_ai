@@ -1,5 +1,4 @@
-from src.cardapio import get_item_por_id
-from src.config import get_tenant_nome
+from src.config import get_item_por_id, get_tenant_nome
 from src.extratores import extrair
 from src.graph.state import State
 from src.roteador import classificar_intencao

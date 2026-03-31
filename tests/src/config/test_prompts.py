@@ -1,11 +1,11 @@
 """
-Testes de alta qualidade para o módulo src/config.py.
+Testes de alta qualidade para o módulo src/config/prompts.py.
 
 Características:
 - Parametrização para evitar código repetitivo
 - Cobertura completa de happy path e edge cases
 - Testes de integridade e comportamento de cache
-- Verificação de re-exports
+- Verificação de re-exports do pacote
 """
 
 import pytest
@@ -180,29 +180,6 @@ class TestGetTenantNome:
         info = get_tenant_info()
         nome = get_tenant_nome()
         assert nome == info['tenant_nome']
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# TESTES DE RE-EXPORTS
-# ══════════════════════════════════════════════════════════════════════════════
-
-class TestReExportsCardapio:
-    """Testes para verificar re-exports de cardapio.py."""
-
-    @pytest.mark.parametrize('func_name', [
-        'get_cardapio',
-        'get_item_por_id',
-    ])
-    def test_funcao_disponivel_via_config(self, func_name):
-        """Funções do cardápio devem estar disponíveis via config."""
-        from src import config
-        assert hasattr(config, func_name)
-
-    def test_re_export_e_o_mesmo_objeto(self):
-        """Re-exports devem ser o mesmo objeto."""
-        from src import config, cardapio
-        assert config.get_cardapio is cardapio.get_cardapio
-        assert config.get_item_por_id is cardapio.get_item_por_id
 
 
 # ══════════════════════════════════════════════════════════════════════════════

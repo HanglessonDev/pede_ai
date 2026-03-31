@@ -1,10 +1,10 @@
 """
-Módulos de Cardápio do Pede AI.
+Módulo de Cardápio do Pede AI.
 
 Fornece acesso centralizado aos dados do cardápio.
 
 Example:
-    >>> from src.cardapio import get_cardapio, get_item_por_id, get_variantes
+    >>> from src.config import get_cardapio, get_item_por_id, get_variantes
     >>> cardapio = get_cardapio()
     >>> item = get_item_por_id('lanche_001')
     >>> variantes = get_variantes('lanche_001')
@@ -17,7 +17,7 @@ from pathlib import Path
 import yaml
 
 
-CONFIG_DIR = Path(__file__).parent.parent / 'config'
+CONFIG_DIR = Path(__file__).parent.parent.parent / 'config'
 
 
 class _CardapioCache:
