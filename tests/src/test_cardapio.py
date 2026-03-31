@@ -8,7 +8,6 @@ Testes de alta qualidade cobrindo:
 - Verificação de tipos de retorno
 """
 
-import pytest
 from src.cardapio import (
     get_cardapio,
     get_item_por_id,
@@ -60,6 +59,7 @@ class TestGetItemPorId:
     def test_item_existente_contem_campos_esperados(self):
         """Deve conter campos obrigatórios."""
         result = get_item_por_id('lanche_001')
+        assert result is not None
         assert 'id' in result
         assert 'nome' in result
         assert 'categoria' in result
@@ -85,6 +85,8 @@ class TestGetItemPorId:
         """Itens diferentes devem ter dados distintos."""
         item1 = get_item_por_id('lanche_001')
         item2 = get_item_por_id('lanche_002')
+        assert item1 is not None
+        assert item2 is not None
         assert item1['nome'] != item2['nome']
 
 
@@ -256,6 +258,7 @@ class TestIntegracao:
     def test_get_item_por_id_e_get_variantes(self):
         """get_variantes deve usar get_item_por_id internamente."""
         item = get_item_por_id('lanche_001')
+        assert item is not None
         variantes = get_variantes('lanche_001')
         assert len(variantes) == len(item.get('variantes', []))
 
@@ -264,6 +267,7 @@ class TestIntegracao:
         nome = get_nome_item('lanche_002')
         preco = get_preco_item('lanche_002')
         item = get_item_por_id('lanche_002')
+        assert item is not None
         assert nome == item['nome']
         assert preco == item['preco']
 

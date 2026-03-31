@@ -108,9 +108,7 @@ def node_handler_confirmar(state: State) -> dict:
     
     match etapa:
         case 'clarificando_variante':
-            # Cliente confirmou a variante (ex: "duplo")
-            # Precisa continuar o handler de pedir que estava pendente
-            # Retorna o próximo item da fila ou confirma o pedido
+            return {'resposta': 'Variante confirmada.', 'etapa': etapa}
         case _:
             # Confirmação genérica (ex: "sim" no final do pedido)
             if carrinho:
