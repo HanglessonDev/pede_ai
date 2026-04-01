@@ -14,6 +14,7 @@ Example:
 
 from langgraph.graph import END, StateGraph
 
+from src.graph.handlers.desconhecido import node_handler_desconhecido
 from src.graph.nodes import (
     node_clarificacao,
     node_extrator,
@@ -43,8 +44,8 @@ def _decidir_por_intent(state: State) -> str:
         'carrinho': 'handler_carrinho',
         'confirmar': 'handler_confirmar',
         'cancelar': 'handler_cancelar',
+        'desconhecido': 'handler_desconhecido',
     }
-    # Fallback: se intent não tem handler, vai para saudacao
     return mapeamento.get(intent, 'handler_saudacao')
 
 
@@ -77,6 +78,7 @@ def criar_graph(checkpointer):
     builder.add_node('handler_carrinho', node_handler_carrinho)
     builder.add_node('handler_confirmar', node_handler_confirmar)
     builder.add_node('handler_cancelar', node_handler_cancelar)
+    builder.add_node('handler_desconhecido', node_handler_desconhecido)
 
     # 2. entry point + edge condicional de entrada
     builder.set_entry_point('verificar_etapa')
@@ -96,6 +98,7 @@ def criar_graph(checkpointer):
             'handler_carrinho': 'handler_carrinho',
             'handler_confirmar': 'handler_confirmar',
             'handler_cancelar': 'handler_cancelar',
+            'handler_desconhecido': 'handler_desconhecido',
         },
     )
 
@@ -107,6 +110,7 @@ def criar_graph(checkpointer):
     builder.add_edge('handler_cancelar', END)
     builder.add_edge('clarificacao', END)
     builder.add_edge('handler_confirmar', END)
+    builder.add_edge('handler_desconhecido', END)
 
     # 5. compila
     return builder.compile(checkpointer=checkpointer)

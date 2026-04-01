@@ -24,7 +24,7 @@ from src.extratores import extrair
 from src.graph.handlers.clarificacao import clarificar
 from src.graph.handlers.pedir import processar as processar_pedido
 from src.graph.state import State
-from src.roteador import classificar_intencao
+from src.roteador.classificador_intencoes import classificar_intencao_com_confidence
 
 
 def node_verificar_etapa(state: State) -> dict:
@@ -41,7 +41,7 @@ def node_router(state: State) -> dict:
         state: Estado atual do grafo de atendimento.
 
     Returns:
-        Dicionário com a chave ``intent`` atualizada.
+        Dicionário com ``intent`` e ``confidence`` atualizados.
 
     Example:
         >>> state = {
@@ -57,8 +57,10 @@ def node_router(state: State) -> dict:
         >>> 'intent' in result
         True
     """
-    intent = classificar_intencao(state.get('mensagem_atual', ''))
-    return {'intent': intent}
+    intent, confidence = classificar_intencao_com_confidence(
+        state.get('mensagem_atual', '')
+    )
+    return {'intent': intent, 'confidence': confidence}
 
 
 def node_clarificacao(state: State) -> dict:

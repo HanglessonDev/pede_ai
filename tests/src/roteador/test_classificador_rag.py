@@ -1,0 +1,67 @@
+"""Testes para o classificador RAG com confidence."""
+
+from unittest.mock import patch
+
+
+class TestClassificarIntencaoComConfidence:
+    """Testes para classificar_intencao_com_confidence."""
+
+    def test_sem_embeddings_retorna_fallback(self):
+        """Se não houver embeddings, usa fallback."""
+        from src.roteador import classificador_intencoes
+        from src.roteador.classificador_intencoes import (
+            classificar_intencao_com_confidence,
+        )
+
+        original_embeddings = classificador_intencoes.EMBEDDINGS
+        classificador_intencoes.EMBEDDINGS = []
+
+        try:
+            with patch.object(
+                classificador_intencoes,
+                'classificar_intencao_fixo',
+                return_value='saudacao',
+            ):
+                result = classificar_intencao_com_confidence('oi')
+        finally:
+            classificador_intencoes.EMBEDDINGS = original_embeddings
+
+        assert result[0] == 'saudacao'
+        assert result[1] == 1.0
+
+    def test_sem_similares_retorna_fallback(self):
+        """Se não encontrar similares, usa fallback."""
+        from src.roteador import classificador_intencoes
+        from src.roteador.classificador_intencoes import (
+            classificar_intencao_com_confidence,
+        )
+
+        with (
+            patch.object(classificador_intencoes, 'buscar_similares', return_value=[]),
+            patch.object(
+                classificador_intencoes,
+                'classificar_intencao_fixo',
+                return_value='pedir',
+            ),
+        ):
+            result = classificar_intencao_com_confidence('mensagem qualquer')
+
+        assert result[0] == 'pedir'
+        assert result[1] == 1.0
+
+
+class TestClassificarIntencao:
+    """Testes para classificar_intencao (API compatível)."""
+
+    def test_retorna_string_nao_tupla(self):
+        """classificar_intencao deve retornar string, não tupla."""
+        with patch(
+            'src.roteador.classificador_intencoes.classificar_intencao_com_confidence',
+            return_value=('pedir', 0.85),
+        ):
+            from src.roteador.classificador_intencoes import classificar_intencao
+
+            result = classificar_intencao('quero xbacon')
+
+        assert isinstance(result, str)
+        assert result == 'pedir'

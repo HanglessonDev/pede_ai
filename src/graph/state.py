@@ -30,6 +30,7 @@ class State(TypedDict):
     Attributes:
         mensagem_atual: Última mensagem recebida do usuário.
         intent: Intenção classificada da mensagem atual.
+        confidence: Confidence da classificação (0-1).
         itens_extraidos: Lista de itens extraídos da mensagem.
         carrinho: Lista de itens adicionados ao pedido.
         fila_clarificacao: Fila de itens que precisam de clarificação.
@@ -40,6 +41,7 @@ class State(TypedDict):
 
     mensagem_atual: str
     intent: str
+    confidence: float
     itens_extraidos: list
     carrinho: list
     fila_clarificacao: list

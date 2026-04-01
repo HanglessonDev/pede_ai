@@ -57,24 +57,25 @@ def state_com_carrinho():
 class TestNodeRouter:
     """Testes para node_router."""
 
-    @patch('src.graph.nodes.classificar_intencao')
+    @patch('src.graph.nodes.classificar_intencao_com_confidence')
     def test_retorna_intent(self, mock_classificar):
         """Deve retornar a intent classificada."""
-        mock_classificar.return_value = 'pedir'
+        mock_classificar.return_value = ('pedir', 0.85)
         result = node_router({'mensagem_atual': 'quero xbacon'})  # type: ignore
         assert result['intent'] == 'pedir'
+        assert result['confidence'] == 0.85
 
-    @patch('src.graph.nodes.classificar_intencao')
+    @patch('src.graph.nodes.classificar_intencao_com_confidence')
     def test_chama_classificar_com_mensagem(self, mock_classificar):
         """Deve chamar classificar com a mensagem."""
-        mock_classificar.return_value = 'saudacao'
+        mock_classificar.return_value = ('saudacao', 0.9)
         node_router({'mensagem_atual': 'oi'})  # type: ignore
         mock_classificar.assert_called_with('oi')
 
-    @patch('src.graph.nodes.classificar_intencao')
+    @patch('src.graph.nodes.classificar_intencao_com_confidence')
     def test_mensagem_vazia(self, mock_classificar):
         """Deve tratar mensagem vazia."""
-        mock_classificar.return_value = 'saudacao'
+        mock_classificar.return_value = ('saudacao', 0.9)
         result = node_router({'mensagem_atual': ''})  # type: ignore
         assert result['intent'] == 'saudacao'
 
@@ -212,7 +213,7 @@ class TestNodeHandlerConfirmar:
             'etapa': 'pedindo',
             'resposta': '',
             'tentativas_clarificacao': 0,
-        }
+        } # pyright: ignore[reportAssignmentType]
         result = node_handler_confirmar(state)
         assert 'confirmado' in result['resposta'].lower()
         assert '15.00' in result['resposta']

@@ -32,6 +32,7 @@ class TestStateTypedDict:
         campos_esperados = {
             'mensagem_atual',
             'intent',
+            'confidence',
             'itens_extraidos',
             'carrinho',
             'fila_clarificacao',
@@ -53,6 +54,7 @@ class TestStateTypedDict:
         [
             ('mensagem_atual', str),
             ('intent', str),
+            ('confidence', float),
             ('itens_extraidos', list),
             ('carrinho', list),
             ('fila_clarificacao', list),
@@ -77,6 +79,7 @@ class TestStateTypedDict:
         state = {
             'mensagem_atual': 'teste mensagem',
             'intent': 'pedir',
+            'confidence': 0.85,
             'itens_extraidos': [],
             'carrinho': [],
             'fila_clarificacao': [],
@@ -162,6 +165,7 @@ class TestConsistencia:
         obrigatorios = {
             'mensagem_atual',
             'intent',
+            'confidence',
             'itens_extraidos',
             'carrinho',
             'fila_clarificacao',
@@ -191,6 +195,7 @@ class TestInstanciacao:
         state = {
             'mensagem_atual': '',
             'intent': '',
+            'confidence': 0.0,
             'itens_extraidos': [],
             'carrinho': [],
             'fila_clarificacao': [],
