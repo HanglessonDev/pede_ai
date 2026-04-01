@@ -18,6 +18,7 @@ from src.graph.state import State, ETAPAS
 # TESTES DO TYPEDDICT STATE
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestStateTypedDict:
     """Testes para o TypedDict State."""
 
@@ -47,16 +48,19 @@ class TestStateTypedDict:
             assert tipo is not None
             assert campo in State.__annotations__
 
-    @pytest.mark.parametrize('campo,expected_type', [
-        ('mensagem_atual', str),
-        ('intent', str),
-        ('itens_extraidos', list),
-        ('carrinho', list),
-        ('fila_clarificacao', list),
-        ('etapa', str),
-        ('resposta', str),
-        ('tentativas_clarificacao', int),
-    ])
+    @pytest.mark.parametrize(
+        'campo,expected_type',
+        [
+            ('mensagem_atual', str),
+            ('intent', str),
+            ('itens_extraidos', list),
+            ('carrinho', list),
+            ('fila_clarificacao', list),
+            ('etapa', str),
+            ('resposta', str),
+            ('tentativas_clarificacao', int),
+        ],
+    )
     def test_tipos_campos(self, campo, expected_type):
         """Cada campo deve ter o tipo correto."""
         hints = get_type_hints(State)
@@ -89,6 +93,7 @@ class TestStateTypedDict:
 # TESTES DO LITERAL ETAPAS
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestETAPAS:
     """Testes para o Literal ETAPAS."""
 
@@ -101,16 +106,25 @@ class TestETAPAS:
     def test_tem_todas_etapas(self):
         """Deve conter todas as etapas esperadas."""
         args = get_args(ETAPAS)
-        etapas_esperadas = {'inicio', 'clarificando_variante', 'confirmando', 'pedindo', 'carrinho'}
+        etapas_esperadas = {
+            'inicio',
+            'clarificando_variante',
+            'confirmando',
+            'pedindo',
+            'carrinho',
+        }
         assert set(args) == etapas_esperadas
 
-    @pytest.mark.parametrize('etapa', [
-        'inicio',
-        'clarificando_variante',
-        'confirmando',
-        'pedindo',
-        'carrinho',
-    ])
+    @pytest.mark.parametrize(
+        'etapa',
+        [
+            'inicio',
+            'clarificando_variante',
+            'confirmando',
+            'pedindo',
+            'carrinho',
+        ],
+    )
     def test_etapas_validas(self, etapa):
         """Cada etapa deve ser um valor válido do Literal."""
         args = get_args(ETAPAS)
@@ -127,6 +141,7 @@ class TestETAPAS:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE CONSISTÊNCIA
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestConsistencia:
     """Testes de consistência entre State e ETAPAS."""
@@ -162,6 +177,7 @@ class TestConsistencia:
 # TESTES DE INSTANCIAÇÃO
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestInstanciacao:
     """Testes de criação de instâncias de State."""
 
@@ -189,12 +205,8 @@ class TestInstanciacao:
         state = {
             'mensagem_atual': 'quero um xbacon',
             'intent': 'pedir',
-            'itens_extraidos': [
-                {'item_id': 'lanche_001', 'quantidade': 1}
-            ],
-            'carrinho': [
-                {'item_id': 'lanche_001', 'quantidade': 1, 'preco': 1500}
-            ],
+            'itens_extraidos': [{'item_id': 'lanche_001', 'quantidade': 1}],
+            'carrinho': [{'item_id': 'lanche_001', 'quantidade': 1, 'preco': 1500}],
             'fila_clarificacao': [],
             'etapa': 'pedindo',
             'resposta': 'Adicionado!',
@@ -213,6 +225,7 @@ class TestInstanciacao:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE TIPAGEM
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestTipagem:
     """Testes de tipagem do State."""
@@ -241,6 +254,7 @@ class TestTipagem:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE EDGE CASES
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestEdgeCases:
     """Testes de casos de borda."""
@@ -279,13 +293,28 @@ class TestEdgeCases:
             'mensagem_atual': 'teste',
             'intent': 'pedir',
             'itens_extraidos': [
-                {'item_id': 'lanche_001', 'quantidade': 2, 'variante': 'duplo', 'remocoes': ['cebola']}
+                {
+                    'item_id': 'lanche_001',
+                    'quantidade': 2,
+                    'variante': 'duplo',
+                    'remocoes': ['cebola'],
+                }
             ],
             'carrinho': [
-                {'item_id': 'lanche_001', 'quantidade': 2, 'preco': 4000, 'variante': 'duplo', 'remocoes': ['cebola']}
+                {
+                    'item_id': 'lanche_001',
+                    'quantidade': 2,
+                    'preco': 4000,
+                    'variante': 'duplo',
+                    'remocoes': ['cebola'],
+                }
             ],
             'fila_clarificacao': [
-                {'item_id': 'bebida_001', 'campo': 'variante', 'opcoes': ['lata', '600ml']}
+                {
+                    'item_id': 'bebida_001',
+                    'campo': 'variante',
+                    'opcoes': ['lata', '600ml'],
+                }
             ],
             'etapa': 'pedindo',
             'resposta': 'Adicionado!',

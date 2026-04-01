@@ -19,6 +19,7 @@ from src.graph.handlers.pedir import processar
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def itens_vazios():
     """Lista vazia de itens extraídos."""
@@ -62,13 +63,19 @@ def itens_multiplos():
 def itens_com_remocoes():
     """Itens com remoções especificadas."""
     return [
-        {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': ['tomate', 'cebola']},
+        {
+            'item_id': 'lanche_002',
+            'quantidade': 1,
+            'variante': None,
+            'remocoes': ['tomate', 'cebola'],
+        },
     ]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE ITENS COM PREÇO FIXO
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestProcessarItemFixo:
     """Testes para processar itens com preço fixo."""
@@ -86,7 +93,12 @@ class TestProcessarItemFixo:
     def test_calcula_preco_com_quantidade(self):
         """Preço deve ser multiplicado pela quantidade."""
         itens = [
-            {'item_id': 'lanche_002', 'quantidade': 2, 'variante': None, 'remocoes': []},
+            {
+                'item_id': 'lanche_002',
+                'quantidade': 2,
+                'variante': None,
+                'remocoes': [],
+            },
         ]
         result = processar(itens, [])
         assert result.carrinho[0]['preco'] == 3600
@@ -110,6 +122,7 @@ class TestProcessarItemFixo:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE ITENS COM VARIANTES
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestProcessarItemComVariante:
     """Testes para processar itens com variantes."""
@@ -153,6 +166,7 @@ class TestProcessarItemComVariante:
 # TESTES DE ITENS MÚLTIPLOS
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestProcessarItensMultiplos:
     """Testes para processar múltiplos itens."""
 
@@ -178,6 +192,7 @@ class TestProcessarItensMultiplos:
 # TESTES DE EDGE CASES
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestEdgeCases:
     """Testes de casos de borda."""
 
@@ -191,7 +206,12 @@ class TestEdgeCases:
     def test_item_inexistente_ignorad(self):
         """Item inexistente deve ser ignorado."""
         itens = [
-            {'item_id': 'inexistente_999', 'quantidade': 1, 'variante': None, 'remocoes': []},
+            {
+                'item_id': 'inexistente_999',
+                'quantidade': 1,
+                'variante': None,
+                'remocoes': [],
+            },
         ]
         result = processar(itens, [])
         assert result.carrinho == []
@@ -200,7 +220,12 @@ class TestEdgeCases:
     def test_variante_invalida_vai_para_fila(self):
         """Item com variante inválida deve ir para fila."""
         itens = [
-            {'item_id': 'lanche_001', 'quantidade': 1, 'variante': 'quadruplo', 'remocoes': []},
+            {
+                'item_id': 'lanche_001',
+                'quantidade': 1,
+                'variante': 'quadruplo',
+                'remocoes': [],
+            },
         ]
         result = processar(itens, [])
         assert len(result.fila) == 1
@@ -208,7 +233,12 @@ class TestEdgeCases:
     def test_quantidade_multiplica_preco_variante(self):
         """Quantidade deve multiplicar preço da variante."""
         itens = [
-            {'item_id': 'lanche_001', 'quantidade': 3, 'variante': 'duplo', 'remocoes': []},
+            {
+                'item_id': 'lanche_001',
+                'quantidade': 3,
+                'variante': 'duplo',
+                'remocoes': [],
+            },
         ]
         result = processar(itens, [])
         assert len(result.carrinho) == 1
@@ -218,8 +248,18 @@ class TestEdgeCases:
     def test_multiplos_itens_fixos(self):
         """Múltiplos itens fixos devem ir todos ao carrinho."""
         itens = [
-            {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []},
-            {'item_id': 'lanche_003', 'quantidade': 1, 'variante': None, 'remocoes': []},
+            {
+                'item_id': 'lanche_002',
+                'quantidade': 1,
+                'variante': None,
+                'remocoes': [],
+            },
+            {
+                'item_id': 'lanche_003',
+                'quantidade': 1,
+                'variante': None,
+                'remocoes': [],
+            },
         ]
         result = processar(itens, [])
         assert len(result.carrinho) == 2
@@ -228,8 +268,18 @@ class TestEdgeCases:
     def test_resposta_formatada_multiplos_itens(self):
         """Resposta com múltiplos itens deve ter uma linha por item."""
         itens = [
-            {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []},
-            {'item_id': 'lanche_003', 'quantidade': 2, 'variante': None, 'remocoes': []},
+            {
+                'item_id': 'lanche_002',
+                'quantidade': 1,
+                'variante': None,
+                'remocoes': [],
+            },
+            {
+                'item_id': 'lanche_003',
+                'quantidade': 2,
+                'variante': None,
+                'remocoes': [],
+            },
         ]
         result = processar(itens, [])
         linhas = result.resposta.strip().split('\n')
@@ -240,12 +290,14 @@ class TestEdgeCases:
 # TESTES DE ResultadoPedir
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestResultadoPedir:
     """Testes para o dataclass ResultadoPedir."""
 
     def test_to_dict_contem_chaves(self):
         """to_dict deve conter todas as chaves esperadas."""
         from src.graph.handlers.pedir import ResultadoPedir
+
         result = ResultadoPedir(
             carrinho=[{'item_id': 'lanche_001', 'preco': 1500}],
             fila=[],
@@ -259,6 +311,7 @@ class TestResultadoPedir:
     def test_to_dict_mapeia_fila_corretamente(self):
         """to_dict deve mapear fila para fila_clarificacao."""
         from src.graph.handlers.pedir import ResultadoPedir
+
         result = ResultadoPedir(
             carrinho=[],
             fila=[{'item_id': 'lanche_001'}],

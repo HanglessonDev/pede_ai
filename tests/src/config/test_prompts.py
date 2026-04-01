@@ -24,6 +24,7 @@ from src.config import (
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def prompt_nome_validos():
     """Nomes de prompts válidos."""
@@ -50,12 +51,16 @@ def intencoes_esperadas():
 # TESTES PARAMETRIZADOS - PROMPTS
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestGetPrompt:
     """Testes para get_prompt()."""
 
-    @pytest.mark.parametrize('prompt_name', [
-        'classificador_intencoes',
-    ])
+    @pytest.mark.parametrize(
+        'prompt_name',
+        [
+            'classificador_intencoes',
+        ],
+    )
     def test_prompt_existente_retorna_string_nao_vazia(self, prompt_name):
         """Prompt existente deve retornar string não vazia."""
         result = get_prompt(prompt_name)
@@ -83,17 +88,20 @@ class TestGetPrompt:
 class TestGetIntencoesValidas:
     """Testes para get_intencoes_validas()."""
 
-    @pytest.mark.parametrize('intencao', [
-        'saudacao',
-        'pedir',
-        'remover',
-        'trocar',
-        'carrinho',
-        'duvida',
-        'confirmar',
-        'negar',
-        'cancelar',
-    ])
+    @pytest.mark.parametrize(
+        'intencao',
+        [
+            'saudacao',
+            'pedir',
+            'remover',
+            'trocar',
+            'carrinho',
+            'duvida',
+            'confirmar',
+            'negar',
+            'cancelar',
+        ],
+    )
     def test_todas_intencoes_estao_presentes(self, intencao):
         """Todas as intenções principais devem estar presentes."""
         result = get_intencoes_validas()
@@ -120,6 +128,7 @@ class TestGetIntencoesValidas:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES PARAMETRIZADOS - TENANT
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestGetTenantInfo:
     """Testes para get_tenant_info()."""
@@ -186,6 +195,7 @@ class TestGetTenantNome:
 # TESTES DE CONSISTÊNCIA E INTEGRIDADE
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestConsistencia:
     """Testes de consistência entre funções."""
 
@@ -220,6 +230,7 @@ class TestConsistencia:
 # TESTES DE CACHE
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestCache:
     """Testes de comportamento de cache."""
 
@@ -239,6 +250,7 @@ class TestCache:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE EDGE CASES
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestEdgeCases:
     """Testes de casos de borda."""

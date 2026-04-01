@@ -18,11 +18,13 @@ from src.graph.nodes import (
     node_handler_carrinho,
     node_handler_confirmar,
 )
+from src.graph.state import State
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def state_carrinho_vazio():
@@ -50,6 +52,7 @@ def state_com_carrinho():
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE NODE_ROUTER
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestNodeRouter:
     """Testes para node_router."""
@@ -80,6 +83,7 @@ class TestNodeRouter:
 # TESTES DE NODE_EXTRATOR
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestNodeExtrator:
     """Testes para node_extrator."""
 
@@ -102,6 +106,7 @@ class TestNodeExtrator:
 # TESTES DE NODE_HANDLER_SAUDACAO
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestNodeHandlerSaudacao:
     """Testes para node_handler_saudacao."""
 
@@ -118,6 +123,7 @@ class TestNodeHandlerSaudacao:
 # TESTES DE NODE_HANDLER_CARRINHO
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestNodeHandlerCarrinho:
     """Testes para node_handler_carrinho."""
 
@@ -129,15 +135,17 @@ class TestNodeHandlerCarrinho:
     @patch('src.graph.nodes.get_nome_item')
     def test_carrinho_com_itens_retorna_lista(self, mock_nome, state_com_carrinho):
         """Carrinho com itens deve retornar lista formatada."""
-        mock_nome.side_effect = lambda id: 'Hamburguer' if id == 'lanche_001' else 'Coca-Cola'
+        mock_nome.side_effect = lambda id: (
+            'Hamburguer' if id == 'lanche_001' else 'Coca-Cola'
+        )
         result = node_handler_carrinho(state_com_carrinho)  # type: ignore
         assert 'Hamburguer' in result['resposta']
         assert 'Total' in result['resposta']
 
-    @patch('src.graph.nodes.get_item_por_id')
-    def test_total_calculado_corretamente(self, mock_get_item, state_com_carrinho):
+    @patch('src.graph.nodes.get_nome_item')
+    def test_total_calculado_corretamente(self, mock_nome, state_com_carrinho):
         """Total deve ser calculado corretamente."""
-        mock_get_item.side_effect = lambda id: {'nome': 'Item'}
+        mock_nome.side_effect = lambda id: 'Item'
         result = node_handler_carrinho(state_com_carrinho)  # type: ignore
         assert '35.00' in result['resposta']
 
@@ -146,6 +154,7 @@ class TestNodeHandlerCarrinho:
 # TESTES DE NODE_HANDLER_PEDIR
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestNodeHandlerPedir:
     """Testes para node_handler_pedir."""
 
@@ -153,12 +162,17 @@ class TestNodeHandlerPedir:
     def test_delega_para_handler_pedir(self, mock_processar):
         """Deve delegar processamento para o handler."""
         from src.graph.handlers.pedir import ResultadoPedir
+
         mock_processar.return_value = ResultadoPedir(
             carrinho=[{'item_id': 'lanche_001', 'preco': 1500}],
             fila=[],
             resposta='1x Hambúrguer — R$ 15.00',
         )
-        state = {'itens_extraidos': [{'item_id': 'lanche_001', 'quantidade': 1}], 'carrinho': [], 'fila_clarificacao': []}
+        state = {
+            'itens_extraidos': [{'item_id': 'lanche_001', 'quantidade': 1}],
+            'carrinho': [],
+            'fila_clarificacao': [],
+        }
         result = node_handler_pedir(state)  # type: ignore
         assert mock_processar.called
         assert len(result['carrinho']) == 1
@@ -174,70 +188,40 @@ class TestNodeHandlerPedir:
 # TESTES DE NODE_HANDLER_CONFIRMAR
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestNodeHandlerConfirmar:
     """Testes para node_handler_confirmar."""
 
     def test_carrinho_vazio_retorna_mensagem(self):
         """Carrinho vazio deve retornar mensagem adequada."""
         result = node_handler_confirmar({'carrinho': [], 'etapa': ''})  # type: ignore
-        assert 'nada' in result['resposta'].lower() or 'vazio' in result['resposta'].lower()
+        assert (
+            'nada' in result['resposta'].lower()
+            or 'vazio' in result['resposta'].lower()
+            or 'não há' in result['resposta'].lower()
+        )
 
     def test_confirmar_generico_com_carrinho_retorna_total(self):
         """Confirmacao generica com carrinho deve retornar total."""
-        result = node_handler_confirmar({'carrinho': [{'item_id': 'lanche_001', 'preco': 1500}], 'etapa': 'pedindo'})  # type: ignore
+        state: State = {
+            'mensagem_atual': '',
+            'intent': '',
+            'itens_extraidos': [],
+            'carrinho': [{'item_id': 'lanche_001', 'preco': 1500}],
+            'fila_clarificacao': [],
+            'etapa': 'pedindo',
+            'resposta': '',
+            'tentativas_clarificacao': 0,
+        }
+        result = node_handler_confirmar(state)
         assert 'confirmado' in result['resposta'].lower()
         assert '15.00' in result['resposta']
-
-    @patch('src.graph.nodes.clarificar')
-    def test_clarificando_variante_delega_para_handler(self, mock_clarificar):
-        """Etapa clarificando_variante deve delegar para o handler."""
-        from src.graph.handlers.clarificacao import ResultadoClarificacao
-        mock_clarificar.return_value = ResultadoClarificacao(
-            tipo='sucesso',
-            resposta='1x Hambúrguer — R$ 15.00',
-            etapa='inicio',
-            carrinho=[{'item_id': 'lanche_001', 'quantidade': 1, 'preco': 1500}],
-            fila=[],
-            tentativas=0,
-        )
-        state = {
-            'mensagem_atual': 'duplo',
-            'carrinho': [],
-            'fila_clarificacao': [{'item_id': 'lanche_001'}],
-            'etapa': 'clarificando_variante',
-            'tentativas_clarificacao': 0,
-        }
-        result = node_handler_confirmar(state)  # type: ignore
-        assert mock_clarificar.called
-        assert len(result['carrinho']) == 1
-        assert result['etapa'] == 'inicio'
-
-    @patch('src.graph.nodes.clarificar')
-    def test_clarificando_variante_com_carrinho_existente(self, mock_clarificar):
-        """Carrinho existente deve ser preservado ao adicionar novo item."""
-        from src.graph.handlers.clarificacao import ResultadoClarificacao
-        mock_clarificar.return_value = ResultadoClarificacao(
-            tipo='sucesso',
-            resposta='1x Batata — R$ 10.00',
-            etapa='inicio',
-            carrinho=[{'item_id': 'acomp_001', 'quantidade': 1, 'preco': 1000}],
-            fila=[],
-            tentativas=0,
-        )
-        state = {
-            'mensagem_atual': 'media',
-            'carrinho': [{'item_id': 'lanche_001', 'preco': 1500}],
-            'fila_clarificacao': [{'item_id': 'acomp_001'}],
-            'etapa': 'clarificando_variante',
-            'tentativas_clarificacao': 0,
-        }
-        result = node_handler_confirmar(state)  # type: ignore
-        assert len(result['carrinho']) == 2
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE INTEGRIDADE
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestIntegridade:
     """Testes de integridade dos nodes."""

@@ -20,6 +20,7 @@ from src.config import get_intencoes_validas
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def intencoes_validas():
     """Lista de intenções válidas."""
@@ -30,6 +31,7 @@ def intencoes_validas():
 def prompt_template():
     """Template do prompt usado."""
     from src.config import get_prompt
+
     return get_prompt('classificador_intencoes')
 
 
@@ -37,35 +39,39 @@ def prompt_template():
 # TESTES COM MOCK - HAPPY PATH
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestClassificarIntencaoComMock:
     """Testes de classificar_intencao com LLM mockado."""
 
-    @pytest.mark.parametrize('mensagem,intencao_esperada', [
-        ('oi', 'saudacao'),
-        ('bom dia', 'saudacao'),
-        ('ola tudo bem', 'saudacao'),
-        ('quero um xbacon', 'pedir'),
-        ('meu pedido', 'pedir'),
-        ('adiciona coca', 'pedir'),
-        ('tira a coca', 'remover'),
-        ('sem a batata', 'remover'),
-        ('tira tudo', 'remover'),
-        ('muda pra xsalada', 'trocar'),
-        ('troca coca por suco', 'trocar'),
-        ('me mostra meu pedido', 'carrinho'),
-        ('qual o total', 'carrinho'),
-        ('quanto fica', 'carrinho'),
-        ('vocês entregam', 'duvida'),
-        ('qual o preço', 'duvida'),
-        ('tem lactose', 'duvida'),
-        ('sim', 'confirmar'),
-        ('pode ser', 'confirmar'),
-        ('certo', 'confirmar'),
-        ('não', 'negar'),
-        ('nao quero', 'negar'),
-        ('cancela tudo', 'cancelar'),
-        ('esquece', 'cancelar'),
-    ])
+    @pytest.mark.parametrize(
+        'mensagem,intencao_esperada',
+        [
+            ('oi', 'saudacao'),
+            ('bom dia', 'saudacao'),
+            ('ola tudo bem', 'saudacao'),
+            ('quero um xbacon', 'pedir'),
+            ('meu pedido', 'pedir'),
+            ('adiciona coca', 'pedir'),
+            ('tira a coca', 'remover'),
+            ('sem a batata', 'remover'),
+            ('tira tudo', 'remover'),
+            ('muda pra xsalada', 'trocar'),
+            ('troca coca por suco', 'trocar'),
+            ('me mostra meu pedido', 'carrinho'),
+            ('qual o total', 'carrinho'),
+            ('quanto fica', 'carrinho'),
+            ('vocês entregam', 'duvida'),
+            ('qual o preço', 'duvida'),
+            ('tem lactose', 'duvida'),
+            ('sim', 'confirmar'),
+            ('pode ser', 'confirmar'),
+            ('certo', 'confirmar'),
+            ('não', 'negar'),
+            ('nao quero', 'negar'),
+            ('cancela tudo', 'cancelar'),
+            ('esquece', 'cancelar'),
+        ],
+    )
     @patch('src.roteador.classificador_intencoes.modelo_llm')
     def test_intencoes_basicas(self, mock_llm, mensagem, intencao_esperada):
         """Testes happy path para todas as intenções básicas."""
@@ -74,13 +80,18 @@ class TestClassificarIntencaoComMock:
         assert resultado == intencao_esperada
         mock_llm.invoke.assert_called_once()
 
-    @pytest.mark.parametrize('mensagem,intencao_esperada', [
-        ('bom dia, quero um xtudo', 'pedir'),
-        ('oi, cancela tudo', 'cancelar'),
-        ('oi, me mostra o pedido', 'carrinho'),
-    ])
+    @pytest.mark.parametrize(
+        'mensagem,intencao_esperada',
+        [
+            ('bom dia, quero um xtudo', 'pedir'),
+            ('oi, cancela tudo', 'cancelar'),
+            ('oi, me mostra o pedido', 'carrinho'),
+        ],
+    )
     @patch('src.roteador.classificador_intencoes.modelo_llm')
-    def test_mensagens_com_multiplas_intencoes(self, mock_llm, mensagem, intencao_esperada):
+    def test_mensagens_com_multiplas_intencoes(
+        self, mock_llm, mensagem, intencao_esperada
+    ):
         """Testes para mensagens com múltiplas intenções (prioridade)."""
         mock_llm.invoke.return_value = intencao_esperada
         resultado = classificar_intencao(mensagem)
@@ -91,16 +102,20 @@ class TestClassificarIntencaoComMock:
 # TESTES COM MOCK - CASOS ESPECIAIS
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestClassificarIntencaoCasosEspeciais:
     """Testes de casos especiais do classificador."""
 
-    @pytest.mark.parametrize('resposta_llm,intencao_esperada', [
-        ('PEDIR', 'pedir'),  # Maiúsculas
-        ('Pedir', 'pedir'),  # Capitalizada
-        ('  pedir  ', 'pedir'),  # Com espaços
-        ('pedir\n', 'pedir'),  # Com newline
-        ('pedir.', 'pedir'),  # BUG: pontuação não é removida
-    ])
+    @pytest.mark.parametrize(
+        'resposta_llm,intencao_esperada',
+        [
+            ('PEDIR', 'pedir'),  # Maiúsculas
+            ('Pedir', 'pedir'),  # Capitalizada
+            ('  pedir  ', 'pedir'),  # Com espaços
+            ('pedir\n', 'pedir'),  # Com newline
+            ('pedir.', 'pedir'),  # BUG: pontuação não é removida
+        ],
+    )
     @patch('src.roteador.classificador_intencoes.modelo_llm')
     def test_normalizacao_resposta(self, mock_llm, resposta_llm, intencao_esperada):
         """Teste de normalização da resposta do LLM."""
@@ -124,14 +139,19 @@ class TestClassificarIntencaoCasosEspeciais:
         with pytest.raises(IndexError):
             classificar_intencao('teste')
 
-    @pytest.mark.parametrize('resposta_invalida', [
-        'abc',  # Aleatório
-        '123',  # Número
-        'sim não',  # Múltiplas palavras
-        'qualquer coisa',  # Texto aleatório
-    ])
+    @pytest.mark.parametrize(
+        'resposta_invalida',
+        [
+            'abc',  # Aleatório
+            '123',  # Número
+            'sim não',  # Múltiplas palavras
+            'qualquer coisa',  # Texto aleatório
+        ],
+    )
     @patch('src.roteador.classificador_intencoes.modelo_llm')
-    def test_respostas_nao_mapeadas_retornam_desconhecido(self, mock_llm, resposta_invalida):
+    def test_respostas_nao_mapeadas_retornam_desconhecido(
+        self, mock_llm, resposta_invalida
+    ):
         """Respostas não mapeadas devem retornar desconhecido."""
         mock_llm.invoke.return_value = resposta_invalida
         resultado = classificar_intencao('teste')
@@ -141,6 +161,7 @@ class TestClassificarIntencaoCasosEspeciais:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES COM MOCK - ERROR HANDLING
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestClassificarIntencaoErros:
     """Testes de tratamento de erros."""
@@ -171,6 +192,7 @@ class TestClassificarIntencaoErros:
 # TESTES DE CONSISTÊNCIA
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestConsistencia:
     """Testes de consistência entre funções."""
 
@@ -186,10 +208,18 @@ class TestConsistencia:
     def test_intencoes_validas_vem_do_config(self):
         """Intenções válidas devem vir do config."""
         from src.config import get_intencoes_validas
+
         intencoes_config = get_intencoes_validas()
         esperado = [
-            'saudacao', 'pedir', 'remover', 'trocar',
-            'carrinho', 'duvida', 'confirmar', 'negar', 'cancelar'
+            'saudacao',
+            'pedir',
+            'remover',
+            'trocar',
+            'carrinho',
+            'duvida',
+            'confirmar',
+            'negar',
+            'cancelar',
         ]
         assert set(intencoes_config) == set(esperado)
 
@@ -198,14 +228,16 @@ class TestConsistencia:
 # TESTES DE COMPORTAMENTO DO PROMPT
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestPrompt:
     """Testes relacionados ao prompt."""
 
     def test_prompt_contem_instrucoes(self):
         """Prompt deve conter instrucoes de classificacao."""
         from src.config import get_prompt
+
         prompt = get_prompt('classificador_intencoes')
-        
+
         assert 'Classifique' in prompt
         assert 'INTENÇÕES POSSÍVEIS' in prompt
         assert 'EXEMPLOS' in prompt
@@ -213,26 +245,29 @@ class TestPrompt:
     def test_prompt_contem_todas_intencoes(self):
         """Prompt deve mencionar todas as intenções."""
         from src.config import get_prompt, get_intencoes_validas
+
         prompt = get_prompt('classificador_intencoes')
         intencoes = get_intencoes_validas()
-        
+
         for intencao in intencoes:
             assert intencao in prompt, f"Intenção '{intencao}' não encontrada no prompt"
 
     def test_prompt_format_aceita_mensagem(self):
         """Prompt deve aceitar formatação com .format()."""
         from src.config import get_prompt
+
         prompt = get_prompt('classificador_intencoes')
-        
+
         mensagem_teste = 'teste mensagem'
         prompt_formatado = prompt.format(mensagem=mensagem_teste)
-        
+
         assert mensagem_teste in prompt_formatado
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE EDGE CASES
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestEdgeCases:
     """Testes de casos de borda."""
@@ -289,6 +324,7 @@ class TestEdgeCases:
 # TESTES DE CHAMADA DO LLM
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestLLMInteractions:
     """Testes de interação com o LLM."""
 
@@ -297,9 +333,9 @@ class TestLLMInteractions:
         """LLM deve receber prompt formatado com a mensagem."""
         mock_llm.invoke.return_value = 'pedir'
         mensagem = 'quero um xbacon'
-        
+
         classificar_intencao(mensagem)
-        
+
         chamada = mock_llm.invoke.call_args
         prompt_recebido = chamada[0][0]
         assert 'Classifique' in prompt_recebido
@@ -316,12 +352,12 @@ class TestLLMInteractions:
     def test_multiplas_chamadas_nao_afetam_cache(self, mock_llm):
         """Múltiplas chamadas devem funcionar independentemente."""
         mock_llm.invoke.return_value = 'saudacao'
-        
+
         resultado1 = classificar_intencao('oi')
         mock_llm.invoke.reset_mock()
-        
+
         resultado2 = classificar_intencao('olá')
-        
+
         assert resultado1 == 'saudacao'
         assert resultado2 == 'saudacao'
         assert mock_llm.invoke.call_count == 1

@@ -24,11 +24,17 @@ from src.graph.handlers.clarificacao import (
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def item_hamburguer():
     """Item de hambúrguer para fila de clarificação."""
     return {
-        'item': {'item_id': 'lanche_001', 'quantidade': 1, 'variante': None, 'remocoes': []},
+        'item': {
+            'item_id': 'lanche_001',
+            'quantidade': 1,
+            'variante': None,
+            'remocoes': [],
+        },
         'item_id': 'lanche_001',
         'nome': 'Hambúrguer',
         'campo': 'variante',
@@ -40,7 +46,12 @@ def item_hamburguer():
 def item_batata():
     """Item de batata para fila de clarificação."""
     return {
-        'item': {'item_id': 'acomp_001', 'quantidade': 1, 'variante': None, 'remocoes': []},
+        'item': {
+            'item_id': 'acomp_001',
+            'quantidade': 1,
+            'variante': None,
+            'remocoes': [],
+        },
         'item_id': 'acomp_001',
         'nome': 'Batata Frita',
         'campo': 'variante',
@@ -70,6 +81,7 @@ def fila_multiplos_itens(item_hamburguer, item_batata):
 # TESTES DE CONSTANTES
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestConstantes:
     """Testes de constantes do módulo."""
 
@@ -81,6 +93,7 @@ class TestConstantes:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE FUNÇÕES AUXILIARES
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestProximaClarificacao:
     """Testes para _proxima_clarificacao()."""
@@ -133,6 +146,7 @@ class TestFormatarCarrinho:
 # TESTES DE clarificar() - FILA VAZIA
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestClarificarFilaVazia:
     """Testes para clarificar() com fila vazia."""
 
@@ -146,6 +160,7 @@ class TestClarificarFilaVazia:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE clarificar() - VARIANTE VÁLIDA
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestClarificarVarianteValida:
     """Testes para clarificar() com variante válida."""
@@ -190,6 +205,7 @@ class TestClarificarVarianteValida:
 # TESTES DE clarificar() - VARIANTE INVÁLIDA
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestClarificarVarianteInvalida:
     """Testes para clarificar() com variante inválida."""
 
@@ -226,6 +242,7 @@ class TestClarificarVarianteInvalida:
 # TESTES DE clarificar() - 3 TENTATIVAS FALHAS
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestClarificarTresTentativasFalhas:
     """Testes para clarificar() após 3 tentativas falhas."""
 
@@ -259,12 +276,16 @@ class TestClarificarTresTentativasFalhas:
     def test_mensagem_fallback_sem_itens(self, fila_um_item):
         """Sem mais itens, deve exibir mensagem de fallback."""
         result = clarificar(fila_um_item, 'pizza', 2)
-        assert 'consegui' in result.resposta.lower() or 'entendi' in result.resposta.lower()
+        assert (
+            'consegui' in result.resposta.lower()
+            or 'entendi' in result.resposta.lower()
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE EDGE CASES
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestEdgeCases:
     """Testes de casos de borda."""
@@ -288,7 +309,12 @@ class TestEdgeCases:
     def test_item_sem_variantes_no_cardapio(self):
         """Item sem variantes deve ser tratado como inválido (extrator retorna None)."""
         item = {
-            'item': {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []},
+            'item': {
+                'item_id': 'lanche_002',
+                'quantidade': 1,
+                'variante': None,
+                'remocoes': [],
+            },
             'item_id': 'lanche_002',
             'nome': 'X-Salada',
             'campo': 'variante',
@@ -300,7 +326,12 @@ class TestEdgeCases:
     def test_item_inexistente(self):
         """Item inexistente deve ser tratado como inválido (extrator retorna None)."""
         item = {
-            'item': {'item_id': 'inexistente', 'quantidade': 1, 'variante': None, 'remocoes': []},
+            'item': {
+                'item_id': 'inexistente',
+                'quantidade': 1,
+                'variante': None,
+                'remocoes': [],
+            },
             'item_id': 'inexistente',
             'nome': 'Item Fantasma',
             'campo': 'variante',
@@ -313,6 +344,7 @@ class TestEdgeCases:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE ResultadoClarificacao
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestResultadoClarificacao:
     """Testes para o dataclass ResultadoClarificacao."""

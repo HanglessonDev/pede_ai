@@ -27,6 +27,7 @@ from src.config import get_cardapio
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def cardapio():
     """Cardápio para testes."""
@@ -37,16 +38,20 @@ def cardapio():
 # TESTES DE NORMALIZAÇÃO
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestNormalizar:
     """Testes para a função normalizar()."""
 
-    @pytest.mark.parametrize('input_text,expected', [
-        ('X-Tudo', 'xtudo'),
-        ('X-Salada', 'xsalada'),
-        ('Hamburguer', 'hamburguer'),
-        ('Coca-Cola', 'cocacola'),
-        ('batata frita', 'batata frita'),
-    ])
+    @pytest.mark.parametrize(
+        'input_text,expected',
+        [
+            ('X-Tudo', 'xtudo'),
+            ('X-Salada', 'xsalada'),
+            ('Hamburguer', 'hamburguer'),
+            ('Coca-Cola', 'cocacola'),
+            ('batata frita', 'batata frita'),
+        ],
+    )
     def test_minusculas(self, input_text, expected):
         """Deve converter para minusculas."""
         assert normalizar(input_text) == expected
@@ -73,14 +78,17 @@ class TestNormalizar:
         assert normalizar('x    tudo') == 'x tudo'
         assert normalizar('  ola  ') == 'ola'
 
-    @pytest.mark.parametrize('input_text', [
-        '',
-        '   ',
-        'a',
-        'X',
-        '1',
-        '@#$%',
-    ])
+    @pytest.mark.parametrize(
+        'input_text',
+        [
+            '',
+            '   ',
+            'a',
+            'X',
+            '1',
+            '@#$%',
+        ],
+    )
     def test_entradas_variadas(self, input_text):
         """Deve tratar entradas variadas."""
         result = normalizar(input_text)
@@ -91,6 +99,7 @@ class TestNormalizar:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE CONSTANTES
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestConstantes:
     """Testes para verificar constantes definidas."""
@@ -107,10 +116,18 @@ class TestConstantes:
     def test_numeros_escritos_corretos(self):
         """NUMEROS_ESCRITOS deve mapear corretamente."""
         esperado = {
-            'um': 1, 'uma': 1,
-            'dois': 2, 'duas': 2,
-            'tres': 3, 'quatro': 4, 'cinco': 5,
-            'seis': 6, 'sete': 7, 'oito': 8, 'nove': 9, 'dez': 10
+            'um': 1,
+            'uma': 1,
+            'dois': 2,
+            'duas': 2,
+            'tres': 3,
+            'quatro': 4,
+            'cinco': 5,
+            'seis': 6,
+            'sete': 7,
+            'oito': 8,
+            'nove': 9,
+            'dez': 10,
         }
         assert esperado == NUMEROS_ESCRITOS
 
@@ -118,6 +135,7 @@ class TestConstantes:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE GERAR PATTERNS
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestGerarPatterns:
     """Testes para a função gerar_patterns()."""
@@ -141,12 +159,12 @@ class TestGerarPatterns:
     def test_items_e_variantes_tem_id(self, cardapio):
         """Patterns de ITEM e VARIANTE devem ter id, QTD nao tem."""
         result = gerar_patterns(cardapio)
-        
+
         # ITEM e VARIANTE devem ter id
         for pattern in result:
             if pattern['label'] in ('ITEM', 'VARIANTE'):
-                assert 'id' in pattern, f"Pattern {pattern} nao tem id"
-        
+                assert 'id' in pattern, f'Pattern {pattern} nao tem id'
+
         # QTD pode ou nao ter id (nao e obrigatorio)
         qtd_patterns = [p for p in result if p['label'] == 'QTD']
         assert len(qtd_patterns) > 0
@@ -193,6 +211,7 @@ class TestGerarPatterns:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE CAPTURAR REMOÇÕES
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestCapturarRemocoes:
     """Testes para a função capturar_remocoes()."""
@@ -290,14 +309,18 @@ class TestCapturarRemocoes:
 # TESTES DE EXTRAÇÃO
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestExtrair:
     """Testes para a função extrair()."""
 
-    @pytest.mark.parametrize('mensagem,min_itens', [
-        ('x-salada', 1),
-        ('2 x-salada', 1),
-        ('hamburguer', 1),
-    ])
+    @pytest.mark.parametrize(
+        'mensagem,min_itens',
+        [
+            ('x-salada', 1),
+            ('2 x-salada', 1),
+            ('hamburguer', 1),
+        ],
+    )
     def test_extrai_itens_basicos(self, mensagem, min_itens):
         """Deve extrair itens basicos do cardapio."""
         result = extrair(mensagem)
@@ -314,12 +337,15 @@ class TestExtrair:
             assert 'variante' in item
             assert 'remocoes' in item
 
-    @pytest.mark.parametrize('mensagem', [
-        '',
-        '   ',
-        'qualquer coisa aleatoria',
-        'abcdefghijklmnop',
-    ])
+    @pytest.mark.parametrize(
+        'mensagem',
+        [
+            '',
+            '   ',
+            'qualquer coisa aleatoria',
+            'abcdefghijklmnop',
+        ],
+    )
     def test_mensagem_sem_item_retorna_lista_vazia(self, mensagem):
         """Mensagem sem item conhecido deve retornar lista vazia."""
         result = extrair(mensagem)
@@ -349,13 +375,17 @@ class TestExtrair:
         if result:
             item_id = result[0]['item_id']
             from src.config import get_item_por_id
+
             assert get_item_por_id(item_id) is not None
 
-    @pytest.mark.parametrize('mensagem', [
-        'hamburguer sem cebola',
-        'x-salada sem tomate',
-        'batata sem sal',
-    ])
+    @pytest.mark.parametrize(
+        'mensagem',
+        [
+            'hamburguer sem cebola',
+            'x-salada sem tomate',
+            'batata sem sal',
+        ],
+    )
     def test_extrai_remocoes(self, mensagem):
         """Deve extrair remoções."""
         result = extrair(mensagem)
@@ -376,18 +406,21 @@ class TestExtrair:
 # TESTES DE INTEGRIDADE
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestIntegridade:
     """Testes de integridade do módulo."""
 
     def test_cardapio_tem_itens_para_extracao(self):
         """Cardápio deve ter itens para testar extração."""
         from src.config import get_cardapio
+
         cardapio = get_cardapio()
         assert len(cardapio['itens']) > 0
 
     def test_nomes_itens_normalizados_existem(self):
         """Nomes normalizados dos itens devem existir."""
         from src.config import get_cardapio
+
         cardapio = get_cardapio()
         for item in cardapio['itens']:
             nome_normalizado = normalizar(item['nome'])
@@ -396,6 +429,7 @@ class TestIntegridade:
     def test_aliases_tambem_normalizados(self):
         """Aliases devem ser normalizados corretamente."""
         from src.config import get_cardapio
+
         cardapio = get_cardapio()
         for item in cardapio['itens']:
             if item.get('aliases'):
@@ -407,6 +441,7 @@ class TestIntegridade:
 # ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE EDGE CASES
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestEdgeCases:
     """Testes de casos de borda."""
@@ -450,19 +485,21 @@ class TestEdgeCases:
 # TESTES DE CONSISTÊNCIA
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestConsistencia:
     """Testes de consistência."""
 
     def test_normalizar_e_gerar_patterns_consistentes(self):
         """Patterns devem ser gerados a partir do cardapio."""
         from src.config import get_cardapio
+
         cardapio = get_cardapio()
         patterns = gerar_patterns(cardapio)
-        
+
         # Verificar que existem patterns para os itens do cardapio
         item_ids = {item['id'] for item in cardapio['itens']}
         pattern_ids = {p.get('id') for p in patterns if p.get('id')}
-        
+
         # Os IDs dos items devem aparecer nos patterns
         assert len(item_ids) > 0
         assert len(pattern_ids) > 0
@@ -470,6 +507,7 @@ class TestConsistencia:
     def test_itens_cardapio_tem_ids_unicos(self):
         """IDs dos itens devem ser únicos."""
         from src.config import get_cardapio
+
         cardapio = get_cardapio()
         ids = [item['id'] for item in cardapio['itens']]
         assert len(ids) == len(set(ids))
@@ -479,24 +517,28 @@ class TestConsistencia:
 # TESTES DE extrair_variante
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestExtrairVariante:
     """Testes para extrair_variante()."""
 
     def test_variante_valida_retorna_texto(self):
         """Variante válida para o item deve retornar o texto."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('duplo', 'lanche_001')
         assert result == 'duplo'
 
     def test_variante_valida_com_frase_completa(self):
         """Variante válida em frase deve ser extraída."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('eu quero o duplo', 'lanche_001')
         assert result == 'duplo'
 
     def test_variante_de_outro_item_retorna_none(self):
         """Variante que pertence a outro item deve retornar None."""
         from src.extratores.spacy_extrator import extrair_variante
+
         # 'lata' é variante de bebida_001, não de lanche_001
         result = extrair_variante('lata', 'lanche_001')
         assert result is None
@@ -504,66 +546,77 @@ class TestExtrairVariante:
     def test_variante_inexistente_retorna_none(self):
         """Variante que não existe deve retornar None."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('quadruplo', 'lanche_001')
         assert result is None
 
     def test_mensagem_irrelevante_retorna_none(self):
         """Mensagem sem variante deve retornar None."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('quero pizza', 'lanche_001')
         assert result is None
 
     def test_mensagem_vazia_retorna_none(self):
         """Mensagem vazia deve retornar None."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('', 'lanche_001')
         assert result is None
 
     def test_mensagem_somente_espacos_retorna_none(self):
         """Mensagem com apenas espaços deve retornar None."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('   ', 'lanche_001')
         assert result is None
 
     def test_variante_simples_valida(self):
         """Variante 'simples' deve ser reconhecida para lanche_001."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('simples', 'lanche_001')
         assert result == 'simples'
 
     def test_variante_triplo_valida(self):
         """Variante 'triplo' deve ser reconhecida para lanche_001."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('triplo', 'lanche_001')
         assert result == 'triplo'
 
     def test_variante_pequena_valida(self):
         """Variante 'pequena' deve ser reconhecida para acomp_001."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('pequena', 'acomp_001')
         assert result == 'pequena'
 
     def test_variante_grande_valida(self):
         """Variante 'grande' deve ser reconhecida para acomp_001."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('grande', 'acomp_001')
         assert result == 'grande'
 
     def test_variante_lata_valida_para_bebida(self):
         """Variante 'lata' deve ser reconhecida para bebida_001."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('lata', 'bebida_001')
         assert result == 'lata'
 
     def test_variante_litro_valida_para_bebida(self):
         """Variante '1 litro' deve ser reconhecida para bebida_001."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('1 litro', 'bebida_001')
         assert result == '1 litro'
 
     def test_item_sem_variantes_retorna_none(self):
         """Item sem variantes deve sempre retornar None."""
         from src.extratores.spacy_extrator import extrair_variante
+
         # lanche_002 (X-Salada) não tem variantes
         result = extrair_variante('simples', 'lanche_002')
         assert result is None
@@ -571,5 +624,6 @@ class TestExtrairVariante:
     def test_item_inexistente_retorna_none(self):
         """Item inexistente deve retornar None."""
         from src.extratores.spacy_extrator import extrair_variante
+
         result = extrair_variante('duplo', 'item_inexistente')
         assert result is None

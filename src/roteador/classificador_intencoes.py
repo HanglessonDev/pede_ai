@@ -9,6 +9,7 @@ Example:
     >>> classificar_intencao('quero um xbacon')
     'pedir'
 """
+
 from langchain_ollama import OllamaLLM
 
 from src.config import get_intencoes_validas, get_prompt
@@ -39,7 +40,7 @@ def classificar_intencao(mensagem: str) -> str:
 
     Example:
         >>> from src.roteador import classificar_intencao
-        
+
         >>> classificar_intencao('oi')
         'saudacao'
         >>> classificar_intencao('quero um xtudo')
