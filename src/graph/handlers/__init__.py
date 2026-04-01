@@ -5,9 +5,16 @@ processamento no fluxo de atendimento.
 
 Submódulos:
     clarificacao: Lógica de clarificação de variantes e campos pendentes.
+    pedir: Processamento de pedidos e cálculo de preços.
+
+Example:
+    >>> from src.graph.handlers import ResultadoPedir, ResultadoClarificacao
 """
 
 from dataclasses import dataclass
+
+from .clarificacao import ResultadoClarificacao
+from .pedir import ResultadoPedir
 
 
 @dataclass
@@ -39,3 +46,10 @@ class ResultadoHandler:
             'fila_clarificacao': self.fila,
             'tentativas_clarificacao': self.tentativas,
         }
+
+
+__all__ = [
+    'ResultadoClarificacao',
+    'ResultadoHandler',
+    'ResultadoPedir',
+]
