@@ -69,5 +69,5 @@ docstring-code-format = true
 docstring-code-line-length = "dynamic"
 
 [tool.taskipy.tasks]
-doc = "pdoc src/ -o docs/ --docformat=google"
-doc-serve = "pdoc --port 8080 src/ --docformat=google"
+doc = "pdoc src -o docs/ --docformat=google"
+doc-serve = "pdoc --port 8080 src --docformat=google"
