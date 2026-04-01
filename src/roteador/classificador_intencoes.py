@@ -43,44 +43,41 @@ EXEMPLOS = _cache['exemplos']
 EMBEDDINGS = _cache['embeddings']
 
 
+MAX_CHARS = 500
+
+
 def classificar_intencao_com_confidence(mensagem: str) -> tuple[str, float]:
-    """Classifica intenção usando RAG com confiança.
-
-    Args:
-        mensagem: Mensagem do usuário.
-
-    Returns:
-        Tupla (intent, confidence) onde confidence é a similaridade máxima.
-    """
+    """Classifica intenção usando RAG com confiança."""
     if not mensagem or not mensagem.strip():
-        return (classificar_intencao_fixo(mensagem), 1.0)
+        return classificar_intencao_fixo(mensagem), 1.0
+
+    mensagem = mensagem[:MAX_CHARS]
 
     if not EMBEDDINGS:
-        return (classificar_intencao_fixo(mensagem), 1.0)
+        return classificar_intencao_fixo(mensagem), 1.0
 
     try:
         similares = buscar_similares(mensagem, EXEMPLOS, EMBEDDINGS, top_k=5)
     except Exception:
-        return (classificar_intencao_fixo(mensagem), 1.0)
+        return classificar_intencao_fixo(mensagem), 1.0
 
     if not similares:
-        return (classificar_intencao_fixo(mensagem), 1.0)
+        return classificar_intencao_fixo(mensagem), 1.0
 
     intencao_dominante = calcular_votacao(similares)
     confidence = similares[0]['similaridade']
 
-    if confidence >= 0.5:
-        try:
-            prompt_rag = montar_prompt_rag(mensagem, similares, intencao_dominante)
-            intent, _ = chamar_llm_rag(prompt_rag)
-            return (intent, confidence)
-        except Exception:
-            return (intencao_dominante, confidence)
-    else:
+    if confidence < 0.5:
         intent_fixo = classificar_intencao_fixo(mensagem)
-        if intent_fixo != 'desconhecido':
-            return (intent_fixo, 1.0)
-        return ('desconhecido', confidence)
+        return (intent_fixo if intent_fixo != 'desconhecido' else 'desconhecido'), (1.0 if intent_fixo != 'desconhecido' else confidence)
+
+    try:
+        prompt_rag = montar_prompt_rag(mensagem, similares, intencao_dominante)
+        intent, _ = chamar_llm_rag(prompt_rag)
+    except Exception:
+        intent = intencao_dominante
+
+    return intent, confidence
 
 
 def chamar_llm_rag(prompt: str) -> tuple[str, float]:
