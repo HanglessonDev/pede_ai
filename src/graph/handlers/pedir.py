@@ -5,7 +5,9 @@ adiciona ao carrinho e envia itens pendentes para fila de clarificação.
 
 Example:
     >>> from src.graph.handlers.pedir import processar
-    >>> itens = [{'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}]
+    >>> itens = [
+    ...     {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}
+    ... ]
     >>> result = processar(itens, [])
     >>> len(result.carrinho)
     1
@@ -36,6 +38,9 @@ class ResultadoPedir:
             'carrinho': self.carrinho,
             'fila_clarificacao': self.fila,
             'resposta': self.resposta,
+            'etapa': 'clarificando_variante'
+            if self.fila
+            else 'coletando',  # ← adiciona
         }
 
 
@@ -58,9 +63,7 @@ def _calcular_preco(item: dict, item_data: dict) -> int | None:
 
     variantes_validas = get_variantes(item['item_id'])
     if variante and variante in variantes_validas:
-        variante_obj = next(
-            v for v in item_data['variantes'] if v['opcao'] == variante
-        )
+        variante_obj = next(v for v in item_data['variantes'] if v['opcao'] == variante)
         return variante_obj['preco'] * quantidade
 
     return None
@@ -111,11 +114,15 @@ def processar(
         preco_total = _calcular_preco(item, item_data)
 
         if preco_total is not None:
-            item = dict(item)
-            item['preco'] = preco_total
-            carrinho.append(item)
+            item_formatado = dict(item)
+            item_formatado['preco'] = preco_total
+            carrinho.append(item_formatado)
             itens_adicionados.append(
-                (item_data['nome'], item['quantidade'], item['preco'])
+                (
+                    item_data['nome'],
+                    item_formatado['quantidade'],
+                    item_formatado['preco'],
+                )
             )
         else:
             fila.append(

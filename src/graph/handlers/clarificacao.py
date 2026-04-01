@@ -6,7 +6,20 @@ re-prompt com limite de tentativas e avanço automático na fila.
 
 Example:
     >>> from src.graph.handlers.clarificacao import clarificar
-    >>> fila = [{'item': {'item_id': 'lanche_001', 'quantidade': 1, 'variante': None, 'remocoes': []}, 'item_id': 'lanche_001', 'nome': 'Hambúrguer', 'campo': 'variante', 'opcoes': ['simples', 'duplo']}]
+    >>> fila = [
+    ...     {
+    ...         'item': {
+    ...             'item_id': 'lanche_001',
+    ...             'quantidade': 1,
+    ...             'variante': None,
+    ...             'remocoes': [],
+    ...         },
+    ...         'item_id': 'lanche_001',
+    ...         'nome': 'Hambúrguer',
+    ...         'campo': 'variante',
+    ...         'opcoes': ['simples', 'duplo'],
+    ...     }
+    ... ]
     >>> result = clarificar(fila, 'duplo', 0)
     >>> result.tipo
     'sucesso'
@@ -122,13 +135,9 @@ def clarificar(
     variante = extrair_variante(mensagem, item_id)
 
     if variante is not None:
-        return _processar_variante_valida(
-            fila, item_id, item_dados, variante
-        )
+        return _processar_variante_valida(fila, item_id, item_dados, variante)
 
-    return _processar_variante_invalida(
-        fila, nome, opcoes, tentativas
-    )
+    return _processar_variante_invalida(fila, nome, opcoes, tentativas)
 
 
 def _processar_variante_valida(

@@ -5,12 +5,22 @@ LangGraph para compartilhar informações durante o fluxo de atendimento.
 
 Example:
     >>> from src.graph.state import State, ETAPAS
-    >>> state: State = {'mensagem_atual': '', 'intent': '', 'itens_extraidos': [], 'carrinho': [], 'fila_clarificacao': [], 'etapa': 'inicio', 'resposta': ''}
+    >>> state: State = {
+    ...     'mensagem_atual': '',
+    ...     'intent': '',
+    ...     'itens_extraidos': [],
+    ...     'carrinho': [],
+    ...     'fila_clarificacao': [],
+    ...     'etapa': 'inicio',
+    ...     'resposta': '',
+    ... }
 """
 
 from typing import Literal, TypedDict
 
-ETAPAS = Literal['inicio', 'clarificando_variante', 'confirmando', 'pedindo', 'carrinho']
+ETAPAS = Literal[
+    'inicio', 'clarificando_variante', 'confirmando', 'pedindo', 'carrinho'
+]
 """Literal com todas as etapas válidas do fluxo de atendimento."""
 
 

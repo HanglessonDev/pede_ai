@@ -5,18 +5,30 @@ retornando atualizações parciais do estado.
 
 Example:
     >>> from src.graph.nodes import node_handler_saudacao
-    >>> state = {'mensagem_atual': 'oi', 'intent': 'saudacao', 'itens_extraidos': [], 'carrinho': [], 'fila_clarificacao': [], 'etapa': 'inicio', 'resposta': ''}
+    >>> state = {
+    ...     'mensagem_atual': 'oi',
+    ...     'intent': 'saudacao',
+    ...     'itens_extraidos': [],
+    ...     'carrinho': [],
+    ...     'fila_clarificacao': [],
+    ...     'etapa': 'inicio',
+    ...     'resposta': '',
+    ... }
     >>> result = node_handler_saudacao(state)
     >>> 'resposta' in result
     True
 """
 
-from src.config import get_item_por_id, get_nome_item, get_tenant_nome
+from src.config import get_nome_item, get_tenant_nome
 from src.extratores import extrair
 from src.graph.handlers.clarificacao import clarificar
 from src.graph.handlers.pedir import processar as processar_pedido
 from src.graph.state import State
 from src.roteador import classificar_intencao
+
+
+def node_verificar_etapa(state: State) -> dict:
+    return {}  # não faz nada, só passa adiante
 
 
 def node_router(state: State) -> dict:
@@ -32,13 +44,31 @@ def node_router(state: State) -> dict:
         Dicionário com a chave ``intent`` atualizada.
 
     Example:
-        >>> state = {'mensagem_atual': 'oi', 'intent': '', 'itens_extraidos': [], 'carrinho': [], 'fila_clarificacao': [], 'etapa': 'inicio', 'resposta': ''}
+        >>> state = {
+        ...     'mensagem_atual': 'oi',
+        ...     'intent': '',
+        ...     'itens_extraidos': [],
+        ...     'carrinho': [],
+        ...     'fila_clarificacao': [],
+        ...     'etapa': 'inicio',
+        ...     'resposta': '',
+        ... }
         >>> result = node_router(state)
         >>> 'intent' in result
         True
     """
     intent = classificar_intencao(state.get('mensagem_atual', ''))
     return {'intent': intent}
+
+
+def node_clarificacao(state: State) -> dict:
+    resultado = clarificar(
+        fila=state.get('fila_clarificacao', []),
+        mensagem=state.get('mensagem_atual', ''),
+        tentativas=state.get('tentativas_clarificacao', 0),
+    )
+    carrinho_atualizado = state.get('carrinho', []) + resultado.carrinho
+    return {**resultado.to_dict(), 'carrinho': carrinho_atualizado}
 
 
 def node_extrator(state: State) -> dict:
@@ -120,40 +150,15 @@ def node_handler_carrinho(state: State) -> dict:
 
 
 def node_handler_confirmar(state: State) -> dict:
-    """Processa confirmação do usuário.
-
-    Dependendo da etapa atual, confirma uma variante,
-    finaliza o pedido com o total ou lida com tentativas
-    de clarificação inválidas.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário com ``resposta`` e opcionalmente ``etapa``,
-        ``carrinho``, ``fila_clarificacao`` e ``tentativas_clarificacao``
-        atualizados.
-    """
-    etapa = state.get('etapa', '')
     carrinho = state.get('carrinho', [])
-
-    match etapa:
-        case 'clarificando_variante':
-            resultado = clarificar(
-                fila=state.get('fila_clarificacao', []),
-                mensagem=state.get('mensagem_atual', ''),
-                tentativas=state.get('tentativas_clarificacao', 0),
-            )
-            # Mesclar carrinho existente com novo carrinho do handler
-            carrinho_atualizado = carrinho + resultado.carrinho
-            return {**resultado.to_dict(), 'carrinho': carrinho_atualizado}
-        case _:
-            if carrinho:
-                total = sum(item.get('preco', 0) for item in carrinho)
-                resposta = f"Pedido confirmado! Total: R$ {total/100:.2f}"
-                return {'resposta': resposta, 'etapa': 'finalizado'}
-
-            return {'resposta': 'Não tenho nada no carrinho para confirmar.'}
+    if not carrinho:
+        return {'resposta': 'Não há pedido para confirmar.'}
+    total = sum(item.get('preco', 0) for item in carrinho)
+    return {
+        'resposta': f'Pedido confirmado! Total: R$ {total / 100:.2f}',
+        'etapa': 'finalizado',
+        'carrinho': [],  # limpa carrinho após confirmar
+    }
 
 
 def node_handler_cancelar(state: State) -> dict:
