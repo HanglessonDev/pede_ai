@@ -19,7 +19,9 @@ INTENCOES_VALIDAS = get_intencoes_validas()
 PROMPT = get_prompt('classificador_intencoes')
 
 
-modelo_llm = OllamaLLM(model='qwen3.5:2b', temperature=0, reasoning=False)
+modelo_llm = OllamaLLM(
+    model='qwen3.5:2b', temperature=0, reasoning=False, num_ctx=512, num_predict=10
+)
 
 
 def classificar_intencao(mensagem: str) -> str:

@@ -11,42 +11,39 @@ classificador_intencoes:
     - cancelar
   prompt: |
     Classifique a intenção do usuário em UMA palavra.
-    Responda APENAS a palavra, sem pontuação, sem explicação.
+    Responda APENAS o NOME DA INTENÇÃO exatamente como listado abaixo.
 
-    INTENÇÕES POSSÍVEIS:
-    - saudacao: cliente cumprimenta
-    - pedir: cliente quer adicionar item
-    - remover: cliente quer tirar item do carrinho
-    - trocar: cliente quer mudar item ou quantidade
-    - carrinho: cliente quer ver itens ou total
-    - duvida: cliente tem pergunta
-    - confirmar: cliente responde sim
-    - negar: cliente responde não
-    - cancelar: cliente quer cancelar tudo
+    INTENÇÕES VÁLIDAS (use APENAS estes nomes):
+    - saudacao: cumprimentos (oi, olá, bom dia, boa noite, e aí)
+    - pedir: quer adicionar itens (quero, me vê, manda um, quero um)
+    - remover: quer tirar itens (tira, sem, remove, tira, não quero)
+    - trocar: quer mudar itens (troca, muda, troca por, prefiro)
+    - carrinho: quer ver o pedido (mostra, carrinho, total, quanto, meu pedido)
+    - duvida: perguntas sobre o serviço (entregam, horário, preço, demora)
+    - confirmar: concorda, confirma, diz sim, quer prosseguir (ok, sim, pode, confirmar, fechar, isso, pode ser, com certeza)
+    - negar: discorda, diz não, recusa (não, nao, não quero, de jeito nenhum)
+    - cancelar: quer cancelar tudo (cancela, esquece, desiste, anula, volta atrás)
 
-    SE HOUVER MÚLTIPLAS INTENÇÕES, retorne a MAIS IMPORTANTE:
+    IMPORTANTE: Responda "pedir" (não "pedido"), "confirmar" (não "confirmou").
+
+    REGRAS DE DECISÃO:
+    - "confirmar", "pedido", "fechar", "ok", "isso" → confirmar
+    - "cancelar", "desistir", "anular", "esquecer" → cancelar
+    - ATENÇÃO: "perdido" é erro de digitação para "pedido" → confirmar (NÃO cancelar)
+    - ATENÇÃO: "perdir" é erro de digitação para "pedir" → pedir
+
+    PRIORIDADE (se múltiplas intenções):
     cancelar > remover > trocar > pedir > carrinho > duvida > confirmar > negar > saudacao
 
     EXEMPLOS:
-    "oi" → saudacao
-    "bom dia" → saudacao
     "bom dia, quero um xtudo" → pedir
-    "2 xbacon" → pedir
-    "quero uma pizza" → pedir
-    "tira a coca" → remover
-    "sem a batata" → remover
-    "muda pra xsalada" → trocar
-    "troca coca por suco" → trocar
-    "me mostra meu pedido" → carrinho
-    "qual o total?" → carrinho
-    "vocês entregam?" → duvida
-    "qual o preço do xbacon?" → duvida
+    "oi, cancela tudo" → cancelar
     "sim" → confirmar
     "pode ser" → confirmar
-    "não" → negar
-    "cancela tudo" → cancelar
+    "confirmar o pedido" → confirmar
+    "pode confirmar" → confirmar
+    "cancela" → cancelar
     "esquece" → cancelar
-    "oi, cancela tudo" → cancelar
 
     SUA VEZ:
     "{mensagem}" →

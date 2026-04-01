@@ -70,7 +70,7 @@ class TestGetPrompt:
     def test_prompt_contem_instrucoes(self):
         """Prompt deve conter instruções de classificação."""
         result = get_prompt('classificador_intencoes')
-        assert 'INTENÇÕES POSSÍVEIS' in result
+        assert 'INTENÇÕES VÁLIDAS' in result
         assert 'Classifique' in result
 
     def test_prompt_inexistente_lanca_key_error(self):

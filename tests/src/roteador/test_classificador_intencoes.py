@@ -239,7 +239,7 @@ class TestPrompt:
         prompt = get_prompt('classificador_intencoes')
 
         assert 'Classifique' in prompt
-        assert 'INTENÇÕES POSSÍVEIS' in prompt
+        assert 'INTENÇÕES VÁLIDAS' in prompt
         assert 'EXEMPLOS' in prompt
 
     def test_prompt_contem_todas_intencoes(self):
