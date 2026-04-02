@@ -19,6 +19,7 @@ Example:
 from dataclasses import dataclass, field
 
 from src.config import get_item_por_id, get_nome_item, get_preco_item, get_variantes
+from src.graph.state import RetornoNode
 
 
 @dataclass
@@ -35,7 +36,7 @@ class ResultadoPedir:
     fila: list = field(default_factory=list)
     resposta: str = ''
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> RetornoNode:
         """Converte para dicionário compatível com LangGraph State."""
         return {
             'carrinho': self.carrinho,

@@ -26,15 +26,15 @@ from src.config import get_nome_item, get_tenant_nome
 from src.extratores import extrair
 from src.graph.handlers.clarificacao import clarificar
 from src.graph.handlers.pedir import processar as processar_pedido
-from src.graph.state import State
+from src.graph.state import RetornoNode, State
 from src.roteador.classificador_intencoes import classificar_intencao_com_confidence
 
 
-def node_verificar_etapa(state: State) -> dict:
+def node_verificar_etapa(state: State) -> RetornoNode:
     return {}  # não faz nada, só passa adiante
 
 
-def node_router(state: State) -> dict:
+def node_router(state: State) -> RetornoNode:
     """Classifica a intenção da mensagem e atualiza o estado.
 
     Nó de roteamento que envia a mensagem atual para o classificador
@@ -68,17 +68,22 @@ def node_router(state: State) -> dict:
     return {'intent': intent, 'confidence': confidence}
 
 
-def node_clarificacao(state: State) -> dict:
+def node_clarificacao(state: State) -> RetornoNode:
     resultado = clarificar(
         fila=state.get('fila_clarificacao', []),
         mensagem=state.get('mensagem_atual', ''),
         tentativas=state.get('tentativas_clarificacao', 0),
     )
     carrinho_atualizado = state.get('carrinho', []) + resultado.carrinho
-    return {**resultado.to_dict(), 'carrinho': carrinho_atualizado}
+    return {
+        'carrinho': carrinho_atualizado,
+        'fila_clarificacao': resultado.fila,
+        'resposta': resultado.resposta,
+        'etapa': resultado.etapa,
+    }
 
 
-def node_extrator(state: State) -> dict:
+def node_extrator(state: State) -> RetornoNode:
     """Extrai itens do cardápio da mensagem do usuário.
 
     Nó de extração que processa a mensagem com o extrator spaCy
@@ -96,7 +101,7 @@ def node_extrator(state: State) -> dict:
     return {'itens_extraidos': []}
 
 
-def node_handler_pedir(state: State) -> dict:
+def node_handler_pedir(state: State) -> RetornoNode:
     """Processa itens extraídos e os adiciona ao carrinho.
 
     Para cada item extraído, verifica se possui preço fixo ou variantes.
@@ -115,7 +120,7 @@ def node_handler_pedir(state: State) -> dict:
     return resultado.to_dict()
 
 
-def node_handler_saudacao(state: State) -> dict:
+def node_handler_saudacao(state: State) -> RetornoNode:
     """Gera resposta de saudação com o nome do restaurante.
 
     Args:
@@ -129,7 +134,7 @@ def node_handler_saudacao(state: State) -> dict:
     return {'resposta': resposta, 'etapa': 'saudacao'}
 
 
-def node_handler_carrinho(state: State) -> dict:
+def node_handler_carrinho(state: State) -> RetornoNode:
     """Gera resposta com o conteúdo atual do carrinho.
 
     Lista todos os itens no carrinho com quantidades e preços,
@@ -156,7 +161,7 @@ def node_handler_carrinho(state: State) -> dict:
     return {'resposta': resposta, 'etapa': 'carrinho'}
 
 
-def node_handler_confirmar(state: State) -> dict:
+def node_handler_confirmar(state: State) -> RetornoNode:
     carrinho = state.get('carrinho', [])
     if not carrinho:
         return {'resposta': 'Não há pedido para confirmar.'}
@@ -168,13 +173,25 @@ def node_handler_confirmar(state: State) -> dict:
     }
 
 
-def node_handler_cancelar(state: State) -> dict:
+def node_handler_cancelar(state: State) -> RetornoNode:
     """Processa cancelamento do pedido.
 
     Args:
         state: Estado atual do grafo de atendimento.
 
     Returns:
-        Dicionário vazio (a ser implementado).
+        Dicionário com ``resposta``, ``etapa`` e ``carrinho`` atualizados.
+        Retorna mensagem de carrinho vazio se não houver itens.
     """
-    ...
+    carrinho = state.get('carrinho', [])
+    if not carrinho:
+        return {'resposta': 'Não há pedido para cancelar.', 'etapa': 'inicio'}
+
+    total = sum(item.get('preco', 0) for item in carrinho)
+    return {
+        'resposta': f'Pedido cancelado. Total descartado: R$ {total / 100:.2f}',
+        'etapa': 'inicio',
+        'carrinho': [],
+        'fila_clarificacao': [],
+        'tentativas_clarificacao': 0,
+    }

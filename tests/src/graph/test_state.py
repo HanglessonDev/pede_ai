@@ -115,6 +115,9 @@ class TestETAPAS:
             'confirmando',
             'pedindo',
             'carrinho',
+            'saudacao',
+            'finalizado',
+            'coletando',
         }
         assert set(args) == etapas_esperadas
 
@@ -126,6 +129,9 @@ class TestETAPAS:
             'confirmando',
             'pedindo',
             'carrinho',
+            'saudacao',
+            'finalizado',
+            'coletando',
         ],
     )
     def test_etapas_validas(self, etapa):
@@ -136,7 +142,7 @@ class TestETAPAS:
     def test_etapa_invalida_nao_esta(self):
         """Etapas inválidas não devem estar no Literal."""
         args = get_args(ETAPAS)
-        etapas_invalidas = {'finalizado', 'cancelado', 'erro', 'outro'}
+        etapas_invalidas = {'cancelado', 'erro', 'outro'}
         for inv in etapas_invalidas:
             assert inv not in args
 

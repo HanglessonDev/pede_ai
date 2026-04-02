@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 
 from src.config import get_item_por_id, get_nome_item
 from src.extratores import extrair_variante
+from src.graph.state import ETAPAS, RetornoNode
 
 
 MAX_TENTATIVAS = 3
@@ -53,12 +54,12 @@ class ResultadoClarificacao:
 
     tipo: str
     resposta: str
-    etapa: str
+    etapa: ETAPAS
     carrinho: list = field(default_factory=list)
     fila: list = field(default_factory=list)
     tentativas: int = 0
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> RetornoNode:
         """Converte para dicionário compatível com LangGraph State."""
         return {
             'resposta': self.resposta,
