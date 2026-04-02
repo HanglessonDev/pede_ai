@@ -6,7 +6,7 @@ para extrair informações de mensagens do usuário.
 
 Example:
     ```python
-    from src.extratores import extrair, extrair_variante
+    from src.extratores import extrair, extrair_variante, extrair_item_carrinho
 
     resultado = extrair('um x-salada sem tomate')
     extrair_variante('duplo', 'lanche_001')
@@ -14,6 +14,10 @@ Example:
     ```
 """
 
-from src.extratores.spacy_extrator import extrair, extrair_variante
+from src.extratores.spacy_extrator import (
+    extrair,
+    extrair_variante,
+    extrair_item_carrinho,
+)
 
-__all__ = ['extrair', 'extrair_variante']
+__all__ = ['extrair', 'extrair_item_carrinho', 'extrair_variante']

@@ -17,6 +17,7 @@ from src.graph.nodes import (
     node_handler_saudacao,
     node_handler_carrinho,
     node_handler_confirmar,
+    node_handler_remover,
 )
 from src.graph.state import State
 
@@ -220,6 +221,123 @@ class TestNodeHandlerConfirmar:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# TESTES DE NODE_HANDLER_REMOVER
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestNodeHandlerRemover:
+    """Testes para node_handler_remover()."""
+
+    def test_remover_carrinho_vazio(self):
+        """Remover com carrinho vazio deve retornar mensagem de erro."""
+        state: State = {
+            'mensagem_atual': 'tira a coca',
+            'intent': 'remover',
+            'itens_extraidos': [],
+            'carrinho': [],
+            'fila_clarificacao': [],
+            'etapa': 'carrinho',
+            'resposta': '',
+            'tentativas_clarificacao': 0,
+            'confidence': 0.0,
+        }  # pyright: ignore[reportAssignmentType]
+        result = node_handler_remover(state)
+        assert 'vazio' in result['resposta'].lower()
+        assert result['etapa'] == 'inicio'
+
+    def test_remover_item_inexistente(self):
+        """Remover item que não existe deve retornar mensagem de erro."""
+        state: State = {
+            'mensagem_atual': 'tira pizza',
+            'intent': 'remover',
+            'itens_extraidos': [],
+            'carrinho': [
+                {
+                    'item_id': 'lanche_001',
+                    'quantidade': 2,
+                    'preco': 3000,
+                    'variante': None,
+                },
+            ],
+            'fila_clarificacao': [],
+            'etapa': 'carrinho',
+            'resposta': '',
+            'tentativas_clarificacao': 0,
+            'confidence': 0.0,
+        }  # pyright: ignore[reportAssignmentType]
+        result = node_handler_remover(state)
+        assert 'não encontrei' in result['resposta'].lower()
+        assert result['etapa'] == 'carrinho'
+
+    def test_remover_item_simples(self):
+        """Remover item simples deve funcionar."""
+        state: State = {
+            'mensagem_atual': 'tira a coca',
+            'intent': 'remover',
+            'itens_extraidos': [],
+            'carrinho': [
+                {
+                    'item_id': 'lanche_002',
+                    'quantidade': 2,
+                    'preco': 1800,
+                    'variante': None,
+                },
+                {
+                    'item_id': 'bebida_001',
+                    'quantidade': 1,
+                    'preco': 500,
+                    'variante': 'lata',
+                },
+            ],
+            'fila_clarificacao': [],
+            'etapa': 'carrinho',
+            'resposta': '',
+            'tentativas_clarificacao': 0,
+            'confidence': 0.0,
+        }  # pyright: ignore[reportAssignmentType]
+        result = node_handler_remover(state)
+        assert (
+            'removido' in result['resposta'].lower()
+            or 'Itens removidos' in result['resposta']
+        )
+        assert len(result['carrinho']) == 1
+        assert result['carrinho'][0]['item_id'] == 'lanche_002'
+
+    def test_remover_tudo(self):
+        """'tira tudo' deve remover todos os itens."""
+        state: State = {
+            'mensagem_atual': 'tira tudo',
+            'intent': 'remover',
+            'itens_extraidos': [],
+            'carrinho': [
+                {
+                    'item_id': 'lanche_002',
+                    'quantidade': 2,
+                    'preco': 1800,
+                    'variante': None,
+                },
+                {
+                    'item_id': 'bebida_001',
+                    'quantidade': 1,
+                    'preco': 500,
+                    'variante': 'lata',
+                },
+            ],
+            'fila_clarificacao': [],
+            'etapa': 'carrinho',
+            'resposta': '',
+            'tentativas_clarificacao': 0,
+            'confidence': 0.0,
+        }  # pyright: ignore[reportAssignmentType]
+        result = node_handler_remover(state)
+        assert not result['carrinho']
+        assert (
+            'todos os itens' in result['resposta'].lower()
+            or 'removido' in result['resposta'].lower()
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # TESTES DE INTEGRIDADE
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -235,3 +353,4 @@ class TestIntegridade:
         assert callable(node_handler_carrinho)
         assert callable(node_handler_pedir)
         assert callable(node_handler_confirmar)
+        assert callable(node_handler_remover)

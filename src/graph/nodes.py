@@ -23,7 +23,7 @@ Example:
 """
 
 from src.config import get_nome_item, get_tenant_nome
-from src.extratores import extrair
+from src.extratores import extrair, extrair_item_carrinho
 from src.graph.handlers.clarificacao import clarificar
 from src.graph.handlers.pedir import processar as processar_pedido
 from src.graph.state import RetornoNode, State
@@ -194,4 +194,77 @@ def node_handler_cancelar(state: State) -> RetornoNode:
         'carrinho': [],
         'fila_clarificacao': [],
         'tentativas_clarificacao': 0,
+    }
+
+
+def node_handler_remover(state: State) -> RetornoNode:
+    """Processa remoção de itens do pedido.
+
+    Extrai os itens mencionados na mensagem e remove do carrinho.
+    Suporta remoção por nome do item e por variante específica.
+
+    Args:
+        state: Estado atual do grafo de atendimento.
+
+    Returns:
+        Dicionário com ``resposta``, ``etapa`` e ``carrinho`` atualizados.
+        Retorna mensagem de erro se não encontrar itens para remover.
+
+    Note:
+        MVP (Fase 1):
+        - Remove TODOS os matches (ignora quantidade)
+        - Match parcial por nome
+        - "tira tudo" limpa carrinho
+        TODO (Fase 2):
+        - Suportar quantidade ("tira UMA coca")
+        - Clarificação quando ambíguo
+    """
+    carrinho = state.get('carrinho', [])
+    mensagem = state.get('mensagem_atual', '')
+
+    if not carrinho:
+        return {
+            'resposta': 'Seu carrinho está vazio! Não há nada para remover.',
+            'etapa': 'inicio',
+        }
+
+    # Extrair itens para remover
+    itens_para_remover = extrair_item_carrinho(mensagem, carrinho)
+
+    if not itens_para_remover:
+        return {
+            'resposta': 'Não encontrei esse item no seu carrinho.',
+            'etapa': 'carrinho',
+        }
+
+    # Remover itens do carrinho (de trás para frente para preservar índices)
+    carrinho_atualizado = carrinho.copy()
+    indices_para_remover = set()
+    for item in itens_para_remover:
+        indices_para_remover.update(item['indices'])
+
+    # Remove em ordem decrescente para não corromper índices
+    for indice in sorted(indices_para_remover, reverse=True):
+        carrinho_atualizado.pop(indice)
+
+    if not carrinho_atualizado:
+        return {
+            'resposta': 'Todos os itens foram removidos do seu pedido.',
+            'etapa': 'inicio',
+            'carrinho': carrinho_atualizado,
+        }
+
+    # Calcular novo total
+    total = sum(item.get('preco', 0) for item in carrinho_atualizado)
+    linhas = []
+    for item in carrinho_atualizado:
+        nome = get_nome_item(item['item_id']) or item['item_id']
+        linhas.append(f'{item["quantidade"]}x {nome} - R$ {item["preco"] / 100:.2f}')
+
+    return {
+        'resposta': 'Itens removidos!\nSeu pedido:\n'
+        + '\n'.join(linhas)
+        + f'\nTotal: R$ {total / 100:.2f}',
+        'etapa': 'carrinho',
+        'carrinho': carrinho_atualizado,
     }

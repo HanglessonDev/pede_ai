@@ -25,7 +25,7 @@ import unicodedata
 
 import spacy
 
-from src.config import get_cardapio
+from src.config import get_cardapio, get_nome_item
 
 
 # ── Constantes ──────────────────────────────────────────────────────────────
@@ -391,4 +391,167 @@ def extrair_variante(mensagem: str, item_id: str) -> str | None:
     return None
 
 
-__all__ = ['extrair']
+def _buscar_matches_no_carrinho(
+    itens_mencionados: list[dict], carrinho: list
+) -> list[dict]:
+    """Busca itens mencionados no carrinho e retorna matches."""
+    resultados = []
+    indices_ja_adicionados = set()
+
+    for item_mencionado in itens_mencionados:
+        texto_mencionado = item_mencionado['texto']
+        variante_mencionada = item_mencionado['variante']
+
+        for i, item_carrinho in enumerate(carrinho):
+            if i in indices_ja_adicionados:
+                continue
+
+            nome_item = (
+                get_nome_item(item_carrinho['item_id']) or item_carrinho['item_id']
+            )
+            nome_normalizado = normalizar(nome_item)
+            variante_carrinho = normalizar(item_carrinho.get('variante') or '')
+
+            match_nome = _verificar_match_nome(
+                texto_mencionado,
+                item_mencionado['ent_id'],
+                item_carrinho['item_id'],
+                nome_normalizado,
+            )
+            match_variante = _verificar_match_variante(
+                variante_mencionada, variante_carrinho
+            )
+
+            if match_nome and match_variante:
+                _adicionar_ou_atualizar_resultado(
+                    resultados, item_carrinho, i, indices_ja_adicionados
+                )
+
+    return resultados
+
+
+def _verificar_match_nome(
+    texto_mencionado: str | None,
+    ent_id: str,
+    item_id_carrinho: str,
+    nome_normalizado: str,
+) -> bool:
+    """Verifica se há match por nome ou ID."""
+    if texto_mencionado and texto_mencionado in nome_normalizado:
+        return True
+    return ent_id == item_id_carrinho
+
+
+def _verificar_match_variante(
+    variante_mencionada: str | None, variante_carrinho: str
+) -> bool:
+    """Verifica se há match por variante."""
+    if variante_mencionada:
+        return variante_mencionada in variante_carrinho
+    return True
+
+
+def _adicionar_ou_atualizar_resultado(
+    resultados: list[dict],
+    item_carrinho: dict,
+    indice: int,
+    indices_ja_adicionados: set,
+):
+    """Adiciona ou atualiza resultado existente."""
+    existente = next(
+        (r for r in resultados if r['item_id'] == item_carrinho['item_id']), None
+    )
+    if existente:
+        existente['indices'].append(indice)
+    else:
+        resultados.append(
+            {
+                'item_id': item_carrinho['item_id'],
+                'variante': item_carrinho.get('variante'),
+                'indices': [indice],
+            }
+        )
+    indices_ja_adicionados.add(indice)
+
+
+def extrair_item_carrinho(mensagem: str, carrinho: list) -> list[dict]:
+    """
+    Extrai itens do carrinho para remoção com base na mensagem do usuário.
+
+    Usa spaCy para identificar itens mencionados e faz match com os itens
+    no carrinho. Suporta match parcial por nome e match exato com variantes.
+
+    Args:
+        mensagem: Texto da mensagem do usuário (ex: "tira a coca", "tira tudo").
+        carrinho: Lista de itens no carrinho atual.
+
+    Returns:
+        Lista de dicionários com:
+            - item_id: ID do item a remover.
+            - variante: Variante específica ou None.
+            - indices: Lista de índices no carrinho que matcham.
+
+    Note:
+        TODO (Fase 2):
+        - Suportar quantidade ("tira UMA coca" → remove 1 unidade)
+        - Clarificação quando ambíguo (2 itens similares no carrinho)
+        - Remoção de variantes específicas em frases como "sem cebola"
+
+        MVP (Fase 1):
+        - Remove TODOS os matches (ignora quantidade)
+        - Match parcial por nome normalizado
+        - "tira tudo" limpa carrinho inteiro
+        - Match exato se mencionar variante
+
+    Example:
+        ```python
+        carrinho = [
+            {'item_id': 'lanche_001', 'quantidade': 2, 'variante': None},
+            {'item_id': 'bebida_001', 'quantidade': 1, 'variante': 'lata'},
+        ]
+        extrair_item_carrinho('tira a coca', carrinho)
+        [{'item_id': 'bebida_001', 'variante': 'lata', 'indices': [1]}]
+        ```
+    """
+    if not mensagem or not mensagem.strip():
+        return []
+
+    if not carrinho:
+        return []
+
+    # Caso especial: "tira tudo"
+    if 'tira tudo' in normalizar(mensagem) or 'remove tudo' in normalizar(mensagem):
+        return [
+            {
+                'item_id': item['item_id'],
+                'variante': item.get('variante'),
+                'indices': [i],
+            }
+            for i, item in enumerate(carrinho)
+        ]
+
+    # Extrair itens mencionados na mensagem
+    doc = _nlp(mensagem)
+    itens_mencionados = []
+
+    for ent in doc.ents:
+        if ent.label_ == 'ITEM':
+            itens_mencionados.append(
+                {'texto': normalizar(ent.text), 'variante': None, 'ent_id': ent.ent_id_}
+            )
+        elif ent.label_ == 'VARIANTE':
+            if itens_mencionados:
+                itens_mencionados[-1]['variante'] = normalizar(ent.text)
+            else:
+                itens_mencionados.append(
+                    {
+                        'texto': '',
+                        'variante': normalizar(ent.text),
+                        'ent_id': ent.ent_id_,
+                    }
+                )
+
+    return _buscar_matches_no_carrinho(itens_mencionados, carrinho)
+
+
+__all__ = ['extrair', 'extrair_item_carrinho', 'extrair_variante']
