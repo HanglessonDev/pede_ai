@@ -58,7 +58,7 @@ class TestStateTypedDict:
             ('itens_extraidos', list),
             ('carrinho', list),
             ('fila_clarificacao', list),
-            ('etapa', str),
+            ('etapa', ETAPAS),
             ('resposta', str),
             ('tentativas_clarificacao', int),
         ],
@@ -156,8 +156,7 @@ class TestConsistencia:
     """Testes de consistência entre State e ETAPAS."""
 
     def test_etapa_do_state_compatible_com_etapas(self):
-        """O campo 'etapa' do State deve ser compativel com ETAPAS."""
-        # O campo 'etapa' e str, mas deve aceitar valores de ETAPAS
+        """O campo 'etapa' do State deve ser ETAPAS."""
         assert 'etapa' in State.__annotations__
 
     def test_state_pode_armazenar_qualquer_etapa(self):

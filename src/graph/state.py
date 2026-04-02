@@ -56,7 +56,7 @@ class State(TypedDict):
     itens_extraidos: list
     carrinho: list
     fila_clarificacao: list
-    etapa: str
+    etapa: ETAPAS
     resposta: str
     tentativas_clarificacao: int
 
