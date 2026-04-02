@@ -105,4 +105,6 @@ class TestMontarPromptRag:
 
         prompt = montar_prompt_rag('teste', similares, 'saudacao')
 
-        assert prompt.count('→') <= 6  # 5 exemplos + 1 linha "SUA VEZ"
+        # Conta apenas exemplos na seção EXEMPLOS (entre "EXEMPLOS:" e "SUA VEZ:")
+        secao_exemplos = prompt.split('EXEMPLOS:')[1].split('SUA VEZ:')[0]
+        assert secao_exemplos.count('→') == 5  # exatamente 5 exemplos

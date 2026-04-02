@@ -38,7 +38,7 @@ itens:
   - id: lanche_001
     nome: Hambúrguer
     categoria: lanche
-    aliases: [hamburguer, burger, hambug]
+    aliases: [hamburguer, burger, hambug, hamburger]
     preco: null
     variantes:
       - opcao: simples

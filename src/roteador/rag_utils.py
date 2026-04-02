@@ -120,6 +120,18 @@ INTENÇÕES VÁLIDAS: saudacao, pedir, remover, trocar, carrinho, duvida, confir
 Use os exemplos abaixo como referência. A maioria dos exemplos similares
 aponta para a intenção "{intencao_dominante}".
 
+CRITÉRIOS DE CLASSIFICAÇÃO:
+1. VERBOS DE AÇÃO têm prioridade:
+   - "quero", "me vê", "manda", "pede" → SEMPRE pedir
+   - "tira", "sem", "remove" → SEMPRE remover
+   - "troca", "muda", "prefiro" → SEMPRE trocar
+   - "mostra", "veja", "ver" + "pedido/carrinho" → SEMPRE carrinho
+2. ATENÇÃO: "pedido" (substantivo) ≠ "pedir" (verbo):
+   - "meu pedido", "mostra o pedido" → carrinho (NÃO pedir)
+3. Frases como "quero um X" são SEMPRE "pedir"
+   - Ex: "quero um x-salada" → pedir (NÃO trocar)
+   - Ex: "quero um x tudo" → pedir
+
 EXEMPLOS:
 {exemplos_formatados}
 

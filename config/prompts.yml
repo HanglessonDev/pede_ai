@@ -32,18 +32,35 @@ classificador_intencoes:
     - ATENÇÃO: "perdido" é erro de digitação para "pedido" → confirmar (NÃO cancelar)
     - ATENÇÃO: "perdir" é erro de digitação para "pedir" → pedir
 
-    PRIORIDADE (se múltiplas intenções):
+    CRITÉRIOS DE CLASSIFICAÇÃO (leia na ordem):
+    1. VERBOS DE AÇÃO têm prioridade sobre substantivos:
+       - "quero", "me vê", "manda", "pede" → SEMPRE pedir (mesmo que mencione itens)
+       - "tira", "sem", "remove" → SEMPRE remover
+       - "troca", "muda", "prefiro" → SEMPRE trocar
+       - "mostra", "veja", "ver", "olhar" + "pedido/carrinho" → SEMPRE carrinho
+    2. ATENÇÃO: "pedido" como SUBSTANTIVO ≠ verbo "pedir":
+       - "meu pedido", "mostra o pedido", "ver meu pedido" → carrinho (NÃO pedir)
+       - "quero pedir", "vou pedir" → pedir
+    3. Se NÃO houver verbo de ação, use o contexto geral
+    4. Frases como "quero um X" ou "me vê um X" são SEMPRE "pedir"
+       - Ex: "quero um x-salada" → pedir (NÃO trocar, mesmo que "xsalada" apareça em outros contextos)
+       - Ex: "quero um x tudo" → pedir
+       - Ex: "me vê um x-bacon" → pedir
+
+    PRIORIDADE (apenas se NÃO houver verbo de ação claro):
     cancelar > remover > trocar > pedir > carrinho > duvida > confirmar > negar > saudacao
 
     EXEMPLOS:
-    "bom dia, quero um xtudo" → pedir
+    "bom dia, quero um xtudo" → pedir (verbo "quero" domina)
+    "quero um x-salada" → pedir (verbo "quero" domina)
+    "quero um x tudo" → pedir (verbo "quero" domina)
+    "me vê um xsalada" → pedir (verbo "me vê" domina)
     "oi, cancela tudo" → cancelar
     "sim" → confirmar
     "pode ser" → confirmar
-    "confirmar o pedido" → confirmar
-    "pode confirmar" → confirmar
-    "cancela" → cancelar
-    "esquece" → cancelar
+    "muda pra xsalada" → trocar (verbo "muda" sem "quero")
+    "troca coca por suco" → trocar (verbo "troca")
+    "tira a coca" → remover
 
     SUA VEZ:
     "{mensagem}" →

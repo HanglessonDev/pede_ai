@@ -20,18 +20,18 @@ from typing import Any
 from langchain_ollama import OllamaLLM
 
 from src.config import get_intencoes_validas, get_prompt
-from src.roteador.rag_utils import (
-    buscar_similares,
-    calcular_votacao,
-    montar_prompt_rag,
-)
+from src.roteador.rag_utils import buscar_similares, calcular_votacao, montar_prompt_rag
 
 
 INTENCOES_VALIDAS = get_intencoes_validas()
 PROMPT_FIXO = get_prompt('classificador_intencoes')
 
 modelo_llm = OllamaLLM(
-    model='qwen3.5:2b', temperature=0, reasoning=False, num_ctx=512, num_predict=10
+    model='qwen3.5:2b',
+    temperature=0,
+    reasoning=False,
+    num_ctx=512,
+    num_predict=10,
 )
 
 CACHE_PATH = Path(__file__).parent / 'embedding_cache.json'
