@@ -4,9 +4,12 @@ Configuração de Prompts e Tenant do Pede AI.
 Fornece acesso centralizado a prompts, intenções válidas e informações do tenant.
 
 Example:
-    >>> from src.config import get_prompt, get_intencoes_validas, get_tenant_nome
-    >>> prompt = get_prompt('classificador_intencoes')
-    >>> nome = get_tenant_nome()
+    ```python
+    from src.config import get_prompt, get_intencoes_validas, get_tenant_nome
+
+    prompt = get_prompt('classificador_intencoes')
+    nome = get_tenant_nome()
+    ```
 """
 
 from __future__ import annotations
@@ -76,8 +79,10 @@ def get_tenant_info() -> dict[str, str]:
         Dicionário com tenant_id e tenant_nome.
 
     Example:
-        >>> get_tenant_info()
+        ```python
+        get_tenant_info()
         {'tenant_id': 'restaurante_teste', 'tenant_nome': 'Lanchonete do Zé'}
+        ```
     """
     cardapio = get_cardapio()
     return {

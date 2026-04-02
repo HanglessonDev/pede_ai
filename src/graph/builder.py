@@ -4,12 +4,15 @@ Constroi e compila o grafo de atendimento com nodes,
 arestas condicionais e roteamento por intent.
 
 Example:
-    >>> from langgraph.checkpoint.sqlite import SqliteSaver
-    >>> from src.graph.builder import criar_graph
-    >>> import sqlite3
-    >>> conn = sqlite3.connect(':memory:')
-    >>> checkpointer = SqliteSaver(conn)
-    >>> graph = criar_graph(checkpointer)
+    ```python
+    from langgraph.checkpoint.sqlite import SqliteSaver
+    from src.graph.builder import criar_graph
+    import sqlite3
+
+    conn = sqlite3.connect(':memory:')
+    checkpointer = SqliteSaver(conn)
+    graph = criar_graph(checkpointer)
+    ```
 """
 
 from langgraph.graph import END, StateGraph
@@ -59,12 +62,15 @@ def criar_graph(checkpointer):
         Grafo compilado pronto para uso com invoke().
 
     Example:
-        >>> from langgraph.checkpoint.sqlite import SqliteSaver
-        >>> import sqlite3
-        >>> conn = sqlite3.connect('./pede_ai.db')
-        >>> graph = criar_graph(SqliteSaver(conn))
-        >>> config = {'configurable': {'thread_id': 'usuario_001'}}
-        >>> result = graph.invoke({'mensagem_atual': 'oi'}, config)
+        ```python
+        from langgraph.checkpoint.sqlite import SqliteSaver
+        import sqlite3
+
+        conn = sqlite3.connect('./pede_ai.db')
+        graph = criar_graph(SqliteSaver(conn))
+        config = {'configurable': {'thread_id': 'usuario_001'}}
+        result = graph.invoke({'mensagem_atual': 'oi'}, config)
+        ```
     """
     builder = StateGraph(State)
 

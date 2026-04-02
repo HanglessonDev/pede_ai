@@ -4,10 +4,13 @@ Configuração do Pede AI.
 Pacote centralizado para acesso a prompts, cardápio e configurações do tenant.
 
 Example:
-    >>> from src.config import get_prompt, get_cardapio, get_tenant_nome
-    >>> prompt = get_prompt('classificador_intencoes')
-    >>> cardapio = get_cardapio()
-    >>> nome = get_tenant_nome()
+    ```python
+    from src.config import get_prompt, get_cardapio, get_tenant_nome
+
+    prompt = get_prompt('classificador_intencoes')
+    cardapio = get_cardapio()
+    nome = get_tenant_nome()
+    ```
 """
 
 from src.config.cardapio import (

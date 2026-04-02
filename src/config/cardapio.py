@@ -4,10 +4,13 @@ Módulo de Cardápio do Pede AI.
 Fornece acesso centralizado aos dados do cardápio.
 
 Example:
-    >>> from src.config import get_cardapio, get_item_por_id, get_variantes
-    >>> cardapio = get_cardapio()
-    >>> item = get_item_por_id('lanche_001')
-    >>> variantes = get_variantes('lanche_001')
+    ```python
+    from src.config import get_cardapio, get_item_por_id, get_variantes
+
+    cardapio = get_cardapio()
+    item = get_item_por_id('lanche_001')
+    variantes = get_variantes('lanche_001')
+    ```
 """
 
 from __future__ import annotations
@@ -131,8 +134,10 @@ def get_variantes(item_id: str) -> list[str]:
         Lista de nomes de variantes (ex: ['simples', 'duplo', 'triplo']).
 
     Example:
-        >>> get_variantes('lanche_001')
+        ```python
+        get_variantes('lanche_001')
         ['simples', 'duplo', 'triplo']
+        ```
     """
     item_data = get_item_por_id(item_id)
     if item_data is not None:
@@ -151,8 +156,10 @@ def get_preco_item(item_id: str) -> int | None:
         Preço em centavos ou None se não existir.
 
     Example:
-        >>> get_preco_item('lanche_001')
+        ```python
+        get_preco_item('lanche_001')
         1500
+        ```
     """
     item = get_item_por_id(item_id)
     return item.get('preco') if item else None
@@ -169,8 +176,10 @@ def get_nome_item(item_id: str) -> str | None:
         Nome do item ou None se não existir.
 
     Example:
-        >>> get_nome_item('lanche_001')
+        ```python
+        get_nome_item('lanche_001')
         'Hamburguer'
+        ```
     """
     item = get_item_por_id(item_id)
     return item.get('nome') if item else None

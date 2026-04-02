@@ -5,24 +5,27 @@ pendentes no pedido. Suporta validação via extrator spaCy,
 re-prompt com limite de tentativas e avanço automático na fila.
 
 Example:
-    >>> from src.graph.handlers.clarificacao import clarificar
-    >>> fila = [
-    ...     {
-    ...         'item': {
-    ...             'item_id': 'lanche_001',
-    ...             'quantidade': 1,
-    ...             'variante': None,
-    ...             'remocoes': [],
-    ...         },
-    ...         'item_id': 'lanche_001',
-    ...         'nome': 'Hambúrguer',
-    ...         'campo': 'variante',
-    ...         'opcoes': ['simples', 'duplo'],
-    ...     }
-    ... ]
-    >>> result = clarificar(fila, 'duplo', 0)
-    >>> result.tipo
+    ```python
+    from src.graph.handlers.clarificacao import clarificar
+
+    fila = [
+        {
+            'item': {
+                'item_id': 'lanche_001',
+                'quantidade': 1,
+                'variante': None,
+                'remocoes': [],
+            },
+            'item_id': 'lanche_001',
+            'nome': 'Hambúrguer',
+            'campo': 'variante',
+            'opcoes': ['simples', 'duplo'],
+        }
+    ]
+    result = clarificar(fila, 'duplo', 0)
+    result.tipo
     'sucesso'
+    ```
 """
 
 from dataclasses import dataclass, field

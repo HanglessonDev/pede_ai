@@ -5,10 +5,14 @@ Classifica mensagens do usuário em intenções como:
 saudacao, pedir, remover, trocar, carrinho, duvida, etc.
 
 Example:
-    >>> from src.roteador import classificar_intencao
-    >>> classificar_intencao('quero um xbacon')
+    ```python
+    from src.roteador import classificar_intencao
+
+    classificar_intencao('quero um xbacon')
     'pedir'
+    ```
 """
+
 import json
 from pathlib import Path
 from typing import Any
@@ -69,7 +73,9 @@ def classificar_intencao_com_confidence(mensagem: str) -> tuple[str, float]:
 
     if confidence < 0.5:
         intent_fixo = classificar_intencao_fixo(mensagem)
-        return (intent_fixo if intent_fixo != 'desconhecido' else 'desconhecido'), (1.0 if intent_fixo != 'desconhecido' else confidence)
+        return (intent_fixo if intent_fixo != 'desconhecido' else 'desconhecido'), (
+            1.0 if intent_fixo != 'desconhecido' else confidence
+        )
 
     try:
         prompt_rag = montar_prompt_rag(mensagem, similares, intencao_dominante)

@@ -11,10 +11,20 @@ Submódulos:
     roteador: Classificação de intenções com LLM.
 
 Example:
-    >>> from src.extratores import extrair
-    >>> from src.roteador import classificar_intencao
-    >>> classificar_intencao('quero um x-salada')
+    ```python
+    from src.extratores import extrair
+    from src.roteador import classificar_intencao
+
+    classificar_intencao('quero um x-salada')
     'pedir'
-    >>> extrair('um x-salada sem tomate')
-    [{'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': ['tomate']}]
+    extrair('um x-salada sem tomate')
+    [
+        {
+            'item_id': 'lanche_002',
+            'quantidade': 1,
+            'variante': None,
+            'remocoes': ['tomate'],
+        }
+    ]
+    ```
 """

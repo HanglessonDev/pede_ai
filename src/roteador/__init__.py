@@ -4,9 +4,12 @@ Classifica mensagens do usuário em intenções pré-definidas
 utilizando um modelo de linguagem (LLM) via Ollama.
 
 Example:
-    >>> from src.roteador import classificar_intencao, INTENCOES_VALIDAS
-    >>> 'pedir' in INTENCOES_VALIDAS
+    ```python
+    from src.roteador import classificar_intencao, INTENCOES_VALIDAS
+
+    'pedir' in INTENCOES_VALIDAS
     True
+    ```
 """
 
 from src.roteador.classificador_intencoes import INTENCOES_VALIDAS, classificar_intencao

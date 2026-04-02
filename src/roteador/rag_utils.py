@@ -1,4 +1,5 @@
 """RAG utilities para classificação de intenções."""
+
 from collections import Counter
 from typing import Any
 
@@ -21,7 +22,9 @@ def gerar_embedding(texto: str) -> list[float]:
     return response['embedding']
 
 
-def cosine_similarity(a: list[float] | np.ndarray, b: list[float] | np.ndarray) -> float:
+def cosine_similarity(
+    a: list[float] | np.ndarray, b: list[float] | np.ndarray
+) -> float:
     """Calcula similaridade cosseno entre dois vetores.
 
     Args:
@@ -106,8 +109,7 @@ def montar_prompt_rag(
         Prompt formatado para o LLM.
     """
     exemplos_formatados = '\n'.join(
-        f'"{s["texto"]}" → {s["intencao"]}'
-        for s in similares[:5]
+        f'"{s["texto"]}" → {s["intencao"]}' for s in similares[:5]
     )
 
     prompt = f"""Classifique a intenção do usuário em UMA palavra.

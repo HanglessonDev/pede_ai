@@ -1,4 +1,5 @@
 """Script para gerar embeddings e salvar no cache."""
+
 import json
 from pathlib import Path
 
@@ -20,7 +21,7 @@ def main():
     for i, ex in enumerate(exemplos):
         response = ollama.embeddings(model=MODEL, prompt=ex['texto'])
         embeddings.append(response['embedding'])
-        print(f'  [{i+1}/{len(exemplos)}] {ex["texto"]}')
+        print(f'  [{i + 1}/{len(exemplos)}] {ex["texto"]}')
 
     cache['embeddings'] = embeddings
 

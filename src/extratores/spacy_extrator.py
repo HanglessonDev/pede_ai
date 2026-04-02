@@ -5,9 +5,19 @@ Processa mensagens do usuário para extrair itens do cardápio,
 quantidades, variantes e remoções usando o modelo pt_core_news_sm.
 
 Example:
-    >>> from src.extratores import extrair
-    >>> extrair('2 x-bacon sem cebola')
-    [{'item_id': 'lanche_003', 'quantidade': 2, 'variante': None, 'remocoes': ['cebola']}]
+    ```python
+    from src.extratores import extrair
+
+    extrair('2 x-bacon sem cebola')
+    [
+        {
+            'item_id': 'lanche_003',
+            'quantidade': 2,
+            'variante': None,
+            'remocoes': ['cebola'],
+        }
+    ]
+    ```
 """
 
 import re
@@ -16,6 +26,7 @@ import unicodedata
 import spacy
 
 from src.config import get_cardapio
+
 
 # ── Constantes ──────────────────────────────────────────────────────────────
 
@@ -57,8 +68,10 @@ def normalizar(texto: str) -> str:
         Texto normalizado em minúsculas sem acentos.
 
     Example:
-        >>> normalizar('X-Tudo!')
+        ```python
+        normalizar('X-Tudo!')
         'xtudo'
+        ```
     """
     texto = texto.lower()
     texto = unicodedata.normalize('NFKD', texto)
@@ -121,10 +134,12 @@ def gerar_patterns(cardapio: dict) -> list[dict]:
         Lista de patterns no formato spaCy EntityRuler.
 
     Example:
-        >>> cardapio = get_cardapio()
-        >>> patterns = gerar_patterns(cardapio)
-        >>> len(patterns) > 0
+        ```python
+        cardapio = get_cardapio()
+        patterns = gerar_patterns(cardapio)
+        len(patterns) > 0
         True
+        ```
     """
     patterns = []
     vistos = set()
@@ -275,9 +290,19 @@ def extrair(mensagem: str) -> list[dict]:
             - remocoes: Lista de ingredientes a remover.
 
     Example:
-        >>> from src.extratores import extrair
-        >>> extrair('2 x-bacon sem cebola')
-        [{'item_id': 'lanche_003', 'quantidade': 2, 'variante': None, 'remocoes': ['cebola']}]
+        ```python
+        from src.extratores import extrair
+
+        extrair('2 x-bacon sem cebola')
+        [
+            {
+                'item_id': 'lanche_003',
+                'quantidade': 2,
+                'variante': None,
+                'remocoes': ['cebola'],
+            }
+        ]
+        ```
     """
     doc = _nlp(mensagem)
 
@@ -346,11 +371,14 @@ def extrair_variante(mensagem: str, item_id: str) -> str | None:
         Texto da variante válida ou None.
 
     Example:
-        >>> from src.extratores import extrair_variante
-        >>> extrair_variante('duplo', 'lanche_001')
+        ```python
+        from src.extratores import extrair_variante
+
+        extrair_variante('duplo', 'lanche_001')
         'duplo'
-        >>> extrair_variante('lata', 'lanche_001')  # lata é de bebida
+        extrair_variante('lata', 'lanche_001')  # lata é de bebida
         None
+        ```
     """
     if not mensagem or not mensagem.strip():
         return None

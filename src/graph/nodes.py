@@ -4,19 +4,22 @@ Cada função representa um nó no grafo LangGraph, recebendo e
 retornando atualizações parciais do estado.
 
 Example:
-    >>> from src.graph.nodes import node_handler_saudacao
-    >>> state = {
-    ...     'mensagem_atual': 'oi',
-    ...     'intent': 'saudacao',
-    ...     'itens_extraidos': [],
-    ...     'carrinho': [],
-    ...     'fila_clarificacao': [],
-    ...     'etapa': 'inicio',
-    ...     'resposta': '',
-    ... }
-    >>> result = node_handler_saudacao(state)
-    >>> 'resposta' in result
+    ```python
+    from src.graph.nodes import node_handler_saudacao
+
+    state = {
+        'mensagem_atual': 'oi',
+        'intent': 'saudacao',
+        'itens_extraidos': [],
+        'carrinho': [],
+        'fila_clarificacao': [],
+        'etapa': 'inicio',
+        'resposta': '',
+    }
+    result = node_handler_saudacao(state)
+    'resposta' in result
     True
+    ```
 """
 
 from src.config import get_nome_item, get_tenant_nome
@@ -44,18 +47,20 @@ def node_router(state: State) -> dict:
         Dicionário com ``intent`` e ``confidence`` atualizados.
 
     Example:
-        >>> state = {
-        ...     'mensagem_atual': 'oi',
-        ...     'intent': '',
-        ...     'itens_extraidos': [],
-        ...     'carrinho': [],
-        ...     'fila_clarificacao': [],
-        ...     'etapa': 'inicio',
-        ...     'resposta': '',
-        ... }
-        >>> result = node_router(state)
-        >>> 'intent' in result
+        ```python
+        state = {
+            'mensagem_atual': 'oi',
+            'intent': '',
+            'itens_extraidos': [],
+            'carrinho': [],
+            'fila_clarificacao': [],
+            'etapa': 'inicio',
+            'resposta': '',
+        }
+        result = node_router(state)
+        'intent' in result
         True
+        ```
     """
     intent, confidence = classificar_intencao_com_confidence(
         state.get('mensagem_atual', '')

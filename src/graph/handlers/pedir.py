@@ -4,13 +4,16 @@ Processa itens extraídos da mensagem do usuário, calcula preços,
 adiciona ao carrinho e envia itens pendentes para fila de clarificação.
 
 Example:
-    >>> from src.graph.handlers.pedir import processar
-    >>> itens = [
-    ...     {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}
-    ... ]
-    >>> result = processar(itens, [])
-    >>> len(result.carrinho)
+    ```python
+    from src.graph.handlers.pedir import processar
+
+    itens = [
+        {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}
+    ]
+    result = processar(itens, [])
+    len(result.carrinho)
     1
+    ```
 """
 
 from dataclasses import dataclass, field

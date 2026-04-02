@@ -33,7 +33,9 @@ venv = ".venv"
 
 [dependency-groups]
 dev = [
-    "pdoc>=16.0.0",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.11",
+    "mkdocstrings[python]>=0.29.1",
     "pyright>=1.1.408",
     "ruff>=0.15.7",
     "taskipy>=1.14.1",
@@ -69,5 +71,7 @@ docstring-code-format = true
 docstring-code-line-length = "dynamic"
 
 [tool.taskipy.tasks]
-doc = "pdoc src -o docs/ --docformat=google"
-doc-serve = "pdoc --port 8080 src --docformat=google"
+format = "ruff format . && ruff check --fix ."
+lint = "ruff check ."
+doc = "mkdocs build"
+doc-serve = "mkdocs serve"

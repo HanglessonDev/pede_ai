@@ -4,9 +4,11 @@ Define o estado compartilhado e os nós de processamento
 para o grafo de atendimento (LangGraph).
 
 Example:
-    >>> from src.graph import State
-    >>> from src.graph import node_router, node_handler_saudacao
-    >>> from src.graph import criar_graph
+    ```python
+    from src.graph import State
+    from src.graph import node_router, node_handler_saudacao
+    from src.graph import criar_graph
+    ```
 """
 
 from .builder import criar_graph

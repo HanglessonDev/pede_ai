@@ -8,7 +8,9 @@ Submódulos:
     pedir: Processamento de pedidos e cálculo de preços.
 
 Example:
-    >>> from src.graph.handlers import ResultadoPedir, ResultadoClarificacao
+    ```python
+    from src.graph.handlers import ResultadoPedir, ResultadoClarificacao
+    ```
 """
 
 from dataclasses import dataclass

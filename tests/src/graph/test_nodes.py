@@ -213,7 +213,7 @@ class TestNodeHandlerConfirmar:
             'etapa': 'pedindo',
             'resposta': '',
             'tentativas_clarificacao': 0,
-        } # pyright: ignore[reportAssignmentType]
+        }  # pyright: ignore[reportAssignmentType]
         result = node_handler_confirmar(state)
         assert 'confirmado' in result['resposta'].lower()
         assert '15.00' in result['resposta']

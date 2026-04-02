@@ -14,6 +14,6 @@ def node_handler_desconhecido(state: State) -> dict:
     """
     return {
         'resposta': 'Não entendi. Pode reformular sua mensagem? '
-                    'Posso ajudar com pedidos, ver o carrinho, confirmar ou cancelar.',
+        'Posso ajudar com pedidos, ver o carrinho, confirmar ou cancelar.',
         'etapa': 'inicio',
     }

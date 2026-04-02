@@ -4,16 +4,19 @@ Define o TypedDict ``State`` utilizado por todos os nós do grafo
 LangGraph para compartilhar informações durante o fluxo de atendimento.
 
 Example:
-    >>> from src.graph.state import State, ETAPAS
-    >>> state: State = {
-    ...     'mensagem_atual': '',
-    ...     'intent': '',
-    ...     'itens_extraidos': [],
-    ...     'carrinho': [],
-    ...     'fila_clarificacao': [],
-    ...     'etapa': 'inicio',
-    ...     'resposta': '',
-    ... }
+    ```python
+    from src.graph.state import State, ETAPAS
+
+    state: State = {
+        'mensagem_atual': '',
+        'intent': '',
+        'itens_extraidos': [],
+        'carrinho': [],
+        'fila_clarificacao': [],
+        'etapa': 'inicio',
+        'resposta': '',
+    }
+    ```
 """
 
 from typing import Literal, TypedDict
