@@ -1,12 +1,17 @@
 """RAG utilities para classificação de intenções."""
 
-from collections import Counter
+from collections import defaultdict
 from typing import Any
 
 import numpy as np
 import ollama
 
 EMBEDDING_MODEL = 'mini-embed'
+
+# Threshold mínimo de similaridade para incluir exemplos no RAG.
+# Valor baseado na análise empírica: exemplos >= 0.55 têm relevância aceitável,
+# enquanto < 0.55 tendem a ser ruído (palavras similares mas intenção diferente).
+MIN_SIMILARITY_THRESHOLD = 0.55
 
 
 def gerar_embedding(texto: str) -> list[float]:
@@ -49,6 +54,7 @@ def buscar_similares(
     exemplos: list[dict[str, Any]],
     embeddings: list[list[float]],
     top_k: int = 5,
+    min_similarity: float = MIN_SIMILARITY_THRESHOLD,
 ) -> list[dict[str, Any]]:
     """Busca os top-k exemplos mais similares à mensagem.
 
@@ -57,9 +63,11 @@ def buscar_similares(
         exemplos: Lista de exemplos com 'texto' e 'intencao'.
         embeddings: Lista de embeddings pré-computados.
         top_k: Número de resultados a retornar.
+        min_similarity: Similaridade mínima para incluir exemplo (padrão: 0.55).
 
     Returns:
         Lista de exemplos mais similares com 'similaridade'.
+        Apenas exemplos com similaridade >= min_similarity são retornados.
     """
     query_emb = gerar_embedding(mensagem)
     query_vec = np.array(query_emb)
@@ -77,20 +85,32 @@ def buscar_similares(
         for idx in top_indices
     ]
 
+    # Filtra exemplos abaixo do threshold mínimo
+    results = [r for r in results if r['similaridade'] >= min_similarity]
+
     return results
 
 
 def calcular_votacao(similares: list[dict[str, Any]]) -> str:
     """Calcula a intenção mais comum entre os exemplos similares.
 
+    Usa voto ponderado por similaridade: exemplos com maior similaridade
+    têm mais peso na decisão final.
+
     Args:
-        similares: Lista de exemplos similares com 'intencao'.
+        similares: Lista de exemplos similares com 'intencao' e 'similaridade'.
 
     Returns:
-        Nome da intenção mais comum.
+        Nome da intenção com maior peso acumulado.
     """
-    votos = Counter(s['intencao'] for s in similares)
-    return votos.most_common(1)[0][0]
+    pesos = defaultdict(float)
+    for s in similares:
+        pesos[s['intencao']] += s['similaridade']
+
+    if not pesos:
+        return 'desconhecido'
+
+    return max(pesos.keys(), key=lambda k: pesos[k])
 
 
 def montar_prompt_rag(
@@ -117,25 +137,13 @@ Responda APENAS o NOME DA INTENÇÃO exatamente como listado abaixo.
 
 INTENÇÕES VÁLIDAS: saudacao, pedir, remover, trocar, carrinho, duvida, confirmar, negar, cancelar
 
-Use os exemplos abaixo como referência. A maioria dos exemplos similares
-aponta para a intenção "{intencao_dominante}".
-
-CRITÉRIOS DE CLASSIFICAÇÃO:
-1. VERBOS DE AÇÃO têm prioridade:
-   - "quero", "me vê", "manda", "pede" → SEMPRE pedir
-   - "tira", "sem", "remove" → SEMPRE remover
-   - "troca", "muda", "prefiro" → SEMPRE trocar
-   - "mostra", "veja", "ver" + "pedido/carrinho" → SEMPRE carrinho
-2. ATENÇÃO: "pedido" (substantivo) ≠ "pedir" (verbo):
-   - "meu pedido", "mostra o pedido" → carrinho (NÃO pedir)
-3. Frases como "quero um X" são SEMPRE "pedir"
-   - Ex: "quero um x-salada" → pedir (NÃO trocar)
-   - Ex: "quero um x tudo" → pedir
+Analise os exemplos abaixo e classifique a nova mensagem.
+Cada exemplo mostra a intenção correta para aquela frase.
 
 EXEMPLOS:
 {exemplos_formatados}
 
-SUA VEZ:
+Agora classifique esta mensagem:
 "{mensagem}" →
 """
     return prompt

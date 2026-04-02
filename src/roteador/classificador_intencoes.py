@@ -46,6 +46,10 @@ _cache = _carregar_cache()
 EXEMPLOS = _cache['exemplos']
 EMBEDDINGS = _cache['embeddings']
 
+# Threshold para RAG-only: se similaridade >= 0.95, usa RAG direto sem LLM.
+# Justificativa: matches >= 0.95 são quase idênticos, LLM pode atrapalhar.
+# Ver testes em tests/src/roteador/test_classificador_rag.py
+RAG_FORTE_THRESHOLD = 0.95
 
 MAX_CHARS = 500
 
@@ -77,6 +81,12 @@ def classificar_intencao_com_confidence(mensagem: str) -> tuple[str, float]:
             1.0 if intent_fixo != 'desconhecido' else confidence
         )
 
+    # RAG forte (>= 0.95): usa direto, sem LLM
+    # Justificativa: matches >= 0.95 são quase idênticos, LLM pode atrapalhar
+    if confidence >= RAG_FORTE_THRESHOLD:
+        return intencao_dominante, confidence
+
+    # RAG médio (0.50 - 0.95): valida com LLM
     try:
         prompt_rag = montar_prompt_rag(mensagem, similares, intencao_dominante)
         intent, _ = chamar_llm_rag(prompt_rag)

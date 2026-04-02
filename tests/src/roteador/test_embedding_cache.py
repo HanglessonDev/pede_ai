@@ -60,5 +60,7 @@ def test_embedding_cache_embeddings_preenchidos():
     with open(cache_path, encoding='utf-8') as f:
         cache = json.load(f)
 
-    assert len(cache['embeddings']) == 60
+    # Threshold: pelo menos 60 exemplos (pode ter mais após adições)
+    assert len(cache['embeddings']) >= 60
+    assert len(cache['embeddings']) == len(cache['exemplos'])
     assert len(cache['embeddings'][0]) > 0
