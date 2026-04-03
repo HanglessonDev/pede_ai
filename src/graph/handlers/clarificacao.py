@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from src.config import get_item_por_id, get_nome_item
 from src.extratores import extrair_variante
 from src.graph.state import ETAPAS, RetornoNode
+from src.observabilidade.registry import get_clarificacao_logger
 
 
 MAX_TENTATIVAS = 3
@@ -104,6 +105,7 @@ def clarificar(
     fila: list[dict],
     mensagem: str,
     tentativas: int,
+    thread_id: str = '',
 ) -> ResultadoClarificacao:
     """Processa a resposta do usuário durante clarificação de variante.
 
@@ -116,6 +118,7 @@ def clarificar(
         fila: Fila de itens pendentes de clarificação.
         mensagem: Mensagem do usuário com a resposta.
         tentativas: Contador atual de tentativas falhas.
+        thread_id: Identificador da sessão para observabilidade.
 
     Returns:
         ResultadoClarificacao com estado atualizado.
@@ -139,9 +142,50 @@ def clarificar(
     variante = extrair_variante(mensagem, item_id)
 
     if variante is not None:
-        return _processar_variante_valida(fila, item_id, item_dados, variante)
+        resultado = _processar_variante_valida(fila, item_id, item_dados, variante)
+    else:
+        resultado = _processar_variante_invalida(fila, nome, opcoes, tentativas)
 
-    return _processar_variante_invalida(fila, nome, opcoes, tentativas)
+    _log_clarificacao(
+        thread_id=thread_id,
+        item_id=item_id,
+        nome_item=nome,
+        opcoes=opcoes,
+        mensagem=mensagem,
+        tentativas=tentativas,
+        resultado=resultado,
+        variante=variante,
+    )
+
+    return resultado
+
+
+def _log_clarificacao(
+    thread_id: str,
+    item_id: str,
+    nome_item: str,
+    opcoes: list[str],
+    mensagem: str,
+    tentativas: int,
+    resultado: ResultadoClarificacao,
+    variante: str | None,
+) -> None:
+    """Registra evento de clarificação no logger se configurado."""
+    logger = get_clarificacao_logger()
+    if logger is None:
+        return
+
+    logger.registrar(
+        thread_id=thread_id,
+        item_id=item_id,
+        nome_item=nome_item,
+        campo='variante',
+        opcoes=opcoes,
+        mensagem=mensagem,
+        tentativas=tentativas,
+        resultado=resultado.tipo,
+        variante_escolhida=variante or '',
+    )
 
 
 def _processar_variante_valida(

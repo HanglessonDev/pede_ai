@@ -1,10 +1,18 @@
 # chat.py
 import sqlite3
+from pathlib import Path
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from src.graph.builder import criar_graph
+from src.observabilidade.clarificacao_logger import ClarificacaoLogger
+from src.observabilidade.logger import ObservabilidadeLogger
+from src.observabilidade.registry import set_clarificacao_logger, set_obs_logger
 
+# Configura loggers de observabilidade
+LOG_DIR = Path('logs')
+set_obs_logger(ObservabilidadeLogger(LOG_DIR / 'classificacoes.csv'))
+set_clarificacao_logger(ClarificacaoLogger(LOG_DIR / 'clarificacoes.csv'))
 
 conn = sqlite3.connect('./pede_ai.db', check_same_thread=False)
 checkpointer = SqliteSaver(conn)
@@ -22,7 +30,7 @@ while True:
     if not mensagem:
         continue
 
-    resultado = graph.invoke({'mensagem_atual': mensagem}, config) # type: ignore
+    resultado = graph.invoke({'mensagem_atual': mensagem}, config)  # type: ignore
 
     print(f'Bot: {resultado.get("resposta", "???")}')
     print(

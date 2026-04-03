@@ -18,3 +18,6 @@ site/
 # Logs de observabilidade (CSV não versionado)
 logs/*.csv
 
+# Scripts de teste/debug temporários
+testar_*.py
+

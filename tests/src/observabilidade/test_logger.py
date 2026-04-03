@@ -2,10 +2,6 @@
 
 import csv
 import threading
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
 
 
 class TestObservabilidadeLogger:
@@ -16,7 +12,7 @@ class TestObservabilidadeLogger:
         from src.observabilidade.logger import ObservabilidadeLogger
 
         csv_path = tmp_path / 'test.csv'
-        logger = ObservabilidadeLogger(csv_path)
+        ObservabilidadeLogger(csv_path)
 
         assert csv_path.exists()
         with open(csv_path, encoding='utf-8') as f:

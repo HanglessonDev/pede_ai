@@ -22,19 +22,13 @@ Example:
     ```
 """
 
-from pathlib import Path
-
 from src.config import get_nome_item, get_tenant_nome
 from src.extratores import extrair, extrair_item_carrinho
 from src.graph.handlers.clarificacao import clarificar
 from src.graph.handlers.pedir import processar as processar_pedido
 from src.graph.state import RetornoNode, State
-from src.observabilidade.logger import ObservabilidadeLogger
+from src.observabilidade.registry import get_obs_logger
 from src.roteador.classificador_intencoes import _classificar_intencao
-
-# Logger de observabilidade (thread-safe, singleton)
-_LOG_PATH = Path(__file__).parent.parent.parent / 'logs' / 'classificacoes.csv'
-_obs_logger = ObservabilidadeLogger(_LOG_PATH)
 
 
 def node_verificar_etapa(state: State) -> RetornoNode:
@@ -87,7 +81,8 @@ def node_router(state: State) -> RetornoNode:
     resultado = _classificar_intencao(mensagem, thread_id=thread_id)
 
     # Registra evento de observabilidade
-    _obs_logger.registrar(
+    obs_logger = get_obs_logger()
+    obs_logger.registrar(
         thread_id=thread_id,
         mensagem=mensagem,
         mensagem_norm=resultado['mensagem_norm'],
@@ -105,10 +100,12 @@ def node_router(state: State) -> RetornoNode:
 
 
 def node_clarificacao(state: State) -> RetornoNode:
+    thread_id = state.get('config', {}).get('configurable', {}).get('thread_id', '')
     resultado = clarificar(
         fila=state.get('fila_clarificacao', []),
         mensagem=state.get('mensagem_atual', ''),
         tentativas=state.get('tentativas_clarificacao', 0),
+        thread_id=thread_id,
     )
     carrinho_atualizado = state.get('carrinho', []) + resultado.carrinho
     return {

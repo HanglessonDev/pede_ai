@@ -20,22 +20,22 @@ Example:
     from src.observabilidade.consultas import distribuicao_caminhos
 
     # Registrar evento
-    logger = ObservabilidadeLogger("logs/eventos.csv")
+    logger = ObservabilidadeLogger('logs/eventos.csv')
     logger.registrar(
-        thread_id="sessao_123",
-        mensagem="Quero um X-Burguer",
-        mensagem_norm="querer x-burguer",
-        intent="pedido_lanche",
+        thread_id='sessao_123',
+        mensagem='Quero um X-Burguer',
+        mensagem_norm='querer x-burguer',
+        intent='pedido_lanche',
         confidence=0.95,
-        caminho="rag_forte",
-        top1_texto="quero um x-burguer",
-        top1_intencao="pedido_lanche",
+        caminho='rag_forte',
+        top1_texto='quero um x-burguer',
+        top1_intencao='pedido_lanche',
     )
 
     # Analisar distribuição de caminhos
-    dist = distribuicao_caminhos("logs/eventos.csv")
+    dist = distribuicao_caminhos('logs/eventos.csv')
     for item in dist:
-        print(f"{item['caminho']}: {item['total']} eventos")
+        print(f'{item["caminho"]}: {item["total"]} eventos')
     ```
 
 Note:
@@ -47,6 +47,8 @@ See Also:
     - `src.observabilidade.consultas`: Funções de análise com DuckDB.
 """
 
+from src.observabilidade.clarificacao_logger import ClarificacaoLogger
+from src.observabilidade import registry
 from src.observabilidade.logger import ObservabilidadeLogger
 
-__all__ = ['ObservabilidadeLogger']
+__all__ = ['ClarificacaoLogger', 'ObservabilidadeLogger', 'registry']

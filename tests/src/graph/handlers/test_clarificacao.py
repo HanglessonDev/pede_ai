@@ -384,3 +384,48 @@ class TestResultadoClarificacao:
             tentativas=0,
         )
         assert result.tipo == 'erro'
+
+
+class TestObservabilidadeClarificacao:
+    """Testes para verificação de log de clarificação."""
+
+    @pytest.fixture
+    def fila_hamburguer(self, item_hamburguer):
+        """Fila com um hambúrguer pendente."""
+        return [item_hamburguer]
+
+    def test_log_sucesso(self, fila_hamburguer, tmp_path):
+        """Deve logar clarificação com sucesso."""
+        from src.observabilidade.clarificacao_logger import ClarificacaoLogger
+        from src.observabilidade.registry import set_clarificacao_logger
+
+        csv_path = tmp_path / 'clarificacoes.csv'
+        set_clarificacao_logger(ClarificacaoLogger(csv_path))
+
+        from src.graph.handlers.clarificacao import clarificar
+
+        result = clarificar(fila_hamburguer, 'duplo', 0, thread_id='sessao-1')
+
+        assert result.tipo == 'sucesso'
+        with open(csv_path, encoding='utf-8') as f:
+            import csv
+
+            reader = csv.DictReader(f)
+            rows = list(reader)
+            assert len(rows) == 1
+            assert rows[0]['thread_id'] == 'sessao-1'
+            assert rows[0]['resultado'] == 'sucesso'
+            assert rows[0]['variante_escolhida'] == 'duplo'
+
+        set_clarificacao_logger(None)
+
+    def test_sem_logger_nao_falha(self, fila_hamburguer):
+        """Se logger não está configurado, não deve falhar."""
+        from src.observabilidade.registry import set_clarificacao_logger
+
+        set_clarificacao_logger(None)
+
+        from src.graph.handlers.clarificacao import clarificar
+
+        result = clarificar(fila_hamburguer, 'duplo', 0, thread_id='sessao-1')
+        assert result.tipo == 'sucesso'
