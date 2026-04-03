@@ -20,7 +20,12 @@ from typing import Any
 from langchain_ollama import OllamaLLM
 
 from src.config import get_intencoes_validas, get_prompt
-from src.roteador.rag_utils import buscar_similares, calcular_votacao, montar_prompt_rag
+from src.roteador.rag_utils import (
+    buscar_similares,
+    calcular_votacao,
+    lookup_intencao_direta,
+    montar_prompt_rag,
+)
 
 
 INTENCOES_VALIDAS = get_intencoes_validas()
@@ -58,6 +63,11 @@ def classificar_intencao_com_confidence(mensagem: str) -> tuple[str, float]:
     """Classifica intenção usando RAG com confiança."""
     if not mensagem or not mensagem.strip():
         return classificar_intencao_fixo(mensagem), 1.0
+
+    # Lookup direto para tokens únicos (mais confiável)
+    intent_direta = lookup_intencao_direta(mensagem)
+    if intent_direta:
+        return intent_direta, 1.0
 
     mensagem = mensagem[:MAX_CHARS]
 

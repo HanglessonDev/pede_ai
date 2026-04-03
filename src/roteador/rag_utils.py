@@ -1,6 +1,7 @@
 """RAG utilities para classificação de intenções."""
 
-from collections import Counter, defaultdict
+import re
+from collections import Counter
 from typing import Any
 
 import numpy as np
@@ -13,6 +14,68 @@ EMBEDDING_MODEL = 'mini-embed'
 # Valor baseado na análise empírica: exemplos >= 0.55 têm relevância aceitável,
 # enquanto < 0.55 tendem a ser ruído (palavras similares mas intenção diferente).
 MIN_SIMILARITY_THRESHOLD = 0.55
+
+# Lookup direto para tokens únicos (mais confiável que embedding para palavras isoladas)
+TOKENS_UNICOS = {
+    'sim': 'confirmar',
+    'não': 'negar',
+    'nao': 'negar',
+    'olá': 'saudacao',
+    'ola': 'saudacao',
+    'oi': 'saudacao',
+    'opa': 'saudacao',
+    'cancela': 'cancelar',
+    'esquece': 'cancelar',
+    'tira': 'remover',
+    'remove': 'remover',
+    'muda': 'trocar',
+    'troca': 'trocar',
+}
+
+
+def normalizar_input(texto: str) -> str:
+    """Normaliza input do usuário para melhor matching de embeddings.
+
+    - Remove pontuação (!, ?, ., ,)
+    - Strip de espaços extras
+    - Lowercase
+
+    Args:
+        texto: Texto original do usuário.
+
+    Returns:
+        Texto normalizado.
+    """
+    # Lowercase
+    texto = texto.lower()
+    # Strip de espaços primeiro (para pontuação no final ser detectada)
+    texto = texto.strip()
+    # Remove pontuação do final de palavras
+    texto = re.sub(r'[!?.,]+$', '', texto)
+    texto = re.sub(r'([a-z])[!?.,]+([a-z])', r'\1\2', texto)
+    # Normaliza múltiplos espaços
+    texto = re.sub(r'\s+', ' ', texto)
+    return texto
+
+
+def lookup_intencao_direta(texto: str) -> str | None:
+    """Lookup direto para tokens únicos (1-2 palavras).
+
+    Mais confiável que embedding para palavras isoladas como 'sim', 'não', 'olá'.
+
+    Args:
+        texto: Texto do usuário (será normalizado).
+
+    Returns:
+        Intenção se match encontrado, senão None.
+    """
+    texto = normalizar_input(texto).strip()
+
+    # Match exato para tokens únicos
+    if texto in TOKENS_UNICOS:
+        return TOKENS_UNICOS[texto]
+
+    return None
 
 
 def gerar_embedding(texto: str) -> list[float]:
@@ -71,6 +134,7 @@ def buscar_similares(
         Lista de exemplos mais similares com 'similaridade'.
         Apenas exemplos com similaridade >= min_similarity são retornados.
     """
+    mensagem = normalizar_input(mensagem)
     query_emb = gerar_embedding(mensagem)
     query_vec = np.array(query_emb)
 
@@ -95,16 +159,16 @@ def buscar_similares(
 
 def calcular_votacao_max(similares: list[dict[str, Any]]) -> str:
     """Voto majoritário simples: conta exemplos, ignora similaridade.
-    
+
     Args:
         similares: Lista de exemplos similares com 'intencao'.
-    
+
     Returns:
         Nome da intenção com mais exemplos no top-k.
     """
     if not similares:
         return 'desconhecido'
-    
+
     votos = Counter(s['intencao'] for s in similares)
     return votos.most_common(1)[0][0]
 
@@ -113,40 +177,40 @@ def calcular_votacao_hybrid(
     similares: list[dict[str, Any]], threshold: float = 0.95
 ) -> str:
     """Hybrid Voting: confia no top-1 se similaridade >= threshold, senão maioria.
-    
+
     Lógica:
     - Se top-1 tem similaridade >= 0.95: retorna intenção do top-1 (match exato)
     - Senão: usa voto majoritário (evita viés de redundância)
-    
+
     Args:
         similares: Lista de exemplos similares com 'intencao' e 'similaridade'.
         threshold: Similaridade mínima para confiar no top-1 (padrão: 0.95).
-    
+
     Returns:
         Nome da intenção classificada.
     """
     if not similares:
         return 'desconhecido'
-    
+
     top_sim = similares[0]['similaridade']
-    
+
     # Match muito forte: confia no top-1
     if top_sim >= threshold:
         return similares[0]['intencao']
-    
+
     # Ambiguidade: usa voto majoritário
     return calcular_votacao_max(similares)
 
 
 def calcular_votacao(similares: list[dict[str, Any]]) -> str:
     """Calcula a intenção usando Hybrid Voting (novo padrão).
-    
+
     Usa Hybrid Voting: confia no top-1 se similaridade >= 0.95,
     senão usa voto majoritário simples.
-    
+
     Args:
         similares: Lista de exemplos similares com 'intencao' e 'similaridade'.
-    
+
     Returns:
         Nome da intenção classificada.
     """

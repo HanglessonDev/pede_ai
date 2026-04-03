@@ -54,7 +54,6 @@ class TestClassificarIntencaoComConfidence:
         from src.roteador import classificador_intencoes
         from src.roteador.classificador_intencoes import (
             classificar_intencao_com_confidence,
-            RAG_FORTE_THRESHOLD,
         )
 
         # Mock de similares com confidence >= 0.95
@@ -63,15 +62,19 @@ class TestClassificarIntencaoComConfidence:
         ]
 
         with (
-            patch.object(classificador_intencoes, 'buscar_similares', return_value=similares),
-            patch.object(classificador_intencoes, 'calcular_votacao', return_value='cancelar'),
+            patch.object(
+                classificador_intencoes, 'buscar_similares', return_value=similares
+            ),
+            patch.object(
+                classificador_intencoes, 'calcular_votacao', return_value='cancelar'
+            ),
             patch.object(classificador_intencoes, 'chamar_llm_rag') as mock_llm,
         ):
             result = classificar_intencao_com_confidence('cancela tudo')
 
         # LLM NÃO deve ser chamado
         mock_llm.assert_not_called()
-        
+
         # Deve retornar decisão do RAG
         assert result[0] == 'cancelar'
         assert result[1] == 0.98
@@ -89,10 +92,18 @@ class TestClassificarIntencaoComConfidence:
         ]
 
         with (
-            patch.object(classificador_intencoes, 'buscar_similares', return_value=similares),
-            patch.object(classificador_intencoes, 'calcular_votacao', return_value='pedir'),
-            patch.object(classificador_intencoes, 'montar_prompt_rag', return_value='prompt'),
-            patch.object(classificador_intencoes, 'chamar_llm_rag', return_value=('pedir', 1.0)),
+            patch.object(
+                classificador_intencoes, 'buscar_similares', return_value=similares
+            ),
+            patch.object(
+                classificador_intencoes, 'calcular_votacao', return_value='pedir'
+            ),
+            patch.object(
+                classificador_intencoes, 'montar_prompt_rag', return_value='prompt'
+            ),
+            patch.object(
+                classificador_intencoes, 'chamar_llm_rag', return_value=('pedir', 1.0)
+            ),
         ):
             result = classificar_intencao_com_confidence('quero um lanche')
 
@@ -112,9 +123,17 @@ class TestClassificarIntencaoComConfidence:
         ]
 
         with (
-            patch.object(classificador_intencoes, 'buscar_similares', return_value=similares),
-            patch.object(classificador_intencoes, 'calcular_votacao', return_value='desconhecido'),
-            patch.object(classificador_intencoes, 'classificar_intencao_fixo', return_value='duvida'),
+            patch.object(
+                classificador_intencoes, 'buscar_similares', return_value=similares
+            ),
+            patch.object(
+                classificador_intencoes, 'calcular_votacao', return_value='desconhecido'
+            ),
+            patch.object(
+                classificador_intencoes,
+                'classificar_intencao_fixo',
+                return_value='duvida',
+            ),
         ):
             result = classificar_intencao_com_confidence('mensagem estranha')
 
@@ -160,8 +179,12 @@ class TestRAGForTeThreshold:
         ]
 
         with (
-            patch.object(classificador_intencoes, 'buscar_similares', return_value=similares_095),
-            patch.object(classificador_intencoes, 'calcular_votacao', return_value='confirmar'),
+            patch.object(
+                classificador_intencoes, 'buscar_similares', return_value=similares_095
+            ),
+            patch.object(
+                classificador_intencoes, 'calcular_votacao', return_value='confirmar'
+            ),
             patch.object(classificador_intencoes, 'chamar_llm_rag') as mock_llm,
         ):
             result = classificar_intencao_com_confidence('exato')
@@ -181,10 +204,20 @@ class TestRAGForTeThreshold:
         ]
 
         with (
-            patch.object(classificador_intencoes, 'buscar_similares', return_value=similares_094),
-            patch.object(classificador_intencoes, 'calcular_votacao', return_value='confirmar'),
-            patch.object(classificador_intencoes, 'montar_prompt_rag', return_value='prompt'),
-            patch.object(classificador_intencoes, 'chamar_llm_rag', return_value=('confirmar', 1.0)),
+            patch.object(
+                classificador_intencoes, 'buscar_similares', return_value=similares_094
+            ),
+            patch.object(
+                classificador_intencoes, 'calcular_votacao', return_value='confirmar'
+            ),
+            patch.object(
+                classificador_intencoes, 'montar_prompt_rag', return_value='prompt'
+            ),
+            patch.object(
+                classificador_intencoes,
+                'chamar_llm_rag',
+                return_value=('confirmar', 1.0),
+            ),
         ):
             result = classificar_intencao_com_confidence('quase')
 

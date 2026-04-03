@@ -8,12 +8,13 @@ Características:
 - Testes de comportamento com diferentes tipos de resposta do LLM
 """
 
-import pytest
 from contextlib import suppress
 from unittest.mock import patch
 
-from src.roteador.classificador_intencoes import classificar_intencao
+import pytest
+
 from src.config import get_intencoes_validas
+from src.roteador.classificador_intencoes import classificar_intencao
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -72,12 +73,26 @@ class TestClassificarIntencaoComMock:
             ('esquece', 'cancelar'),
         ],
     )
-    @patch('src.roteador.classificador_intencoes.buscar_similares', return_value=[
-        {'texto': 'mock', 'intencao': 'saudacao', 'similaridade': 0.70}
-    ])
-    @patch('src.roteador.classificador_intencoes.calcular_votacao', return_value='saudacao')
+    @patch(
+        'src.roteador.classificador_intencoes.lookup_intencao_direta', return_value=None
+    )
+    @patch(
+        'src.roteador.classificador_intencoes.buscar_similares',
+        return_value=[{'texto': 'mock', 'intencao': 'saudacao', 'similaridade': 0.70}],
+    )
+    @patch(
+        'src.roteador.classificador_intencoes.calcular_votacao', return_value='saudacao'
+    )
     @patch('src.roteador.classificador_intencoes.modelo_llm')
-    def test_intencoes_basicas(self, mock_llm, mock_votacao, mock_similares, mensagem, intencao_esperada):
+    def test_intencoes_basicas(
+        self,
+        mock_llm,
+        mock_votacao,
+        mock_similares,
+        mock_lookup,
+        mensagem,
+        intencao_esperada,
+    ):
         """Testes happy path para todas as intenções básicas."""
         mock_llm.invoke.return_value = intencao_esperada
         resultado = classificar_intencao(mensagem)
@@ -92,10 +107,13 @@ class TestClassificarIntencaoComMock:
             ('oi, me mostra o pedido', 'carrinho'),
         ],
     )
-    @patch('src.roteador.classificador_intencoes.buscar_similares', return_value=[
-        {'texto': 'mock', 'intencao': 'saudacao', 'similaridade': 0.70}
-    ])
-    @patch('src.roteador.classificador_intencoes.calcular_votacao', return_value='saudacao')
+    @patch(
+        'src.roteador.classificador_intencoes.buscar_similares',
+        return_value=[{'texto': 'mock', 'intencao': 'saudacao', 'similaridade': 0.70}],
+    )
+    @patch(
+        'src.roteador.classificador_intencoes.calcular_votacao', return_value='saudacao'
+    )
     @patch('src.roteador.classificador_intencoes.modelo_llm')
     def test_mensagens_com_multiplas_intencoes(
         self, mock_llm, mock_votacao, mock_similares, mensagem, intencao_esperada
@@ -252,7 +270,7 @@ class TestPrompt:
 
     def test_prompt_contem_todas_intencoes(self):
         """Prompt deve mencionar todas as intenções."""
-        from src.config import get_prompt, get_intencoes_validas
+        from src.config import get_intencoes_validas, get_prompt
 
         prompt = get_prompt('classificador_intencoes')
         intencoes = get_intencoes_validas()
@@ -336,10 +354,13 @@ class TestEdgeCases:
 class TestLLMInteractions:
     """Testes de interação com o LLM."""
 
-    @patch('src.roteador.classificador_intencoes.buscar_similares', return_value=[
-        {'texto': 'mock', 'intencao': 'pedir', 'similaridade': 0.70}
-    ])
-    @patch('src.roteador.classificador_intencoes.calcular_votacao', return_value='pedir')
+    @patch(
+        'src.roteador.classificador_intencoes.buscar_similares',
+        return_value=[{'texto': 'mock', 'intencao': 'pedir', 'similaridade': 0.70}],
+    )
+    @patch(
+        'src.roteador.classificador_intencoes.calcular_votacao', return_value='pedir'
+    )
     @patch('src.roteador.classificador_intencoes.modelo_llm')
     def test_llm_recebe_prompt_formatado(self, mock_llm, mock_votacao, mock_similares):
         """LLM deve receber prompt formatado com a mensagem."""
@@ -353,23 +374,39 @@ class TestLLMInteractions:
         assert 'Classifique' in prompt_recebido
         assert mensagem in prompt_recebido
 
-    @patch('src.roteador.classificador_intencoes.buscar_similares', return_value=[
-        {'texto': 'mock', 'intencao': 'saudacao', 'similaridade': 0.70}
-    ])
-    @patch('src.roteador.classificador_intencoes.calcular_votacao', return_value='saudacao')
+    @patch(
+        'src.roteador.classificador_intencoes.lookup_intencao_direta', return_value=None
+    )
+    @patch(
+        'src.roteador.classificador_intencoes.buscar_similares',
+        return_value=[{'texto': 'mock', 'intencao': 'saudacao', 'similaridade': 0.70}],
+    )
+    @patch(
+        'src.roteador.classificador_intencoes.calcular_votacao', return_value='saudacao'
+    )
     @patch('src.roteador.classificador_intencoes.modelo_llm')
-    def test_llm_invoke_chamado_exatamente_uma_vez(self, mock_llm, mock_votacao, mock_similares):
+    def test_llm_invoke_chamado_exatamente_uma_vez(
+        self, mock_llm, mock_votacao, mock_similares, mock_lookup
+    ):
         """LLM invoke deve ser chamado exatamente uma vez."""
         mock_llm.invoke.return_value = 'saudacao'
         classificar_intencao('oi')
         mock_llm.invoke.assert_called_once()
 
-    @patch('src.roteador.classificador_intencoes.buscar_similares', return_value=[
-        {'texto': 'mock', 'intencao': 'saudacao', 'similaridade': 0.70}
-    ])
-    @patch('src.roteador.classificador_intencoes.calcular_votacao', return_value='saudacao')
+    @patch(
+        'src.roteador.classificador_intencoes.lookup_intencao_direta', return_value=None
+    )
+    @patch(
+        'src.roteador.classificador_intencoes.buscar_similares',
+        return_value=[{'texto': 'mock', 'intencao': 'saudacao', 'similaridade': 0.70}],
+    )
+    @patch(
+        'src.roteador.classificador_intencoes.calcular_votacao', return_value='saudacao'
+    )
     @patch('src.roteador.classificador_intencoes.modelo_llm')
-    def test_multiplas_chamadas_nao_afetam_cache(self, mock_llm, mock_votacao, mock_similares):
+    def test_multiplas_chamadas_nao_afetam_cache(
+        self, mock_llm, mock_votacao, mock_similares, mock_lookup
+    ):
         """Múltiplas chamadas devem funcionar independentemente."""
         mock_llm.invoke.return_value = 'saudacao'
 

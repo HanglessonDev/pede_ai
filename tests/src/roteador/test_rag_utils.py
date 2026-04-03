@@ -131,7 +131,11 @@ class TestMontarPromptRag:
         # Conta apenas exemplos na seção EXEMPLOS (entre "EXEMPLOS:" e "Agora classifique")
         secao_exemplos = prompt.split('EXEMPLOS:')[1].split('Agora classifique')[0]
         # Deve ter 5 exemplos (→) + instruções podem ter mais →, então verificamos os exemplos especificamente
-        linhas_exemplos = [l for l in secao_exemplos.split('\n') if '→' in l and l.strip().startswith('"')]
+        linhas_exemplos = [
+            l
+            for l in secao_exemplos.split('\n')
+            if '→' in l and l.strip().startswith('"')
+        ]
         assert len(linhas_exemplos) == 5  # exatamente 5 exemplos
 
 
@@ -205,7 +209,7 @@ class TestCalcularVotacaoHybrid:
 
         # Com threshold 0.95: usa maioria → duvida
         assert calcular_votacao_hybrid(similares, threshold=0.95) == 'duvida'
-        
+
         # Com threshold 0.85: confia no top-1 → pedir
         assert calcular_votacao_hybrid(similares, threshold=0.85) == 'pedir'
 
@@ -215,7 +219,7 @@ class TestBuscarSimilares:
 
     def test_buscar_similares_filtra_por_threshold_padrao(self):
         """Deve filtrar exemplos abaixo de 0.55 (threshold padrão)."""
-        from src.roteador.rag_utils import buscar_similares, MIN_SIMILARITY_THRESHOLD
+        from src.roteador.rag_utils import MIN_SIMILARITY_THRESHOLD, buscar_similares
 
         # Mock de exemplos e embeddings
         exemplos = [
@@ -261,7 +265,9 @@ class TestBuscarSimilares:
             patch('src.roteador.rag_utils.gerar_embedding', return_value=[0.5]),
             patch('src.roteador.rag_utils.cosine_similarity', side_effect=[0.60, 0.50]),
         ):
-            result = buscar_similares('teste', exemplos, embeddings, top_k=2, min_similarity=0.45)
+            result = buscar_similares(
+                'teste', exemplos, embeddings, top_k=2, min_similarity=0.45
+            )
             assert len(result) == 2
 
         # Teste 2: threshold 0.55 - apenas 0.60 passa
@@ -269,7 +275,9 @@ class TestBuscarSimilares:
             patch('src.roteador.rag_utils.gerar_embedding', return_value=[0.5]),
             patch('src.roteador.rag_utils.cosine_similarity', side_effect=[0.60, 0.50]),
         ):
-            result = buscar_similares('teste', exemplos, embeddings, top_k=2, min_similarity=0.55)
+            result = buscar_similares(
+                'teste', exemplos, embeddings, top_k=2, min_similarity=0.55
+            )
             assert len(result) == 1
             assert result[0]['similaridade'] == 0.60
 
@@ -288,3 +296,82 @@ class TestBuscarSimilares:
         ):
             result = buscar_similares('teste', exemplos, embeddings, top_k=1)
             assert len(result) == 0
+
+
+class TestNormalizarInput:
+    """Testes para normalizar_input."""
+
+    def test_normalizar_input_remove_pontuacao(self):
+        """Deve remover pontuação do final."""
+        from src.roteador.rag_utils import normalizar_input
+
+        assert normalizar_input('qual o total!') == 'qual o total'
+        assert normalizar_input('qual o preco?') == 'qual o preco'
+        assert normalizar_input('manda uma coca.') == 'manda uma coca'
+
+    def test_normalizar_input_strip_espacos(self):
+        """Deve remover espaços extras."""
+        from src.roteador.rag_utils import normalizar_input
+
+        assert normalizar_input('  não  ') == 'não'
+        assert normalizar_input('   oi   ') == 'oi'
+
+    def test_normalizar_input_lowercase(self):
+        """Deve converter para lowercase."""
+        from src.roteador.rag_utils import normalizar_input
+
+        assert normalizar_input('NÃO') == 'não'
+        assert normalizar_input('QUAL O TOTAL') == 'qual o total'
+
+    def test_normalizar_input_combinado(self):
+        """Deve aplicar todas as normalizações."""
+        from src.roteador.rag_utils import normalizar_input
+
+        assert normalizar_input('  QUAL O TOTAL!  ') == 'qual o total'
+        assert normalizar_input('  NÃO?  ') == 'não'
+
+
+class TestLookupIntencaoDireta:
+    """Testes para lookup_intencao_direta."""
+
+    def test_lookup_intencao_direta_sim(self):
+        """'sim' deve retornar 'confirmar'."""
+        from src.roteador.rag_utils import lookup_intencao_direta
+
+        assert lookup_intencao_direta('sim') == 'confirmar'
+
+    def test_lookup_intencao_direta_nao(self):
+        """'não' deve retornar 'negar'."""
+        from src.roteador.rag_utils import lookup_intencao_direta
+
+        assert lookup_intencao_direta('não') == 'negar'
+        assert lookup_intencao_direta('nao') == 'negar'
+
+    def test_lookup_intencao_direta_ola(self):
+        """'olá' deve retornar 'saudacao'."""
+        from src.roteador.rag_utils import lookup_intencao_direta
+
+        assert lookup_intencao_direta('olá') == 'saudacao'
+        assert lookup_intencao_direta('ola') == 'saudacao'
+
+    def test_lookup_intencao_direta_sem_match(self):
+        """Texto sem match direto deve retornar None."""
+        from src.roteador.rag_utils import lookup_intencao_direta
+
+        assert lookup_intencao_direta('quero pizza') is None
+        assert lookup_intencao_direta('qual o total') is None
+
+    def test_lookup_intencao_direta_case_insensitive(self):
+        """Deve ser case insensitive."""
+        from src.roteador.rag_utils import lookup_intencao_direta
+
+        assert lookup_intencao_direta('NÃO') == 'negar'
+        assert lookup_intencao_direta('SIM') == 'confirmar'
+        assert lookup_intencao_direta('Olá') == 'saudacao'
+
+    def test_lookup_intencao_direta_com_espacos(self):
+        """Deve ignorar espaços extras."""
+        from src.roteador.rag_utils import lookup_intencao_direta
+
+        assert lookup_intencao_direta('  sim  ') == 'confirmar'
+        assert lookup_intencao_direta('  não  ') == 'negar'
