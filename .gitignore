@@ -11,6 +11,10 @@ wheels/
 
 *.db
 .env
+
 # Documentação
 site/
+
+# Logs de observabilidade (CSV não versionado)
+logs/*.csv
 

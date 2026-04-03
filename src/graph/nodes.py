@@ -22,12 +22,19 @@ Example:
     ```
 """
 
+from pathlib import Path
+
 from src.config import get_nome_item, get_tenant_nome
 from src.extratores import extrair, extrair_item_carrinho
 from src.graph.handlers.clarificacao import clarificar
 from src.graph.handlers.pedir import processar as processar_pedido
 from src.graph.state import RetornoNode, State
+from src.observabilidade.logger import ObservabilidadeLogger
 from src.roteador.classificador_intencoes import _classificar_intencao
+
+# Logger de observabilidade (thread-safe, singleton)
+_LOG_PATH = Path(__file__).parent.parent.parent / 'logs' / 'classificacoes.csv'
+_obs_logger = ObservabilidadeLogger(_LOG_PATH)
 
 
 def node_verificar_etapa(state: State) -> RetornoNode:
@@ -74,10 +81,27 @@ def node_router(state: State) -> RetornoNode:
         True
         ```
     """
-    intent, confidence = _classificar_intencao(
-        state.get('mensagem_atual', '')
+    mensagem = state.get('mensagem_atual', '')
+    thread_id = state.get('config', {}).get('configurable', {}).get('thread_id', '')
+
+    resultado = _classificar_intencao(mensagem, thread_id=thread_id)
+
+    # Registra evento de observabilidade
+    _obs_logger.registrar(
+        thread_id=thread_id,
+        mensagem=mensagem,
+        mensagem_norm=resultado['mensagem_norm'],
+        intent=resultado['intent'],
+        confidence=resultado['confidence'],
+        caminho=resultado['caminho'],
+        top1_texto=resultado['top1_texto'],
+        top1_intencao=resultado['top1_intencao'],
     )
-    return {'intent': intent, 'confidence': confidence}
+
+    return {
+        'intent': resultado['intent'],
+        'confidence': resultado['confidence'],
+    }
 
 
 def node_clarificacao(state: State) -> RetornoNode:

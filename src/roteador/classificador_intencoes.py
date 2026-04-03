@@ -25,6 +25,7 @@ from src.roteador.rag_utils import (
     calcular_votacao,
     lookup_intencao_direta,
     montar_prompt_rag,
+    normalizar_input,
 )
 
 
@@ -166,46 +167,136 @@ def _decidir_intent(
     return intent, confidence
 
 
-def _classificar_intencao(mensagem: str) -> tuple[str, float]:
+def _classificar_intencao(  # noqa: PLR0911
+    mensagem: str, thread_id: str = ''
+) -> dict[str, Any]:
     """Classifica intenção usando RAG com confiança (interno).
 
     Args:
         mensagem: Texto da mensagem do usuário.
+        thread_id: Identificador da conversa (LangGraph config).
 
     Returns:
-        Tupla (intent, confidence).
+        Dicionário com 'intent', 'confidence', 'caminho',
+        'top1_texto', 'top1_intencao', 'mensagem_norm'.
 
     Example:
         ```python
-        _classificar_intencao('oi')
-        ('saudacao', 1.0)
-
-        _classificar_intencao('quero um xbacon')
-        ('pedir', 0.95)
+        resultado = _classificar_intencao('oi')
+        resultado['intent']
+        'saudacao'
+        resultado['caminho']
+        'lookup'
         ```
     """
-    mensagem_truncada = _preparar_mensagem(mensagem)
-    if mensagem_truncada is None:
-        return _fallback(mensagem)
+    mensagem_norm = normalizar_input(mensagem) if mensagem else ''
+    mensagem_truncada = _preparar_mensagem(mensagem_norm)
 
+    if mensagem_truncada is None:
+        intent, confidence = _fallback(mensagem)
+        return {
+            'intent': intent,
+            'confidence': confidence,
+            'caminho': 'llm_fixo',
+            'top1_texto': '',
+            'top1_intencao': '',
+            'mensagem_norm': mensagem_norm,
+        }
+
+    # Lookup direto
     intent_direta = lookup_intencao_direta(mensagem_truncada)
     if intent_direta:
-        return intent_direta, 1.0
+        return {
+            'intent': intent_direta,
+            'confidence': 1.0,
+            'caminho': 'lookup',
+            'top1_texto': mensagem_truncada,
+            'top1_intencao': intent_direta,
+            'mensagem_norm': mensagem_norm,
+        }
 
     if not EMBEDDINGS:
-        return _fallback(mensagem_truncada)
+        intent, confidence = _fallback(mensagem_truncada)
+        return {
+            'intent': intent,
+            'confidence': confidence,
+            'caminho': 'llm_fixo',
+            'top1_texto': '',
+            'top1_intencao': '',
+            'mensagem_norm': mensagem_norm,
+        }
 
     try:
         similares = buscar_similares(
             mensagem_truncada, EXEMPLOS, EMBEDDINGS, top_k=5
         )
     except Exception:
-        return _fallback(mensagem_truncada)
+        intent, confidence = _fallback(mensagem_truncada)
+        return {
+            'intent': intent,
+            'confidence': confidence,
+            'caminho': 'llm_fixo',
+            'top1_texto': '',
+            'top1_intencao': '',
+            'mensagem_norm': mensagem_norm,
+        }
 
     if not similares:
-        return _fallback(mensagem_truncada)
+        intent, confidence = _fallback(mensagem_truncada)
+        return {
+            'intent': intent,
+            'confidence': confidence,
+            'caminho': 'llm_fixo',
+            'top1_texto': '',
+            'top1_intencao': '',
+            'mensagem_norm': mensagem_norm,
+        }
 
-    return _decidir_intent(similares, mensagem_truncada)
+    # RAG
+    confidence = similares[0]['similaridade']
+    top1_texto = similares[0]['texto']
+    top1_intencao = similares[0]['intencao']
+
+    if confidence < RAG_FRACO_THRESHOLD:
+        intent, _ = _fallback(mensagem_truncada)
+        return {
+            'intent': intent,
+            'confidence': confidence,
+            'caminho': 'llm_rag',
+            'top1_texto': top1_texto,
+            'top1_intencao': top1_intencao,
+            'mensagem_norm': mensagem_norm,
+        }
+
+    if confidence >= RAG_FORTE_THRESHOLD:
+        intent = calcular_votacao(similares)
+        return {
+            'intent': intent,
+            'confidence': confidence,
+            'caminho': 'rag_forte',
+            'top1_texto': top1_texto,
+            'top1_intencao': top1_intencao,
+            'mensagem_norm': mensagem_norm,
+        }
+
+    # RAG médio: valida com LLM
+    intencao_rag = calcular_votacao(similares)
+    try:
+        prompt_rag = montar_prompt_rag(
+            mensagem_truncada, similares, intencao_rag
+        )
+        intent, _ = validar_com_llm(prompt_rag)
+    except Exception:
+        intent = intencao_rag
+
+    return {
+        'intent': intent,
+        'confidence': confidence,
+        'caminho': 'llm_rag',
+        'top1_texto': top1_texto,
+        'top1_intencao': top1_intencao,
+        'mensagem_norm': mensagem_norm,
+    }
 
 
 def validar_com_llm(prompt: str) -> tuple[str, float]:
@@ -278,8 +369,8 @@ def classificar_intencao(mensagem: str) -> str:
         'pedir'
         ```
     """
-    intent, _ = _classificar_intencao(mensagem)
-    return intent
+    resultado = _classificar_intencao(mensagem)
+    return resultado['intent']
 
 
 if __name__ == '__main__':
@@ -291,5 +382,9 @@ if __name__ == '__main__':
         'vocês entregam?',
     ]
     for msg in testes:
-        intent, confidence = _classificar_intencao(msg)
-        print(f'{msg!r} → {intent} (confidence: {confidence:.2f})')
+        resultado = _classificar_intencao(msg)
+        print(
+            f'{msg!r} → {resultado["intent"]} '
+            f'(confidence: {resultado["confidence"]:.2f}, '
+            f'caminho: {resultado["caminho"]})'
+        )

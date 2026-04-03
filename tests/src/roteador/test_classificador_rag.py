@@ -26,8 +26,8 @@ class TestClassificarIntencaoComConfidence:
         finally:
             classificador_intencoes.EMBEDDINGS = original_embeddings
 
-        assert result[0] == 'saudacao'
-        assert result[1] == 1.0
+        assert result['intent'] == 'saudacao'
+        assert result['confidence'] == 1.0
 
     def test_sem_similares_retorna_fallback(self):
         """Se não encontrar similares, usa fallback."""
@@ -46,8 +46,8 @@ class TestClassificarIntencaoComConfidence:
         ):
             result = _classificar_intencao('mensagem qualquer')
 
-        assert result[0] == 'pedir'
-        assert result[1] == 1.0
+        assert result['intent'] == 'pedir'
+        assert result['confidence'] == 1.0
 
     def test_rag_forte_skip_llm(self):
         """RAG com confidence >= 0.95 deve retornar direto, sem chamar LLM."""
@@ -75,8 +75,8 @@ class TestClassificarIntencaoComConfidence:
         mock_llm.assert_not_called()
 
         # Deve retornar decisão do RAG
-        assert result[0] == 'cancelar'
-        assert result[1] == 0.98
+        assert result['intent'] == 'cancelar'
+        assert result['confidence'] == 0.98
 
     def test_rag_medio_chama_llm(self):
         """RAG com confidence 0.50-0.95 deve chamar LLM para validar."""
@@ -106,7 +106,7 @@ class TestClassificarIntencaoComConfidence:
             result = _classificar_intencao('quero um lanche')
 
         # LLM deve ser chamado
-        assert result[0] == 'pedir'
+        assert result['intent'] == 'pedir'
 
     def test_rag_fraco_fallback(self):
         """RAG com confidence < 0.50 deve usar fallback (prompt fixo)."""
@@ -134,8 +134,10 @@ class TestClassificarIntencaoComConfidence:
         ):
             result = _classificar_intencao('mensagem estranha')
 
-        assert result[0] == 'duvida'
-        assert result[1] == 1.0
+        # Intent vem do fallback, mas confidence preserva a do RAG
+        assert result['intent'] == 'duvida'
+        assert result['confidence'] == 0.40
+        assert result['caminho'] == 'llm_rag'
 
 
 class TestClassificarIntencao:
@@ -145,7 +147,7 @@ class TestClassificarIntencao:
         """classificar_intencao deve retornar string, não tupla."""
         with patch(
             'src.roteador.classificador_intencoes._classificar_intencao',
-            return_value=('pedir', 0.85),
+            return_value={'intent': 'pedir', 'confidence': 0.85, 'caminho': 'llm_rag', 'top1_texto': '', 'top1_intencao': '', 'mensagem_norm': ''},
         ):
             from src.roteador.classificador_intencoes import classificar_intencao
 
@@ -187,7 +189,7 @@ class TestRAGForTeThreshold:
             result = _classificar_intencao('exato')
 
         mock_llm.assert_not_called()
-        assert result[0] == 'confirmar'
+        assert result['intent'] == 'confirmar'
 
     def test_threshold_abaixo_094_chama_llm(self):
         """Confidence 0.94 deve chamar LLM."""
@@ -219,4 +221,4 @@ class TestRAGForTeThreshold:
             result = _classificar_intencao('quase')
 
         # LLM deve ser chamado
-        assert result[0] == 'confirmar'
+        assert result['intent'] == 'confirmar'
