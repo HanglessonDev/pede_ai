@@ -16,6 +16,8 @@ dependencies = [
     "spacy-lookups-data>=1.0.3",
     "pt-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/pt_core_news_sm-3.8.0/pt_core_news_sm-3.8.0-py3-none-any.whl",
     "uvicorn>=0.42.0",
+    "groq>=1.1.2",
+    "python-dotenv>=1.2.2",
 ]
 
 [tool.pytest.ini_options]

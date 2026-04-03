@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 import ollama
 
+
 EMBEDDING_MODEL = 'mini-embed'
 
 # Threshold mínimo de similaridade para incluir exemplos no RAG.
@@ -23,8 +24,9 @@ def gerar_embedding(texto: str) -> list[float]:
     Returns:
         Lista de floats representando o embedding.
     """
-    response = ollama.embeddings(model=EMBEDDING_MODEL, prompt=texto)
-    return response['embedding']
+    # API nova: ollama.embed() com input= (não embeddings com prompt=)
+    response = ollama.embed(model=EMBEDDING_MODEL, input=texto)
+    return response['embeddings'][0]
 
 
 def cosine_similarity(
