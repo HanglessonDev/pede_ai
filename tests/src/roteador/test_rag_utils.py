@@ -70,21 +70,21 @@ class TestCalcularVotacao:
         result = calcular_votacao(similares)
         assert result in ['saudacao', 'pedir']
 
-    def test_calcular_votacao_ponderada_por_similaridade(self):
-        """Voto deve ser ponderado por similaridade, não apenas contagem."""
+    def test_calcular_votacao_hybrid_top1_alta_similaridade(self):
+        """Top-1 com similaridade >= 0.95 deve ganhar, mesmo com menos exemplos."""
         from src.roteador.rag_utils import calcular_votacao
 
-        # 2 exemplos de 'pedir' com baixa similaridade (0.55 cada = 1.10 total)
-        # 1 exemplo de 'saudacao' com alta similaridade (0.95)
-        # Mesmo tendo menos exemplos, 'pedir' deve ganhar pelo peso acumulado
+        # 1 exemplo de 'saudacao' com alta similaridade (0.95) - top-1
+        # 2 exemplos de 'pedir' com baixa similaridade (0.55 cada)
+        # Top-1 e 0.95 >= 0.95, entao 'saudacao' ganha
         similares = [
-            {'texto': 'quero lanche', 'intencao': 'pedir', 'similaridade': 0.55},
-            {'texto': 'me vê coca', 'intencao': 'pedir', 'similaridade': 0.56},
             {'texto': 'oi', 'intencao': 'saudacao', 'similaridade': 0.95},
+            {'texto': 'quero lanche', 'intencao': 'pedir', 'similaridade': 0.55},
+            {'texto': 'me ve coca', 'intencao': 'pedir', 'similaridade': 0.56},
         ]
 
         result = calcular_votacao(similares)
-        assert result == 'pedir'  # 0.55 + 0.56 = 1.11 > 0.95
+        assert result == 'saudacao'  # Top-1 com 0.95 >= threshold
 
     def test_calcular_votacao_lista_vazia_retorna_desconhecido(self):
         """Lista vazia deve retornar 'desconhecido'."""
@@ -133,6 +133,81 @@ class TestMontarPromptRag:
         # Deve ter 5 exemplos (→) + instruções podem ter mais →, então verificamos os exemplos especificamente
         linhas_exemplos = [l for l in secao_exemplos.split('\n') if '→' in l and l.strip().startswith('"')]
         assert len(linhas_exemplos) == 5  # exatamente 5 exemplos
+
+
+class TestCalcularVotacaoMax:
+    """Testes para calcular_votacao_max (voto majoritário simples)."""
+
+    def test_calcular_votacao_max_conta_exemplos(self):
+        """Deve contar exemplos, ignorando similaridade."""
+        from src.roteador.rag_utils import calcular_votacao_max
+
+        similares = [
+            {'texto': 'ex1', 'intencao': 'pedir', 'similaridade': 0.90},
+            {'texto': 'ex2', 'intencao': 'duvida', 'similaridade': 0.80},
+            {'texto': 'ex3', 'intencao': 'duvida', 'similaridade': 0.70},
+        ]
+
+        result = calcular_votacao_max(similares)
+        assert result == 'duvida'  # 2 exemplos vs 1
+
+    def test_calcular_votacao_max_lista_vazia(self):
+        """Lista vazia deve retornar 'desconhecido'."""
+        from src.roteador.rag_utils import calcular_votacao_max
+
+        assert calcular_votacao_max([]) == 'desconhecido'
+
+
+class TestCalcularVotacaoHybrid:
+    """Testes para calcular_votacao_hybrid."""
+
+    def test_hybrid_confia_no_top1_quando_alta_similaridade(self):
+        """Se top-1 >= 0.95, deve retornar intenção do top-1."""
+        from src.roteador.rag_utils import calcular_votacao_hybrid
+
+        similares = [
+            {'texto': 'qual o total', 'intencao': 'carrinho', 'similaridade': 1.00},
+            {'texto': 'qual o horário', 'intencao': 'duvida', 'similaridade': 0.75},
+            {'texto': 'qual o preço', 'intencao': 'duvida', 'similaridade': 0.75},
+        ]
+
+        result = calcular_votacao_hybrid(similares)
+        assert result == 'carrinho'  # Top-1 com 1.00, confia nele
+
+    def test_hybrid_usa_majoria_quando_baixa_similaridade(self):
+        """Se top-1 < 0.95, deve usar voto majoritário."""
+        from src.roteador.rag_utils import calcular_votacao_hybrid
+
+        similares = [
+            {'texto': 'ex1', 'intencao': 'pedir', 'similaridade': 0.90},
+            {'texto': 'ex2', 'intencao': 'duvida', 'similaridade': 0.85},
+            {'texto': 'ex3', 'intencao': 'duvida', 'similaridade': 0.80},
+        ]
+
+        result = calcular_votacao_hybrid(similares)
+        assert result == 'duvida'  # 0.90 < 0.95, usa maioria (2x duvida)
+
+    def test_hybrid_lista_vazia(self):
+        """Lista vazia deve retornar 'desconhecido'."""
+        from src.roteador.rag_utils import calcular_votacao_hybrid
+
+        assert calcular_votacao_hybrid([]) == 'desconhecido'
+
+    def test_hybrid_threshold_customizavel(self):
+        """Deve aceitar threshold customizado."""
+        from src.roteador.rag_utils import calcular_votacao_hybrid
+
+        similares = [
+            {'texto': 'ex1', 'intencao': 'pedir', 'similaridade': 0.90},
+            {'texto': 'ex2', 'intencao': 'duvida', 'similaridade': 0.85},
+            {'texto': 'ex3', 'intencao': 'duvida', 'similaridade': 0.80},
+        ]
+
+        # Com threshold 0.95: usa maioria → duvida
+        assert calcular_votacao_hybrid(similares, threshold=0.95) == 'duvida'
+        
+        # Com threshold 0.85: confia no top-1 → pedir
+        assert calcular_votacao_hybrid(similares, threshold=0.85) == 'pedir'
 
 
 class TestBuscarSimilares:

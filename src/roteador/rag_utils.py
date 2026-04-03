@@ -1,6 +1,6 @@
 """RAG utilities para classificação de intenções."""
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from typing import Any
 
 import numpy as np
@@ -93,26 +93,64 @@ def buscar_similares(
     return results
 
 
-def calcular_votacao(similares: list[dict[str, Any]]) -> str:
-    """Calcula a intenção mais comum entre os exemplos similares.
+def calcular_votacao_max(similares: list[dict[str, Any]]) -> str:
+    """Voto majoritário simples: conta exemplos, ignora similaridade.
+    
+    Args:
+        similares: Lista de exemplos similares com 'intencao'.
+    
+    Returns:
+        Nome da intenção com mais exemplos no top-k.
+    """
+    if not similares:
+        return 'desconhecido'
+    
+    votos = Counter(s['intencao'] for s in similares)
+    return votos.most_common(1)[0][0]
 
-    Usa voto ponderado por similaridade: exemplos com maior similaridade
-    têm mais peso na decisão final.
 
+def calcular_votacao_hybrid(
+    similares: list[dict[str, Any]], threshold: float = 0.95
+) -> str:
+    """Hybrid Voting: confia no top-1 se similaridade >= threshold, senão maioria.
+    
+    Lógica:
+    - Se top-1 tem similaridade >= 0.95: retorna intenção do top-1 (match exato)
+    - Senão: usa voto majoritário (evita viés de redundância)
+    
     Args:
         similares: Lista de exemplos similares com 'intencao' e 'similaridade'.
-
+        threshold: Similaridade mínima para confiar no top-1 (padrão: 0.95).
+    
     Returns:
-        Nome da intenção com maior peso acumulado.
+        Nome da intenção classificada.
     """
-    pesos = defaultdict(float)
-    for s in similares:
-        pesos[s['intencao']] += s['similaridade']
-
-    if not pesos:
+    if not similares:
         return 'desconhecido'
+    
+    top_sim = similares[0]['similaridade']
+    
+    # Match muito forte: confia no top-1
+    if top_sim >= threshold:
+        return similares[0]['intencao']
+    
+    # Ambiguidade: usa voto majoritário
+    return calcular_votacao_max(similares)
 
-    return max(pesos.keys(), key=lambda k: pesos[k])
+
+def calcular_votacao(similares: list[dict[str, Any]]) -> str:
+    """Calcula a intenção usando Hybrid Voting (novo padrão).
+    
+    Usa Hybrid Voting: confia no top-1 se similaridade >= 0.95,
+    senão usa voto majoritário simples.
+    
+    Args:
+        similares: Lista de exemplos similares com 'intencao' e 'similaridade'.
+    
+    Returns:
+        Nome da intenção classificada.
+    """
+    return calcular_votacao_hybrid(similares)
 
 
 def montar_prompt_rag(
