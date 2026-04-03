@@ -209,7 +209,7 @@ def _deve_parar_no_conectivo(tokens: list, indice_conectivo: int) -> bool:
     )
 
 
-def capturar_remocoes(doc: spacy.tokens.Doc) -> list[tuple[str, int]]: # pyright: ignore[reportAttributeAccessIssue]
+def capturar_remocoes(doc: spacy.tokens.Doc) -> list[tuple[str, int]]:  # pyright: ignore[reportAttributeAccessIssue]
     """
     Captura itens a remover após sinais como 'sem', 'tira', etc.
 

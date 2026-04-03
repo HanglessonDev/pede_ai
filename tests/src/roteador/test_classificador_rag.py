@@ -147,7 +147,14 @@ class TestClassificarIntencao:
         """classificar_intencao deve retornar string, não tupla."""
         with patch(
             'src.roteador.classificador_intencoes._classificar_intencao',
-            return_value={'intent': 'pedir', 'confidence': 0.85, 'caminho': 'llm_rag', 'top1_texto': '', 'top1_intencao': '', 'mensagem_norm': ''},
+            return_value={
+                'intent': 'pedir',
+                'confidence': 0.85,
+                'caminho': 'llm_rag',
+                'top1_texto': '',
+                'top1_intencao': '',
+                'mensagem_norm': '',
+            },
         ):
             from src.roteador.classificador_intencoes import classificar_intencao
 

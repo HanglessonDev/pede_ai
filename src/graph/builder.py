@@ -146,4 +146,4 @@ def criar_graph(checkpointer: SqliteSaver) -> StateGraph:
     builder.add_edge('handler_desconhecido', END)
 
     # 5. compila
-    return builder.compile(checkpointer=checkpointer) # pyright: ignore[reportReturnType]
+    return builder.compile(checkpointer=checkpointer)  # pyright: ignore[reportReturnType]

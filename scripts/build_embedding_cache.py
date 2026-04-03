@@ -39,7 +39,9 @@ def _carregar_cache() -> dict:
         return json.load(f)
 
 
-def _gerar_embedding(modelo: str, texto: str, tentativas: int = 3) -> list[float] | None:
+def _gerar_embedding(
+    modelo: str, texto: str, tentativas: int = 3
+) -> list[float] | None:
     """Gera embedding para um texto com retry em caso de erro.
 
     Args:
@@ -76,8 +78,15 @@ def _back_cache(cache: dict) -> None:
 
 @app.command()
 def build(  # noqa: PLR0915
-    modelo: str = typer.Option(DEFAULT_MODEL, '--model', '-m', help='Modelo de embedding'),
-    incremental: bool = typer.Option(True, '--incremental/--full', '-i/-f', help='Geração incremental (só novos embeddings)'),
+    modelo: str = typer.Option(
+        DEFAULT_MODEL, '--model', '-m', help='Modelo de embedding'
+    ),
+    incremental: bool = typer.Option(
+        True,
+        '--incremental/--full',
+        '-i/-f',
+        help='Geração incremental (só novos embeddings)',
+    ),
 ):
     """Gera embeddings para exemplos no cache."""
     modelo_nome = MODELOS.get(modelo, modelo)
@@ -100,7 +109,9 @@ def build(  # noqa: PLR0915
         teste = _gerar_embedding(modelo_nome, 'teste')
         dim_modelo = len(teste) if teste else 0
         if dim_esperada != dim_modelo:
-            print(f'⚠️  Dimensão incompatível: cache={dim_esperada}, modelo={dim_modelo}')
+            print(
+                f'⚠️  Dimensão incompatível: cache={dim_esperada}, modelo={dim_modelo}'
+            )
             print('🔄 Gerando todos os embeddings do zero...')
             incremental = False
             embeddings_existentes = []

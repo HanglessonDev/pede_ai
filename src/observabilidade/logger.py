@@ -11,16 +11,16 @@ Example:
     ```python
     from src.observabilidade import ObservabilidadeLogger
 
-    logger = ObservabilidadeLogger("logs/eventos.csv")
+    logger = ObservabilidadeLogger('logs/eventos.csv')
     logger.registrar(
-        thread_id="sessao_123",
-        mensagem="Quero um X-Burguer",
-        mensagem_norm="querer x-burguer",
-        intent="pedido_lanche",
+        thread_id='sessao_123',
+        mensagem='Quero um X-Burguer',
+        mensagem_norm='querer x-burguer',
+        intent='pedido_lanche',
         confidence=0.95,
-        caminho="rag_forte",
-        top1_texto="quero um x-burguer",
-        top1_intencao="pedido_lanche",
+        caminho='rag_forte',
+        top1_texto='quero um x-burguer',
+        top1_intencao='pedido_lanche',
     )
     ```
 
@@ -100,16 +100,16 @@ class ObservabilidadeLogger:
         ```python
         from src.observabilidade import ObservabilidadeLogger
 
-        logger = ObservabilidadeLogger("logs/classificacoes.csv")
+        logger = ObservabilidadeLogger('logs/classificacoes.csv')
         logger.registrar(
-            thread_id="user_42",
-            mensagem="Me vê uma coca cola",
-            mensagem_norm="me ver coca cola",
-            intent="pedido_bebida",
+            thread_id='user_42',
+            mensagem='Me vê uma coca cola',
+            mensagem_norm='me ver coca cola',
+            intent='pedido_bebida',
             confidence=0.88,
-            caminho="rag_forte",
-            top1_texto="quero uma coca cola",
-            top1_intencao="pedido_bebida",
+            caminho='rag_forte',
+            top1_texto='quero uma coca cola',
+            top1_intencao='pedido_bebida',
         )
         ```
 
@@ -136,10 +136,10 @@ class ObservabilidadeLogger:
             from src.observabilidade import ObservabilidadeLogger
 
             # Com string
-            logger = ObservabilidadeLogger("logs/eventos.csv")
+            logger = ObservabilidadeLogger('logs/eventos.csv')
 
             # Com Path
-            logger = ObservabilidadeLogger(Path("logs/eventos.csv"))
+            logger = ObservabilidadeLogger(Path('logs/eventos.csv'))
             ```
 
         Note:
@@ -192,16 +192,16 @@ class ObservabilidadeLogger:
             Registrando uma classificação via RAG:
 
             ```python
-            logger = ObservabilidadeLogger("logs/eventos.csv")
+            logger = ObservabilidadeLogger('logs/eventos.csv')
             logger.registrar(
-                thread_id="sessao_abc",
-                mensagem="Quero dois X-Salada e uma coca",
-                mensagem_norm="querer dois x-salada e uma coca",
-                intent="pedido_combinado",
+                thread_id='sessao_abc',
+                mensagem='Quero dois X-Salada e uma coca',
+                mensagem_norm='querer dois x-salada e uma coca',
+                intent='pedido_combinado',
                 confidence=0.92,
-                caminho="rag_forte",
-                top1_texto="quero um x-salada e uma coca",
-                top1_intencao="pedido_combinado",
+                caminho='rag_forte',
+                top1_texto='quero um x-salada e uma coca',
+                top1_intencao='pedido_combinado',
             )
             ```
 
@@ -209,14 +209,14 @@ class ObservabilidadeLogger:
 
             ```python
             logger.registrar(
-                thread_id="sessao_xyz",
-                mensagem="Tem algo sem glúten?",
-                mensagem_norm="ter algo sem gluten",
-                intent="informacao_nutricional",
+                thread_id='sessao_xyz',
+                mensagem='Tem algo sem glúten?',
+                mensagem_norm='ter algo sem gluten',
+                intent='informacao_nutricional',
                 confidence=0.45,
-                caminho="llm_rag",
-                top1_texto="quais opcoes sem gluten",
-                top1_intencao="informacao_nutricional",
+                caminho='llm_rag',
+                top1_texto='quais opcoes sem gluten',
+                top1_intencao='informacao_nutricional',
             )
             ```
 
@@ -225,7 +225,9 @@ class ObservabilidadeLogger:
             atômica e thread-safe.
         """
         if caminho not in CAMINHOS_VALIDOS:
-            raise ValueError(f'Caminho invalido: {caminho}. Validos: {CAMINHOS_VALIDOS}')
+            raise ValueError(
+                f'Caminho invalido: {caminho}. Validos: {CAMINHOS_VALIDOS}'
+            )
 
         evento = {
             'timestamp': datetime.now(UTC).isoformat(),

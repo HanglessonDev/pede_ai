@@ -10,14 +10,14 @@ Example:
     from src.observabilidade.consultas import baixa_confianca, distribuicao_caminhos
 
     # Casos de baixa confiança que foram para o LLM
-    casos = baixa_confianca("logs/classificacoes.csv", limit=10)
+    casos = baixa_confianca('logs/classificacoes.csv', limit=10)
     for caso in casos:
-        print(f"{caso['mensagem']}: {caso['confidence']:.2f}")
+        print(f'{caso["mensagem"]}: {caso["confidence"]:.2f}')
 
     # Distribuição de caminhos
-    dist = distribuicao_caminhos("logs/classificacoes.csv")
+    dist = distribuicao_caminhos('logs/classificacoes.csv')
     for item in dist:
-        print(f"{item['caminho']}: {item['total']} eventos")
+        print(f'{item["caminho"]}: {item["total"]} eventos')
     ```
 
 Note:
@@ -47,12 +47,12 @@ def baixa_confianca(csv_path: str, limit: int = 20) -> list[dict]:
 
     Example:
         ```python
-        casos = baixa_confianca("logs/classificacoes.csv")
+        casos = baixa_confianca('logs/classificacoes.csv')
         # [{'mensagem': 'tem opcao vegana?', 'intent': 'info_cardapio',
         #   'confidence': 0.35, 'caminho': 'llm_rag'}, ...]
 
         # Limitar resultados
-        top5 = baixa_confianca("logs/classificacoes.csv", limit=5)
+        top5 = baixa_confianca('logs/classificacoes.csv', limit=5)
         ```
 
     Tip:
@@ -89,7 +89,7 @@ def distribuicao_caminhos(csv_path: str) -> list[dict]:
 
     Example:
         ```python
-        dist = distribuicao_caminhos("logs/classificacoes.csv")
+        dist = distribuicao_caminhos('logs/classificacoes.csv')
         # [{'caminho': 'rag_forte', 'total': 150},
         #  {'caminho': 'lookup', 'total': 45},
         #  {'caminho': 'llm_rag', 'total': 12}]
@@ -98,7 +98,7 @@ def distribuicao_caminhos(csv_path: str) -> list[dict]:
         total_geral = sum(item['total'] for item in dist)
         for item in dist:
             pct = item['total'] / total_geral * 100
-            print(f"{item['caminho']}: {pct:.1f}%")
+            print(f'{item["caminho"]}: {pct:.1f}%')
         ```
 
     Tip:
@@ -116,4 +116,3 @@ def distribuicao_caminhos(csv_path: str) -> list[dict]:
     cols = [desc[0] for desc in conn.execute(query).description]
     conn.close()
     return [dict(zip(cols, row, strict=True)) for row in rows]
-

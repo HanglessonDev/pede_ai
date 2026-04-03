@@ -227,9 +227,7 @@ def _classificar_intencao(  # noqa: PLR0911
         }
 
     try:
-        similares = buscar_similares(
-            mensagem_truncada, EXEMPLOS, EMBEDDINGS, top_k=5
-        )
+        similares = buscar_similares(mensagem_truncada, EXEMPLOS, EMBEDDINGS, top_k=5)
     except Exception:
         intent, confidence = _fallback(mensagem_truncada)
         return {
@@ -282,9 +280,7 @@ def _classificar_intencao(  # noqa: PLR0911
     # RAG médio: valida com LLM
     intencao_rag = calcular_votacao(similares)
     try:
-        prompt_rag = montar_prompt_rag(
-            mensagem_truncada, similares, intencao_rag
-        )
+        prompt_rag = montar_prompt_rag(mensagem_truncada, similares, intencao_rag)
         intent, _ = validar_com_llm(prompt_rag)
     except Exception:
         intent = intencao_rag

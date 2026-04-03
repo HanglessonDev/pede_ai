@@ -2,8 +2,6 @@
 
 from unittest.mock import patch, MagicMock
 
-import pytest
-
 
 class TestConsultasBaixaConfianca:
     """Testes para consultas de baixa confiança."""
@@ -20,7 +18,10 @@ class TestConsultasBaixaConfianca:
                 ('qual o total', 'duvida', 0.45, 'llm_rag'),
             ]
             mock_conn.execute.return_value.description = [
-                ('mensagem',), ('intent',), ('confidence',), ('caminho',)
+                ('mensagem',),
+                ('intent',),
+                ('confidence',),
+                ('caminho',),
             ]
 
             resultados = baixa_confianca(mock_csv, limit=10)
@@ -46,9 +47,7 @@ class TestDistribuicaoCaminhos:
                 ('rag_forte', 50),
                 ('llm_rag', 10),
             ]
-            mock_conn.execute.return_value.description = [
-                ('caminho',), ('total',)
-            ]
+            mock_conn.execute.return_value.description = [('caminho',), ('total',)]
 
             resultados = distribuicao_caminhos(mock_csv)
 
