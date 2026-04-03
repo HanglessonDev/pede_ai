@@ -35,12 +35,33 @@ from src.graph.state import State
 
 
 def _decidir_entrada(state: State) -> str:
+    """Decide qual nó executar baseado na etapa atual.
+
+    Se a etapa atual for 'clarificando_variante', redireciona
+    para o nó de clarificação. Caso contrário, segue para o router.
+
+    Args:
+        state: Estado atual do grafo de atendimento.
+
+    Returns:
+        Nome do próximo nó ('clarificacao' ou 'router').
+    """
     if state.get('etapa') == 'clarificando_variante':
         return 'clarificacao'
     return 'router'
 
 
 def _decidir_por_intent(state: State) -> str:
+    """Decide qual handler executar baseado na intenção classificada.
+
+    Mapeia cada intenção válida ao nó handler correspondente.
+
+    Args:
+        state: Estado atual do grafo de atendimento.
+
+    Returns:
+        Nome do nó handler a ser executado.
+    """
     intent = state.get('intent', '')
 
     mapeamento = {

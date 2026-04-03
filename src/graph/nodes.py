@@ -31,6 +31,18 @@ from src.roteador.classificador_intencoes import classificar_intencao_com_confid
 
 
 def node_verificar_etapa(state: State) -> RetornoNode:
+    """Nó de verificação de etapa do fluxo.
+
+    Apenas passa adiante sem modificar o estado. A decisão
+    de qual caminho seguir é feita pela edge condicional
+    ``_decidir_entrada`` no builder.
+
+    Args:
+        state: Estado atual do grafo de atendimento.
+
+    Returns:
+        Dicionário vazio - apenas passa adiante sem modificar o estado.
+    """
     return {}  # não faz nada, só passa adiante
 
 
