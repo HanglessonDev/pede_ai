@@ -15,6 +15,7 @@ Example:
     ```
 """
 
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
 from src.graph.handlers.desconhecido import node_handler_desconhecido
@@ -54,7 +55,7 @@ def _decidir_por_intent(state: State) -> str:
     return mapeamento.get(intent, 'handler_saudacao')
 
 
-def criar_graph(checkpointer):
+def criar_graph(checkpointer: SqliteSaver) -> StateGraph:
     """Constroi e compila o grafo de atendimento.
 
     Args:
@@ -124,4 +125,4 @@ def criar_graph(checkpointer):
     builder.add_edge('handler_desconhecido', END)
 
     # 5. compila
-    return builder.compile(checkpointer=checkpointer)
+    return builder.compile(checkpointer=checkpointer) # pyright: ignore[reportReturnType]

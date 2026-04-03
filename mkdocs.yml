@@ -38,7 +38,7 @@ plugins:
             members_order: source
             show_signature_annotations: true
             merge_init_into_class: true
-            python_path: ["src"]
+            python_path: ["src", "scripts"]
 
 nav:
   - Início: index.md
@@ -49,6 +49,7 @@ nav:
       - graph: api/graph.md
       - handlers: api/handlers.md
     - Roteador: api/roteador.md
+    - Scripts: api/scripts.md
 
 markdown_extensions:
   - pymdownx.highlight:
