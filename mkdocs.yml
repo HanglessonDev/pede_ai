@@ -48,6 +48,7 @@ nav:
     - Graph:
       - graph: api/graph.md
       - handlers: api/handlers.md
+    - Observabilidade: api/observabilidade.md
     - Roteador: api/roteador.md
     - Scripts: api/scripts.md
 

@@ -22,7 +22,7 @@ while True:
     if not mensagem:
         continue
 
-    resultado = graph.invoke({'mensagem_atual': mensagem}, config)  # pyright: ignore[reportArgumentType]
+    resultado = graph.invoke({'mensagem_atual': mensagem}, config) # type: ignore
 
     print(f'Bot: {resultado.get("resposta", "???")}')
     print(
