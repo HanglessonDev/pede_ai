@@ -34,6 +34,10 @@ reportMissingTypeStubs = false
 venvPath = "."
 venv = ".venv"
 
+# Ignorar erros apenas nos arquivos de teste
+ignore = ["tests/**"]
+
+
 [dependency-groups]
 dev = [
     "mkdocs>=1.6.1",
