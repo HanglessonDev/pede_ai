@@ -43,6 +43,18 @@ CACHE_PATH = Path(__file__).parent / 'embedding_cache.json'
 
 
 def _carregar_cache() -> dict[str, Any]:
+    """Carrega o cache de embeddings do arquivo JSON.
+
+    Returns:
+        Dicionário com 'exemplos' e 'embeddings'.
+
+    Example:
+        ```python
+        cache = _carregar_cache()
+        'exemplos' in cache
+        True
+        ```
+    """
     with open(CACHE_PATH, encoding='utf-8') as f:
         return json.load(f)
 
@@ -56,64 +68,161 @@ EMBEDDINGS = _cache['embeddings']
 # Ver testes em tests/src/roteador/test_classificador_rag.py
 RAG_FORTE_THRESHOLD = 0.95
 
+# Threshold mínimo de confiança para usar RAG.
+# Se confidence < 0.5, usa fallback com LLM diretamente.
+RAG_FRACO_THRESHOLD = 0.5
+
 MAX_CHARS = 500
 
 
-def classificar_intencao_com_confidence(mensagem: str) -> tuple[str, float]:
-    """Classifica intenção usando RAG com confiança."""
+def _preparar_mensagem(mensagem: str) -> str | None:
+    """Prepara e valida a mensagem para classificação.
+
+    Args:
+        mensagem: Texto original do usuário.
+
+    Returns:
+        Mensagem truncada se válida, None se vazia.
+
+    Example:
+        ```python
+        _preparar_mensagem('oi')
+        'oi'
+
+        _preparar_mensagem('')
+        None
+
+        _preparar_mensagem('mensagem muito longa...')
+        'mensagem muito longa...'  # truncada para MAX_CHARS
+        ```
+    """
     if not mensagem or not mensagem.strip():
-        return classificar_intencao_fixo(mensagem), 1.0
+        return None
+    return mensagem[:MAX_CHARS]
 
-    # Lookup direto para tokens únicos (mais confiável)
-    intent_direta = lookup_intencao_direta(mensagem)
-    if intent_direta:
-        return intent_direta, 1.0
 
-    mensagem = mensagem[:MAX_CHARS]
+def _fallback(mensagem: str) -> tuple[str, float]:
+    """Retorna intent via LLM com confidence 1.0 (fallback).
 
-    if not EMBEDDINGS:
-        return classificar_intencao_fixo(mensagem), 1.0
+    Args:
+        mensagem: Texto do usuário.
 
-    try:
-        similares = buscar_similares(mensagem, EXEMPLOS, EMBEDDINGS, top_k=5)
-    except Exception:
-        return classificar_intencao_fixo(mensagem), 1.0
+    Returns:
+        Tupla (intent, confidence=1.0).
 
-    if not similares:
-        return classificar_intencao_fixo(mensagem), 1.0
+    Example:
+        ```python
+        _fallback('mensagem qualquer')
+        ('saudacao', 1.0)
+        ```
+    """
+    return classificar_com_llm(mensagem), 1.0
 
-    intencao_dominante = calcular_votacao(similares)
+
+def _decidir_intent(
+    similares: list[dict[str, Any]],
+    mensagem: str,
+) -> tuple[str, float]:
+    """Decide a intenção baseada na confiança dos similares.
+
+    Args:
+        similares: Lista de exemplos similares com similaridade.
+        mensagem: Mensagem original para fallback.
+
+    Returns:
+        Tupla (intent, confidence).
+
+    Example:
+        ```python
+        similares = [{'intencao': 'pedir', 'similaridade': 0.98}]
+        _decidir_intent(similares, 'quero lanche')
+        ('pedir', 0.98)
+
+        similares = [{'intencao': 'duvida', 'similaridade': 0.40}]
+        _decidir_intent(similares, 'msg')
+        ('duvida', 1.0)  # fallback, confidence 1.0
+        ```
+    """
+    intencao_rag = calcular_votacao(similares)
     confidence = similares[0]['similaridade']
 
-    if confidence < 0.5:
-        intent_fixo = classificar_intencao_fixo(mensagem)
-        return (intent_fixo if intent_fixo != 'desconhecido' else 'desconhecido'), (
-            1.0 if intent_fixo != 'desconhecido' else confidence
+    if confidence < RAG_FRACO_THRESHOLD:
+        intent_fixo = classificar_com_llm(mensagem)
+        return (
+            intent_fixo if intent_fixo != 'desconhecido' else 'desconhecido',
+            1.0 if intent_fixo != 'desconhecido' else confidence,
         )
 
-    # RAG forte (>= 0.95): usa direto, sem LLM
-    # Justificativa: matches >= 0.95 são quase idênticos, LLM pode atrapalhar
     if confidence >= RAG_FORTE_THRESHOLD:
-        return intencao_dominante, confidence
+        return intencao_rag, confidence
 
-    # RAG médio (0.50 - 0.95): valida com LLM
+    # RAG médio (0.5 - 0.95): valida com LLM
     try:
-        prompt_rag = montar_prompt_rag(mensagem, similares, intencao_dominante)
-        intent, _ = chamar_llm_rag(prompt_rag)
+        prompt_rag = montar_prompt_rag(mensagem, similares, intencao_rag)
+        intent, _ = validar_com_llm(prompt_rag)
     except Exception:
-        intent = intencao_dominante
+        intent = intencao_rag
 
     return intent, confidence
 
 
-def chamar_llm_rag(prompt: str) -> tuple[str, float]:
-    """Chama o LLM com o prompt RAG e retorna intent + confidence.
+def _classificar_intencao(mensagem: str) -> tuple[str, float]:
+    """Classifica intenção usando RAG com confiança (interno).
 
     Args:
-        prompt: Prompt RAG formatado.
+        mensagem: Texto da mensagem do usuário.
 
     Returns:
         Tupla (intent, confidence).
+
+    Example:
+        ```python
+        _classificar_intencao('oi')
+        ('saudacao', 1.0)
+
+        _classificar_intencao('quero um xbacon')
+        ('pedir', 0.95)
+        ```
+    """
+    mensagem_truncada = _preparar_mensagem(mensagem)
+    if mensagem_truncada is None:
+        return _fallback(mensagem)
+
+    intent_direta = lookup_intencao_direta(mensagem_truncada)
+    if intent_direta:
+        return intent_direta, 1.0
+
+    if not EMBEDDINGS:
+        return _fallback(mensagem_truncada)
+
+    try:
+        similares = buscar_similares(
+            mensagem_truncada, EXEMPLOS, EMBEDDINGS, top_k=5
+        )
+    except Exception:
+        return _fallback(mensagem_truncada)
+
+    if not similares:
+        return _fallback(mensagem_truncada)
+
+    return _decidir_intent(similares, mensagem_truncada)
+
+
+def validar_com_llm(prompt: str) -> tuple[str, float]:
+    """Valida intent com LLM usando prompt RAG.
+
+    Args:
+        prompt: Prompt RAG formatado com exemplos similares.
+
+    Returns:
+        Tupla (intent, confidence).
+
+    Example:
+        ```python
+        prompt = 'Classifique: "quero lanche" → pedir'
+        validar_com_llm(prompt)
+        ('pedir', 1.0)
+        ```
     """
     resposta = modelo_llm.invoke(prompt)
     intencao = resposta.strip().lower().split()[0]
@@ -124,14 +233,23 @@ def chamar_llm_rag(prompt: str) -> tuple[str, float]:
     return (intencao, 1.0)
 
 
-def classificar_intencao_fixo(mensagem: str) -> str:
-    """Classifica usando o prompt fixo (fallback).
+def classificar_com_llm(mensagem: str) -> str:
+    """Classifica intenção usando apenas o LLM (fallback).
 
     Args:
         mensagem: Mensagem do usuário.
 
     Returns:
         Nome da intenção.
+
+    Example:
+        ```python
+        classificar_com_llm('oi')
+        'saudacao'
+
+        classificar_com_llm('xyz123')
+        'desconhecido'
+        ```
     """
     resposta = modelo_llm.invoke(PROMPT_FIXO.format(mensagem=mensagem))
     intencao = resposta.strip().lower().split()[0]
@@ -150,8 +268,17 @@ def classificar_intencao(mensagem: str) -> str:
 
     Returns:
         Nome da intenção classificada ou 'desconhecido'.
+
+    Example:
+        ```python
+        classificar_intencao('oi')
+        'saudacao'
+
+        classificar_intencao('quero um xbacon')
+        'pedir'
+        ```
     """
-    intent, _ = classificar_intencao_com_confidence(mensagem)
+    intent, _ = _classificar_intencao(mensagem)
     return intent
 
 
@@ -164,5 +291,5 @@ if __name__ == '__main__':
         'vocês entregam?',
     ]
     for msg in testes:
-        intent, confidence = classificar_intencao_com_confidence(msg)
+        intent, confidence = _classificar_intencao(msg)
         print(f'{msg!r} → {intent} (confidence: {confidence:.2f})')

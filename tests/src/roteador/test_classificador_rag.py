@@ -4,13 +4,13 @@ from unittest.mock import patch
 
 
 class TestClassificarIntencaoComConfidence:
-    """Testes para classificar_intencao_com_confidence."""
+    """Testes para _classificar_intencao."""
 
     def test_sem_embeddings_retorna_fallback(self):
         """Se não houver embeddings, usa fallback."""
         from src.roteador import classificador_intencoes
         from src.roteador.classificador_intencoes import (
-            classificar_intencao_com_confidence,
+            _classificar_intencao,
         )
 
         original_embeddings = classificador_intencoes.EMBEDDINGS
@@ -19,10 +19,10 @@ class TestClassificarIntencaoComConfidence:
         try:
             with patch.object(
                 classificador_intencoes,
-                'classificar_intencao_fixo',
+                'classificar_com_llm',
                 return_value='saudacao',
             ):
-                result = classificar_intencao_com_confidence('oi')
+                result = _classificar_intencao('oi')
         finally:
             classificador_intencoes.EMBEDDINGS = original_embeddings
 
@@ -33,18 +33,18 @@ class TestClassificarIntencaoComConfidence:
         """Se não encontrar similares, usa fallback."""
         from src.roteador import classificador_intencoes
         from src.roteador.classificador_intencoes import (
-            classificar_intencao_com_confidence,
+            _classificar_intencao,
         )
 
         with (
             patch.object(classificador_intencoes, 'buscar_similares', return_value=[]),
             patch.object(
                 classificador_intencoes,
-                'classificar_intencao_fixo',
+                'classificar_com_llm',
                 return_value='pedir',
             ),
         ):
-            result = classificar_intencao_com_confidence('mensagem qualquer')
+            result = _classificar_intencao('mensagem qualquer')
 
         assert result[0] == 'pedir'
         assert result[1] == 1.0
@@ -53,10 +53,9 @@ class TestClassificarIntencaoComConfidence:
         """RAG com confidence >= 0.95 deve retornar direto, sem chamar LLM."""
         from src.roteador import classificador_intencoes
         from src.roteador.classificador_intencoes import (
-            classificar_intencao_com_confidence,
+            _classificar_intencao,
         )
 
-        # Mock de similares com confidence >= 0.95
         similares = [
             {'texto': 'cancela tudo', 'intencao': 'cancelar', 'similaridade': 0.98},
         ]
@@ -68,9 +67,9 @@ class TestClassificarIntencaoComConfidence:
             patch.object(
                 classificador_intencoes, 'calcular_votacao', return_value='cancelar'
             ),
-            patch.object(classificador_intencoes, 'chamar_llm_rag') as mock_llm,
+            patch.object(classificador_intencoes, 'validar_com_llm') as mock_llm,
         ):
-            result = classificar_intencao_com_confidence('cancela tudo')
+            result = _classificar_intencao('cancela tudo')
 
         # LLM NÃO deve ser chamado
         mock_llm.assert_not_called()
@@ -83,10 +82,9 @@ class TestClassificarIntencaoComConfidence:
         """RAG com confidence 0.50-0.95 deve chamar LLM para validar."""
         from src.roteador import classificador_intencoes
         from src.roteador.classificador_intencoes import (
-            classificar_intencao_com_confidence,
+            _classificar_intencao,
         )
 
-        # Mock de similares com confidence = 0.75 (médio)
         similares = [
             {'texto': 'quero um xbacon', 'intencao': 'pedir', 'similaridade': 0.75},
         ]
@@ -102,10 +100,10 @@ class TestClassificarIntencaoComConfidence:
                 classificador_intencoes, 'montar_prompt_rag', return_value='prompt'
             ),
             patch.object(
-                classificador_intencoes, 'chamar_llm_rag', return_value=('pedir', 1.0)
+                classificador_intencoes, 'validar_com_llm', return_value=('pedir', 1.0)
             ),
         ):
-            result = classificar_intencao_com_confidence('quero um lanche')
+            result = _classificar_intencao('quero um lanche')
 
         # LLM deve ser chamado
         assert result[0] == 'pedir'
@@ -114,10 +112,9 @@ class TestClassificarIntencaoComConfidence:
         """RAG com confidence < 0.50 deve usar fallback (prompt fixo)."""
         from src.roteador import classificador_intencoes
         from src.roteador.classificador_intencoes import (
-            classificar_intencao_com_confidence,
+            _classificar_intencao,
         )
 
-        # Mock de similares com confidence = 0.40 (fraco)
         similares = [
             {'texto': 'abc', 'intencao': 'desconhecido', 'similaridade': 0.40},
         ]
@@ -131,11 +128,11 @@ class TestClassificarIntencaoComConfidence:
             ),
             patch.object(
                 classificador_intencoes,
-                'classificar_intencao_fixo',
+                'classificar_com_llm',
                 return_value='duvida',
             ),
         ):
-            result = classificar_intencao_com_confidence('mensagem estranha')
+            result = _classificar_intencao('mensagem estranha')
 
         assert result[0] == 'duvida'
         assert result[1] == 1.0
@@ -147,7 +144,7 @@ class TestClassificarIntencao:
     def test_retorna_string_nao_tupla(self):
         """classificar_intencao deve retornar string, não tupla."""
         with patch(
-            'src.roteador.classificador_intencoes.classificar_intencao_com_confidence',
+            'src.roteador.classificador_intencoes._classificar_intencao',
             return_value=('pedir', 0.85),
         ):
             from src.roteador.classificador_intencoes import classificar_intencao
@@ -171,7 +168,7 @@ class TestRAGForTeThreshold:
         """Confidence exatamente 0.95 deve skipar LLM."""
         from src.roteador import classificador_intencoes
         from src.roteador.classificador_intencoes import (
-            classificar_intencao_com_confidence,
+            _classificar_intencao,
         )
 
         similares_095 = [
@@ -185,9 +182,9 @@ class TestRAGForTeThreshold:
             patch.object(
                 classificador_intencoes, 'calcular_votacao', return_value='confirmar'
             ),
-            patch.object(classificador_intencoes, 'chamar_llm_rag') as mock_llm,
+            patch.object(classificador_intencoes, 'validar_com_llm') as mock_llm,
         ):
-            result = classificar_intencao_com_confidence('exato')
+            result = _classificar_intencao('exato')
 
         mock_llm.assert_not_called()
         assert result[0] == 'confirmar'
@@ -196,7 +193,7 @@ class TestRAGForTeThreshold:
         """Confidence 0.94 deve chamar LLM."""
         from src.roteador import classificador_intencoes
         from src.roteador.classificador_intencoes import (
-            classificar_intencao_com_confidence,
+            _classificar_intencao,
         )
 
         similares_094 = [
@@ -215,11 +212,11 @@ class TestRAGForTeThreshold:
             ),
             patch.object(
                 classificador_intencoes,
-                'chamar_llm_rag',
+                'validar_com_llm',
                 return_value=('confirmar', 1.0),
             ),
         ):
-            result = classificar_intencao_com_confidence('quase')
+            result = _classificar_intencao('quase')
 
         # LLM deve ser chamado
         assert result[0] == 'confirmar'

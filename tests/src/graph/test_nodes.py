@@ -58,7 +58,7 @@ def state_com_carrinho():
 class TestNodeRouter:
     """Testes para node_router."""
 
-    @patch('src.graph.nodes.classificar_intencao_com_confidence')
+    @patch('src.graph.nodes._classificar_intencao')
     def test_retorna_intent(self, mock_classificar):
         """Deve retornar a intent classificada."""
         mock_classificar.return_value = ('pedir', 0.85)
@@ -66,14 +66,14 @@ class TestNodeRouter:
         assert result['intent'] == 'pedir'
         assert result['confidence'] == 0.85
 
-    @patch('src.graph.nodes.classificar_intencao_com_confidence')
+    @patch('src.graph.nodes._classificar_intencao')
     def test_chama_classificar_com_mensagem(self, mock_classificar):
         """Deve chamar classificar com a mensagem."""
         mock_classificar.return_value = ('saudacao', 0.9)
         node_router({'mensagem_atual': 'oi'})  # type: ignore
         mock_classificar.assert_called_with('oi')
 
-    @patch('src.graph.nodes.classificar_intencao_com_confidence')
+    @patch('src.graph.nodes._classificar_intencao')
     def test_mensagem_vazia(self, mock_classificar):
         """Deve tratar mensagem vazia."""
         mock_classificar.return_value = ('saudacao', 0.9)

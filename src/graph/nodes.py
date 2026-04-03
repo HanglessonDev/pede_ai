@@ -27,7 +27,7 @@ from src.extratores import extrair, extrair_item_carrinho
 from src.graph.handlers.clarificacao import clarificar
 from src.graph.handlers.pedir import processar as processar_pedido
 from src.graph.state import RetornoNode, State
-from src.roteador.classificador_intencoes import classificar_intencao_com_confidence
+from src.roteador.classificador_intencoes import _classificar_intencao
 
 
 def node_verificar_etapa(state: State) -> RetornoNode:
@@ -74,7 +74,7 @@ def node_router(state: State) -> RetornoNode:
         True
         ```
     """
-    intent, confidence = classificar_intencao_com_confidence(
+    intent, confidence = _classificar_intencao(
         state.get('mensagem_atual', '')
     )
     return {'intent': intent, 'confidence': confidence}
