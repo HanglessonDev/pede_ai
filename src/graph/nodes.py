@@ -22,6 +22,8 @@ Example:
     ```
 """
 
+from langgraph.config import get_config
+
 from src.config import get_nome_item, get_tenant_nome
 from src.extratores import extrair, extrair_item_carrinho
 from src.graph.handlers.clarificacao import clarificar
@@ -76,7 +78,7 @@ def node_router(state: State) -> RetornoNode:
         ```
     """
     mensagem = state.get('mensagem_atual', '')
-    thread_id = state.get('config', {}).get('configurable', {}).get('thread_id', '')
+    thread_id = get_config().get('configurable', {}).get('thread_id', '')
 
     resultado = _classificar_intencao(mensagem, thread_id=thread_id)
 
@@ -100,7 +102,7 @@ def node_router(state: State) -> RetornoNode:
 
 
 def node_clarificacao(state: State) -> RetornoNode:
-    thread_id = state.get('config', {}).get('configurable', {}).get('thread_id', '')
+    thread_id = get_config().get('configurable', {}).get('thread_id', '')
     resultado = clarificar(
         fila=state.get('fila_clarificacao', []),
         mensagem=state.get('mensagem_atual', ''),
