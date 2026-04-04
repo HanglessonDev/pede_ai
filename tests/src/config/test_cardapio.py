@@ -119,7 +119,7 @@ class TestGetNomeItem:
             ('acomp_001', 'Batata Frita'),
             ('bebida_001', 'Coca-Cola'),
             ('bebida_002', 'Coca-Cola Zero'),
-            ('bebida_003', 'Suco Natural (Limão)'),
+            ('bebida_003', 'Suco Natural'),
         ],
     )
     def test_nomes_corretos(self, item_id, expected):
