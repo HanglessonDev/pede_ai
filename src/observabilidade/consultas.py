@@ -116,3 +116,67 @@ def distribuicao_caminhos(csv_path: str) -> list[dict]:
     cols = [desc[0] for desc in conn.execute(query).description]
     conn.close()
     return [dict(zip(cols, row, strict=True)) for row in rows]
+
+
+def extracoes_sem_itens(csv_extracao: str, limit: int = 20) -> list[dict]:
+    """Retorna mensagens onde extrator não encontrou itens."""
+    conn = duckdb.connect()
+    query = f"""
+        SELECT mensagem, itens_encontrados, tempo_ms
+        FROM '{csv_extracao}'
+        WHERE itens_encontrados = 0
+        ORDER BY timestamp DESC
+        LIMIT {limit}
+    """
+    rows = conn.execute(query).fetchall()
+    cols = [desc[0] for desc in conn.execute(query).description]
+    conn.close()
+    return [dict(zip(cols, row, strict=True)) for row in rows]
+
+
+def funil_com_abandono(csv_funil: str, thread_id: str | None = None) -> list[dict]:
+    """Analisa sessões que pararam em etapas intermediárias."""
+    where = f"WHERE thread_id = '{thread_id}'" if thread_id else ''
+    conn = duckdb.connect()
+    query = f"""
+        SELECT thread_id, etapa_atual, intent, carrinho_size, timestamp
+        FROM '{csv_funil}'
+        {where}
+        ORDER BY timestamp DESC
+        LIMIT 50
+    """
+    rows = conn.execute(query).fetchall()
+    cols = [desc[0] for desc in conn.execute(query).description]
+    conn.close()
+    return [dict(zip(cols, row, strict=True)) for row in rows]
+
+
+def handlers_com_erro(csv_handler: str, limit: int = 20) -> list[dict]:
+    """Retorna execuções de handlers com erro."""
+    conn = duckdb.connect()
+    query = f"""
+        SELECT handler, intent, input_resumo, erro, tempo_ms
+        FROM '{csv_handler}'
+        WHERE erro != ''
+        ORDER BY timestamp DESC
+        LIMIT {limit}
+    """
+    rows = conn.execute(query).fetchall()
+    cols = [desc[0] for desc in conn.execute(query).description]
+    conn.close()
+    return [dict(zip(cols, row, strict=True)) for row in rows]
+
+
+def tempo_medio_handlers(csv_handler: str) -> list[dict]:
+    """Retorna tempo médio por handler."""
+    conn = duckdb.connect()
+    query = f"""
+        SELECT handler, AVG(tempo_ms) as tempo_medio_ms, COUNT(*) as total_execucoes
+        FROM '{csv_handler}'
+        GROUP BY handler
+        ORDER BY tempo_medio_ms DESC
+    """
+    rows = conn.execute(query).fetchall()
+    cols = [desc[0] for desc in conn.execute(query).description]
+    conn.close()
+    return [dict(zip(cols, row, strict=True)) for row in rows]
