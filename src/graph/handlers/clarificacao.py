@@ -57,8 +57,8 @@ class ResultadoClarificacao:
     tipo: str
     resposta: str
     etapa: ETAPAS
-    carrinho: list = field(default_factory=list)
-    fila: list = field(default_factory=list)
+    carrinho: list[dict] = field(default_factory=list)
+    fila: list[dict] = field(default_factory=list)
     tentativas: int = 0
 
     def to_dict(self) -> RetornoNode:

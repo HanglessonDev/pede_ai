@@ -12,7 +12,7 @@ Cobertura:
 
 import pytest
 
-from src.graph.handlers.pedir import processar
+from src.graph.handlers.pedir import processar_pedido
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -82,12 +82,12 @@ class TestProcessarItemFixo:
 
     def test_adiciona_ao_carrinho(self, itens_fixos):
         """Item com preço fixo deve ser adicionado ao carrinho."""
-        result = processar(itens_fixos, [])
+        result = processar_pedido(itens_fixos, [])
         assert len(result.carrinho) == 1
 
     def test_calcula_preco_correto(self, itens_fixos):
         """Preço deve ser calculado corretamente."""
-        result = processar(itens_fixos, [])
+        result = processar_pedido(itens_fixos, [])
         assert result.carrinho[0]['preco'] == 1800
 
     def test_calcula_preco_com_quantidade(self):
@@ -100,22 +100,22 @@ class TestProcessarItemFixo:
                 'remocoes': [],
             },
         ]
-        result = processar(itens, [])
+        result = processar_pedido(itens, [])
         assert result.carrinho[0]['preco'] == 3600
 
     def test_preserva_remocoes(self, itens_com_remocoes):
         """Remoções devem ser preservadas no carrinho."""
-        result = processar(itens_com_remocoes, [])
+        result = processar_pedido(itens_com_remocoes, [])
         assert result.carrinho[0]['remocoes'] == ['tomate', 'cebola']
 
     def test_resposta_contem_item(self, itens_fixos):
         """Resposta deve conter nome do item."""
-        result = processar(itens_fixos, [])
+        result = processar_pedido(itens_fixos, [])
         assert 'X-Salada' in result.resposta
 
     def test_resposta_contem_preco(self, itens_fixos):
         """Resposta deve conter preço formatado."""
-        result = processar(itens_fixos, [])
+        result = processar_pedido(itens_fixos, [])
         assert '18.00' in result.resposta
 
 
@@ -129,36 +129,36 @@ class TestProcessarItemComVariante:
 
     def test_variante_valida_adiciona_ao_carrinho(self, itens_com_variante_valida):
         """Item com variante válida deve ser adicionado ao carrinho."""
-        result = processar(itens_com_variante_valida, [])
+        result = processar_pedido(itens_com_variante_valida, [])
         assert len(result.carrinho) == 1
 
     def test_variante_valida_usa_preco_da_variante(self, itens_com_variante_valida):
         """Deve usar o preço da variante, não o preço base."""
-        result = processar(itens_com_variante_valida, [])
+        result = processar_pedido(itens_com_variante_valida, [])
         # duplo tem preço específico no cardápio
         assert result.carrinho[0]['preco'] > 0
 
     def test_variante_valida_preserva_variante(self, itens_com_variante_valida):
         """Variante deve ser preservada no carrinho."""
-        result = processar(itens_com_variante_valida, [])
+        result = processar_pedido(itens_com_variante_valida, [])
         assert result.carrinho[0]['variante'] == 'duplo'
 
     def test_sem_variante_vai_para_fila(self, itens_com_variantes):
         """Item sem variante deve ir para fila de clarificação."""
-        result = processar(itens_com_variantes, [])
+        result = processar_pedido(itens_com_variantes, [])
         assert len(result.fila) == 1
         assert result.fila[0]['item_id'] == 'lanche_001'
 
     def test_fila_contem_opcoes(self, itens_com_variantes):
         """Fila deve conter opções de variantes."""
-        result = processar(itens_com_variantes, [])
+        result = processar_pedido(itens_com_variantes, [])
         assert 'simples' in result.fila[0]['opcoes']
         assert 'duplo' in result.fila[0]['opcoes']
         assert 'triplo' in result.fila[0]['opcoes']
 
     def test_fila_contem_nome_item(self, itens_com_variantes):
         """Fila deve conter nome do item."""
-        result = processar(itens_com_variantes, [])
+        result = processar_pedido(itens_com_variantes, [])
         assert result.fila[0]['nome'] == 'Hambúrguer'
 
 
@@ -172,19 +172,19 @@ class TestProcessarItensMultiplos:
 
     def test_mix_fixo_e_variante(self, itens_multiplos):
         """Mix de itens fixos e variantes deve processar corretamente."""
-        result = processar(itens_multiplos, [])
+        result = processar_pedido(itens_multiplos, [])
         assert len(result.carrinho) == 1
         assert len(result.fila) == 1
 
     def test_resposta_mostra_prompt_clarificacao(self, itens_multiplos):
         """Quando há itens na fila, resposta deve ser prompt de clarificação."""
-        result = processar(itens_multiplos, [])
+        result = processar_pedido(itens_multiplos, [])
         assert 'Hambúrguer' in result.resposta
         assert 'qual opção' in result.resposta
 
     def test_fila_mostra_primeiro_item_pendente(self, itens_multiplos):
         """Fila deve ter primeiro item pendente."""
-        result = processar(itens_multiplos, [])
+        result = processar_pedido(itens_multiplos, [])
         assert result.fila[0]['item_id'] == 'lanche_001'
 
 
@@ -198,7 +198,7 @@ class TestEdgeCases:
 
     def test_itens_vazios(self, itens_vazios):
         """Itens vazios deve retornar carrinho e fila vazios."""
-        result = processar(itens_vazios, [])
+        result = processar_pedido(itens_vazios, [])
         assert result.carrinho == []
         assert result.fila == []
         assert result.resposta == ''
@@ -213,7 +213,7 @@ class TestEdgeCases:
                 'remocoes': [],
             },
         ]
-        result = processar(itens, [])
+        result = processar_pedido(itens, [])
         assert result.carrinho == []
         assert result.fila == []
 
@@ -227,7 +227,7 @@ class TestEdgeCases:
                 'remocoes': [],
             },
         ]
-        result = processar(itens, [])
+        result = processar_pedido(itens, [])
         assert len(result.fila) == 1
 
     def test_quantidade_multiplica_preco_variante(self):
@@ -240,7 +240,7 @@ class TestEdgeCases:
                 'remocoes': [],
             },
         ]
-        result = processar(itens, [])
+        result = processar_pedido(itens, [])
         assert len(result.carrinho) == 1
         # Preço da variante duplo * 3
         assert result.carrinho[0]['preco'] > 0
@@ -261,7 +261,7 @@ class TestEdgeCases:
                 'remocoes': [],
             },
         ]
-        result = processar(itens, [])
+        result = processar_pedido(itens, [])
         assert len(result.carrinho) == 2
         assert len(result.fila) == 0
 
@@ -281,7 +281,7 @@ class TestEdgeCases:
                 'remocoes': [],
             },
         ]
-        result = processar(itens, [])
+        result = processar_pedido(itens, [])
         linhas = result.resposta.strip().split('\n')
         assert len(linhas) == 2
 

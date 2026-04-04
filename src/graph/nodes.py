@@ -27,7 +27,7 @@ from langgraph.config import get_config
 from src.config import get_tenant_nome
 from src.extratores import extrair
 from src.graph.handlers.clarificacao import clarificar
-from src.graph.handlers.pedir import processar as processar_pedido
+from src.graph.handlers.pedir import processar_pedido
 from src.graph.handlers.remover import processar_remocao
 from src.graph.handlers.utils import calcular_total_carrinho, formatar_carrinho
 from src.graph.state import RetornoNode, State
@@ -104,6 +104,19 @@ def node_router(state: State) -> RetornoNode:
 
 
 def node_clarificacao(state: State) -> RetornoNode:
+    """Processa resposta do usuário durante clarificação de variante.
+
+    Tenta extrair uma variante válida da mensagem. Se válida,
+    calcula o preço e adiciona ao carrinho. Se inválida, faz
+    re-prompt com limite de tentativas.
+
+    Args:
+        state: Estado atual do grafo de atendimento.
+
+    Returns:
+        Dicionário com ``carrinho``, ``fila_clarificacao``,
+        ``resposta`` e ``etapa`` atualizados.
+    """
     thread_id = get_config().get('configurable', {}).get('thread_id', '')
     resultado = clarificar(
         fila=state.get('fila_clarificacao', []),
@@ -237,7 +250,7 @@ def node_handler_confirmar(state: State) -> RetornoNode:
     return {
         'resposta': f'Pedido confirmado! Total: R$ {total / 100:.2f}',
         'etapa': 'finalizado',
-        'carrinho': [],  # limpa carrinho após confirmar
+        'carrinho': [],
     }
 
 

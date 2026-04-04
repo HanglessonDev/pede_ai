@@ -1,9 +1,9 @@
 """Handler para intents desconhecidas."""
 
-from src.graph.state import State
+from src.graph.state import RetornoNode, State
 
 
-def node_handler_desconhecido(state: State) -> dict:
+def node_handler_desconhecido(state: State) -> RetornoNode:
     """Gera resposta de esclarecimento para intents desconhecidas.
 
     Args:

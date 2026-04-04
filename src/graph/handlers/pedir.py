@@ -5,12 +5,12 @@ adiciona ao carrinho e envia itens pendentes para fila de clarificação.
 
 Example:
     ```python
-    from src.graph.handlers.pedir import processar
+    from src.graph.handlers.pedir import processar_pedido
 
     itens = [
         {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}
     ]
-    result = processar(itens, [])
+    result = processar_pedido(itens, [])
     len(result.carrinho)
     1
     ```
@@ -33,8 +33,8 @@ class ResultadoPedir:
         resposta: Texto formatado para o usuário.
     """
 
-    carrinho: list = field(default_factory=list)
-    fila: list = field(default_factory=list)
+    carrinho: list[dict] = field(default_factory=list)
+    fila: list[dict] = field(default_factory=list)
     resposta: str = ''
 
     def to_dict(self) -> RetornoNode:
@@ -43,13 +43,11 @@ class ResultadoPedir:
             'carrinho': self.carrinho,
             'fila_clarificacao': self.fila,
             'resposta': self.resposta,
-            'etapa': 'clarificando_variante'
-            if self.fila
-            else 'coletando',  # ← adiciona
+            'etapa': 'clarificando_variante' if self.fila else 'coletando',
         }
 
 
-def _calcular_preco(item: dict, item_data: dict) -> int | None:
+def _calcular_preco_item(item: dict, item_data: dict) -> int | None:
     """Calcula o preço total de um item considerando quantidade e variantes.
 
     Args:
@@ -74,7 +72,7 @@ def _calcular_preco(item: dict, item_data: dict) -> int | None:
     return None
 
 
-def processar(
+def processar_pedido(
     itens_extraidos: list[dict],
     carrinho_existente: list[dict],
 ) -> ResultadoPedir:
@@ -100,7 +98,7 @@ def processar(
         if item_data is None:
             continue
 
-        preco_total = _calcular_preco(item, item_data)
+        preco_total = _calcular_preco_item(item, item_data)
 
         if preco_total is not None:
             item_formatado = dict(item)
