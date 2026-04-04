@@ -122,54 +122,65 @@ def _fallback(mensagem: str) -> tuple[str, float]:
 
 def _decidir_intent(
     similares: list[dict[str, Any]],
-    mensagem: str,
-) -> tuple[str, float]:
-    """Decide a intenção baseada na confiança dos similares.
+    mensagem_truncada: str,
+    mensagem_norm: str,
+) -> dict[str, Any]:
+    """Decide a intenção baseada na confiança dos similares RAG.
 
     Args:
         similares: Lista de exemplos similares com similaridade.
-        mensagem: Mensagem original para fallback.
+        mensagem_truncada: Mensagem normalizada e truncada.
+        mensagem_norm: Mensagem normalizada original.
 
     Returns:
-        Tupla (intent, confidence).
-
-    Example:
-        ```python
-        similares = [{'intencao': 'pedir', 'similaridade': 0.98}]
-        _decidir_intent(similares, 'quero lanche')
-        ('pedir', 0.98)
-
-        similares = [{'intencao': 'duvida', 'similaridade': 0.40}]
-        _decidir_intent(similares, 'msg')
-        ('duvida', 1.0)  # fallback, confidence 1.0
-        ```
+        Dicionário com 'intent', 'confidence', 'caminho',
+        'top1_texto', 'top1_intencao', 'mensagem_norm'.
     """
-    intencao_rag = calcular_votacao(similares)
     confidence = similares[0]['similaridade']
+    top1_texto = similares[0]['texto']
+    top1_intencao = similares[0]['intencao']
 
     if confidence < RAG_FRACO_THRESHOLD:
-        intent_fixo = classificar_com_llm(mensagem)
-        return (
-            intent_fixo if intent_fixo != 'desconhecido' else 'desconhecido',
-            1.0 if intent_fixo != 'desconhecido' else confidence,
-        )
+        intent, _ = _fallback(mensagem_truncada)
+        return {
+            'intent': intent,
+            'confidence': confidence,
+            'caminho': 'llm_rag',
+            'top1_texto': top1_texto,
+            'top1_intencao': top1_intencao,
+            'mensagem_norm': mensagem_norm,
+        }
 
     if confidence >= RAG_FORTE_THRESHOLD:
-        return intencao_rag, confidence
+        intent = calcular_votacao(similares)
+        return {
+            'intent': intent,
+            'confidence': confidence,
+            'caminho': 'rag_forte',
+            'top1_texto': top1_texto,
+            'top1_intencao': top1_intencao,
+            'mensagem_norm': mensagem_norm,
+        }
 
-    # RAG médio (0.5 - 0.95): valida com LLM
+    # RAG médio: valida com LLM
+    intencao_rag = calcular_votacao(similares)
     try:
-        prompt_rag = montar_prompt_rag(mensagem, similares, intencao_rag)
+        prompt_rag = montar_prompt_rag(mensagem_truncada, similares, intencao_rag)
         intent, _ = validar_com_llm(prompt_rag)
     except Exception:
         intent = intencao_rag
 
-    return intent, confidence
+    return {
+        'intent': intent,
+        'confidence': confidence,
+        'caminho': 'llm_rag',
+        'top1_texto': top1_texto,
+        'top1_intencao': top1_intencao,
+        'mensagem_norm': mensagem_norm,
+    }
 
 
-def _classificar_intencao(  # noqa: PLR0911
-    mensagem: str, thread_id: str = ''
-) -> dict[str, Any]:
+def _classificar_intencao(mensagem: str, thread_id: str = '') -> dict[str, Any]:
     """Classifica intenção usando RAG com confiança (interno).
 
     Args:
@@ -203,7 +214,6 @@ def _classificar_intencao(  # noqa: PLR0911
             'mensagem_norm': mensagem_norm,
         }
 
-    # Lookup direto
     intent_direta = lookup_intencao_direta(mensagem_truncada)
     if intent_direta:
         return {
@@ -250,49 +260,7 @@ def _classificar_intencao(  # noqa: PLR0911
             'mensagem_norm': mensagem_norm,
         }
 
-    # RAG
-    confidence = similares[0]['similaridade']
-    top1_texto = similares[0]['texto']
-    top1_intencao = similares[0]['intencao']
-
-    if confidence < RAG_FRACO_THRESHOLD:
-        intent, _ = _fallback(mensagem_truncada)
-        return {
-            'intent': intent,
-            'confidence': confidence,
-            'caminho': 'llm_rag',
-            'top1_texto': top1_texto,
-            'top1_intencao': top1_intencao,
-            'mensagem_norm': mensagem_norm,
-        }
-
-    if confidence >= RAG_FORTE_THRESHOLD:
-        intent = calcular_votacao(similares)
-        return {
-            'intent': intent,
-            'confidence': confidence,
-            'caminho': 'rag_forte',
-            'top1_texto': top1_texto,
-            'top1_intencao': top1_intencao,
-            'mensagem_norm': mensagem_norm,
-        }
-
-    # RAG médio: valida com LLM
-    intencao_rag = calcular_votacao(similares)
-    try:
-        prompt_rag = montar_prompt_rag(mensagem_truncada, similares, intencao_rag)
-        intent, _ = validar_com_llm(prompt_rag)
-    except Exception:
-        intent = intencao_rag
-
-    return {
-        'intent': intent,
-        'confidence': confidence,
-        'caminho': 'llm_rag',
-        'top1_texto': top1_texto,
-        'top1_intencao': top1_intencao,
-        'mensagem_norm': mensagem_norm,
-    }
+    return _decidir_intent(similares, mensagem_truncada, mensagem_norm)
 
 
 def validar_com_llm(prompt: str) -> tuple[str, float]:
