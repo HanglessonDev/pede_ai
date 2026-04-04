@@ -212,9 +212,10 @@ def node_handler_pedir(state: State) -> RetornoNode:
         Dicionário com ``carrinho``, ``fila_clarificacao`` e ``resposta``
         atualizados.
     """
+    thread_id = get_config().get('configurable', {}).get('thread_id', '')
     itens_extraidos = state.get('itens_extraidos') or []
     carrinho = state.get('carrinho', [])
-    resultado = processar_pedido(itens_extraidos, carrinho)
+    resultado = processar_pedido(itens_extraidos, carrinho, thread_id=thread_id)
     return resultado.to_dict()
 
 

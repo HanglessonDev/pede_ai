@@ -8,7 +8,10 @@ Cobertura:
 - Itens múltiplos (mix de fixo + variante)
 - Itens extraídos vazios
 - Item inexistente no cardápio
+- Observabilidade: registra log de handler
 """
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -320,3 +323,78 @@ class TestResultadoPedir:
         d = result.to_dict()
         assert 'fila_clarificacao' in d
         assert d['fila_clarificacao'] == [{'item_id': 'lanche_001'}]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TESTES DE OBSERVABILIDADE
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestHandlerPedirObservabilidade:
+    """Testes de instrumentação de observabilidade."""
+
+    @patch('src.graph.handlers.pedir.get_handler_logger')
+    def test_processar_pedido_registra_log(self, mock_get_logger) -> None:
+        """processar_pedido deve registrar log de observabilidade."""
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+
+        processar_pedido(
+            itens_extraidos=[
+                {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}
+            ],
+            carrinho_existente=[],
+            thread_id='sessao_teste',
+        )
+        assert mock_logger.registrar.called
+        call_kwargs = mock_logger.registrar.call_args[1]
+        assert call_kwargs['thread_id'] == 'sessao_teste'
+        assert call_kwargs['output_dados']['carrinho_size'] == 1
+
+    @patch('src.graph.handlers.pedir.get_handler_logger')
+    def test_processar_pedido_log_contem_handler_e_intent(self, mock_get_logger) -> None:
+        """Log deve conter handler e intent corretos."""
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+
+        processar_pedido(
+            itens_extraidos=[
+                {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}
+            ],
+            carrinho_existente=[],
+            thread_id='sessao_teste',
+        )
+        call_kwargs = mock_logger.registrar.call_args[1]
+        assert call_kwargs['handler'] == 'handler_pedir'
+        assert call_kwargs['intent'] == 'pedir'
+
+    @patch('src.graph.handlers.pedir.get_handler_logger')
+    def test_processar_pedido_log_contem_tempo(self, mock_get_logger) -> None:
+        """Log deve conter tempo de execução em ms."""
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+
+        processar_pedido(
+            itens_extraidos=[
+                {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}
+            ],
+            carrinho_existente=[],
+            thread_id='sessao_teste',
+        )
+        call_kwargs = mock_logger.registrar.call_args[1]
+        assert 'tempo_ms' in call_kwargs
+        assert call_kwargs['tempo_ms'] >= 0
+
+    @patch('src.graph.handlers.pedir.get_handler_logger')
+    def test_processar_pedido_sem_logger_nao_falha(self, mock_get_logger) -> None:
+        """processar_pedido deve funcionar sem logger configurado."""
+        mock_get_logger.return_value = None
+
+        result = processar_pedido(
+            itens_extraidos=[
+                {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}
+            ],
+            carrinho_existente=[],
+            thread_id='sessao_teste',
+        )
+        assert len(result.carrinho) == 1
