@@ -540,8 +540,14 @@ def extrair_itens_troca(mensagem: str, carrinho: list[dict]) -> dict:
     # Caso B: 1 ITEM (com ou sem variante)
     if num_items == 1:
         item_mencionado = itens_mencionados[0]
-        # Buscar no carrinho
-        matches = _buscar_matches_no_carrinho([item_mencionado], carrinho)
+        # Buscar no carrinho — sem considerar a variante mencionada,
+        # pois ela é a variante de DESTINO, não a atual do carrinho.
+        item_para_busca = {
+            'texto': item_mencionado['texto'],
+            'variante': None,
+            'ent_id': item_mencionado['ent_id'],
+        }
+        matches = _buscar_matches_no_carrinho([item_para_busca], carrinho)
 
         item_original = None
         if matches:
