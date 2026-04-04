@@ -8,7 +8,7 @@ Características:
 """
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from src.graph.nodes import (
     node_router,
@@ -386,3 +386,109 @@ class TestIntegridade:
         assert callable(node_handler_pedir)
         assert callable(node_handler_confirmar)
         assert callable(node_handler_remover)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TESTES DE OBSERVABILIDADE NOS NODES
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestNodesObservabilidade:
+    """Testes de instrumentacao de observabilidade nos nodes."""
+
+    @patch('src.graph.nodes.get_config')
+    @patch('src.graph.nodes.get_funil_logger')
+    @patch('src.graph.nodes.get_handler_logger')
+    @patch('src.graph.nodes.get_obs_logger')
+    @patch('src.graph.nodes._classificar_intencao')
+    def test_node_router_registra_funil(
+        self, mock_classificar, mock_get_obs, mock_get_handler, mock_get_funil, mock_get_config
+    ):
+        """Node router deve registrar logs de funil e handler."""
+        mock_get_config.return_value = {'configurable': {'thread_id': 't1'}}
+        mock_funil = MagicMock()
+        mock_handler = MagicMock()
+        mock_obs = MagicMock()
+        mock_get_funil.return_value = mock_funil
+        mock_get_handler.return_value = mock_handler
+        mock_get_obs.return_value = mock_obs
+        mock_classificar.return_value = {
+            'intent': 'pedir',
+            'confidence': 0.85,
+            'caminho': 'llm_rag',
+            'top1_texto': '',
+            'top1_intencao': '',
+            'mensagem_norm': '',
+        }
+
+        state = {'mensagem_atual': 'oi', 'etapa': 'inicio', 'carrinho': []}
+        node_router(state)  # type: ignore[arg-type]
+
+        assert mock_funil.registrar.called
+        assert mock_handler.registrar.called
+
+    @patch('src.graph.nodes.get_config')
+    @patch('src.graph.nodes.get_funil_logger')
+    @patch('src.graph.nodes.get_handler_logger')
+    @patch('src.graph.nodes.get_obs_logger')
+    @patch('src.graph.nodes._classificar_intencao')
+    def test_node_router_loggers_nulos_nao_quebram(
+        self, mock_classificar, mock_get_obs, mock_get_handler, mock_get_funil, mock_get_config
+    ):
+        """Loggers nulos nao devem causar erro."""
+        mock_get_config.return_value = {'configurable': {'thread_id': 't1'}}
+        mock_get_funil.return_value = None
+        mock_get_handler.return_value = None
+        mock_get_obs.return_value = MagicMock()
+        mock_classificar.return_value = {
+            'intent': 'saudacao',
+            'confidence': 0.9,
+            'caminho': 'lookup',
+            'top1_texto': 'oi',
+            'top1_intencao': 'saudacao',
+            'mensagem_norm': 'oi',
+        }
+
+        state = {'mensagem_atual': 'oi', 'etapa': 'inicio', 'carrinho': []}
+        result = node_router(state)  # type: ignore[arg-type]
+
+        assert result['intent'] == 'saudacao'
+
+    @patch('src.graph.nodes.get_config')
+    @patch('src.graph.nodes.get_extracao_logger')
+    @patch('src.graph.nodes.extrair')
+    def test_node_extrator_registra_extracao(
+        self, mock_extrair, mock_get_ext, mock_get_config
+    ):
+        """Node extrator deve registrar log de extracao quando intent e pedir."""
+        mock_get_config.return_value = {'configurable': {'thread_id': 't1'}}
+        mock_ext = MagicMock()
+        mock_get_ext.return_value = mock_ext
+        mock_extrair.return_value = [{'item_id': 'lanche_001', 'quantidade': 1}]
+
+        state = {
+            'mensagem_atual': 'quero um x-salada',
+            'intent': 'pedir',
+        }
+        node_extrator(state)  # type: ignore[arg-type]
+
+        assert mock_ext.registrar.called
+
+    @patch('src.graph.nodes.get_config')
+    @patch('src.graph.nodes.get_extracao_logger')
+    @patch('src.graph.nodes.extrair')
+    def test_node_extrator_logger_nulo_nao_quebra(
+        self, mock_extrair, mock_get_ext, mock_get_config
+    ):
+        """Logger nulo nao deve causar erro no extrator."""
+        mock_get_config.return_value = {'configurable': {'thread_id': 't1'}}
+        mock_get_ext.return_value = None
+        mock_extrair.return_value = []
+
+        state = {
+            'mensagem_atual': 'quero um x-salada',
+            'intent': 'pedir',
+        }
+        result = node_extrator(state)  # type: ignore[arg-type]
+
+        assert result['itens_extraidos'] == []

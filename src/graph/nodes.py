@@ -22,6 +22,8 @@ Example:
     ```
 """
 
+import time
+
 from langgraph.config import get_config
 
 from src.config import get_tenant_nome
@@ -32,7 +34,12 @@ from src.graph.handlers.remover import processar_remocao
 from src.graph.handlers.trocar import processar_troca
 from src.graph.handlers.utils import calcular_total_carrinho, formatar_carrinho
 from src.graph.state import RetornoNode, State
-from src.observabilidade.registry import get_obs_logger
+from src.observabilidade.registry import (
+    get_extracao_logger,
+    get_funil_logger,
+    get_handler_logger,
+    get_obs_logger,
+)
 from src.roteador.classificador_intencoes import _classificar_intencao
 
 
@@ -82,6 +89,8 @@ def node_router(state: State) -> RetornoNode:
     """
     mensagem = state.get('mensagem_atual', '')
     thread_id = get_config().get('configurable', {}).get('thread_id', '')
+    inicio = time.monotonic()
+    etapa_anterior = state.get('etapa', 'inicio')
 
     resultado = _classificar_intencao(mensagem, thread_id=thread_id)
 
@@ -97,6 +106,31 @@ def node_router(state: State) -> RetornoNode:
         top1_texto=resultado['top1_texto'],
         top1_intencao=resultado['top1_intencao'],
     )
+
+    # Log de funil
+    funil_logger = get_funil_logger()
+    if funil_logger:
+        funil_logger.registrar(
+            thread_id=thread_id,
+            etapa_anterior=etapa_anterior,
+            etapa_atual='roteado',
+            intent=resultado['intent'],
+            carrinho_size=len(state.get('carrinho', [])),
+        )
+
+    tempo_ms = (time.monotonic() - inicio) * 1000
+
+    # Log de handler
+    handler_logger = get_handler_logger()
+    if handler_logger:
+        handler_logger.registrar(
+            thread_id=thread_id,
+            handler='node_router',
+            intent=resultado['intent'],
+            input_dados={'mensagem': mensagem},
+            output_dados=resultado,
+            tempo_ms=tempo_ms,
+        )
 
     return {
         'intent': resultado['intent'],
@@ -148,7 +182,20 @@ def node_extrator(state: State) -> RetornoNode:
         Lista vazia se a intenção não for ``pedir``.
     """
     if state.get('intent') == 'pedir':
-        return {'itens_extraidos': extrair(state.get('mensagem_atual', ''))}
+        mensagem = state.get('mensagem_atual', '')
+        inicio = time.monotonic()
+        itens = extrair(mensagem)
+        tempo_ms = (time.monotonic() - inicio) * 1000
+
+        ext_logger = get_extracao_logger()
+        if ext_logger:
+            ext_logger.registrar(
+                thread_id=get_config().get('configurable', {}).get('thread_id', ''),
+                mensagem=mensagem,
+                itens_extraidos=itens,
+                tempo_ms=tempo_ms,
+            )
+        return {'itens_extraidos': itens}
     return {'itens_extraidos': []}
 
 
