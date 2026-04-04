@@ -18,6 +18,12 @@ from src.extratores.spacy_extrator import (
     extrair,
     extrair_variante,
     extrair_item_carrinho,
+    extrair_itens_troca,
 )
 
-__all__ = ['extrair', 'extrair_item_carrinho', 'extrair_variante']
+__all__ = [
+    'extrair',
+    'extrair_item_carrinho',
+    'extrair_itens_troca',
+    'extrair_variante',
+]

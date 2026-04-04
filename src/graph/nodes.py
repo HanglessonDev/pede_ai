@@ -29,6 +29,7 @@ from src.extratores import extrair
 from src.graph.handlers.clarificacao import clarificar
 from src.graph.handlers.pedir import processar_pedido
 from src.graph.handlers.remover import processar_remocao
+from src.graph.handlers.trocar import processar_troca
 from src.graph.handlers.utils import calcular_total_carrinho, formatar_carrinho
 from src.graph.state import RetornoNode, State
 from src.observabilidade.registry import get_obs_logger
@@ -294,3 +295,26 @@ def node_handler_remover(state: State) -> RetornoNode:
     carrinho = state.get('carrinho', [])
     mensagem = state.get('mensagem_atual', '')
     return processar_remocao(carrinho, mensagem).to_dict()
+
+
+def node_handler_trocar(state: State) -> RetornoNode:
+    """Processa troca de variante de item no pedido.
+
+    Extrai informações da mensagem internamente (não usa ``itens_extraidos``
+    do State, pois ``node_extrator`` só roda para ``intent='pedir'``).
+
+    Args:
+        state: Estado atual do grafo de atendimento.
+
+    Returns:
+        Dicionário com ``carrinho``, ``resposta`` e ``etapa`` atualizados.
+
+    Note:
+        Fase 2: quando clarificador de trocas for implementado,
+        este node passará a setar ``etapa='clarificando_troca'`` em casos
+        de ambiguidade, em vez de apenas retornar resposta direta.
+        A interface de ``processar_troca`` não muda.
+    """
+    carrinho = state.get('carrinho', [])
+    mensagem = state.get('mensagem_atual', '')
+    return processar_troca(carrinho, mensagem).to_dict()

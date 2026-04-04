@@ -474,6 +474,107 @@ def _adicionar_ou_atualizar_resultado(
     indices_ja_adicionados.add(indice)
 
 
+def extrair_itens_troca(mensagem: str, carrinho: list[dict]) -> dict:
+    """
+    Extrai informacoes de troca da mensagem e classifica o caso.
+
+    Identifica se o usuario quer trocar um item por outro, trocar apenas
+    a variante de um item, ou apenas mencionar uma variante. Classifica
+    em casos para tratamento posterior.
+
+    Args:
+        mensagem: Mensagem do usuario.
+        carrinho: Carrinho atual (necessario para partial match).
+
+    Returns:
+        Dict com 'caso', 'item_original' e 'variante_nova'.
+        'caso' pode ser:
+            - 'A': 2+ ITEMs (troca item por item)
+            - 'B': 1 ITEM (com ou sem variante, busca no carrinho)
+            - 'C': 0 ITEMs + 1 VARIANTE isolada
+            - 'vazio': nenhuma entidade relevante encontrada
+
+    Example:
+        ```python
+        carrinho = [{'item_id': 'lanche_001', 'quantidade': 1, 'variante': None}]
+        extrair_itens_troca('troca o x-bacon pelo x-salada', carrinho)
+        {'caso': 'A', 'item_original': None, 'variante_nova': None}
+        extrair_itens_troca('muda pra lata', carrinho)
+        {'caso': 'C', 'item_original': None, 'variante_nova': 'lata'}
+        ```
+    """
+    if not mensagem or not mensagem.strip():
+        return {'caso': 'vazio', 'item_original': None, 'variante_nova': None}
+
+    doc = _nlp(mensagem)
+
+    # Coletar entidades em ordem
+    itens_mencionados: list[dict] = []
+    variantes_sozinhas: list[str] = []
+
+    for ent in doc.ents:
+        if ent.label_ == 'ITEM':
+            itens_mencionados.append(
+                {
+                    'texto': normalizar(ent.text),
+                    'variante': None,
+                    'ent_id': ent.ent_id_,
+                }
+            )
+        elif ent.label_ == 'VARIANTE':
+            # Se tem ITEM antes, associa a ele
+            if itens_mencionados:
+                itens_mencionados[-1]['variante'] = normalizar(ent.text)
+            else:
+                # Variante sem ITEM = variante isolada (caso C)
+                variantes_sozinhas.append(normalizar(ent.text))
+
+    # Classificar caso
+    num_items = len(itens_mencionados)
+    num_variantes = len(variantes_sozinhas)
+
+    # Caso A: 2+ ITEMs (troca item por item)
+    if num_items >= 2:
+        return {'caso': 'A', 'item_original': None, 'variante_nova': None}
+
+    # Caso B: 1 ITEM (com ou sem variante)
+    if num_items == 1:
+        item_mencionado = itens_mencionados[0]
+        # Buscar no carrinho
+        matches = _buscar_matches_no_carrinho([item_mencionado], carrinho)
+
+        item_original = None
+        if matches:
+            # Pega o primeiro match
+            match = matches[0]
+            # Pegar nome do item para o retorno
+            nome = get_nome_item(match['item_id']) or match['item_id']
+            item_original = {
+                'item_id': match['item_id'],
+                'nome': nome,
+                'indices': match['indices'],
+            }
+
+        variante_nova = item_mencionado.get('variante')
+
+        return {
+            'caso': 'B',
+            'item_original': item_original,
+            'variante_nova': variante_nova,
+        }
+
+    # Caso C: 0 ITEMs + 1 VARIANTE isolada
+    if num_items == 0 and num_variantes == 1:
+        return {
+            'caso': 'C',
+            'item_original': None,
+            'variante_nova': variantes_sozinhas[0],
+        }
+
+    # Vazio
+    return {'caso': 'vazio', 'item_original': None, 'variante_nova': None}
+
+
 def extrair_item_carrinho(mensagem: str, carrinho: list) -> list[dict]:
     """
     Extrai itens do carrinho para remoção com base na mensagem do usuário.
@@ -554,4 +655,9 @@ def extrair_item_carrinho(mensagem: str, carrinho: list) -> list[dict]:
     return _buscar_matches_no_carrinho(itens_mencionados, carrinho)
 
 
-__all__ = ['extrair', 'extrair_item_carrinho', 'extrair_variante']
+__all__ = [
+    'extrair',
+    'extrair_item_carrinho',
+    'extrair_itens_troca',
+    'extrair_variante',
+]
