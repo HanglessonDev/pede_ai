@@ -324,7 +324,7 @@ class TestEdgeCases:
         assert result.tipo == 'invalida'
 
     def test_item_inexistente(self):
-        """Item inexistente deve ser tratado como inválido (extrator retorna None)."""
+        """Item inexistente deve retornar erro."""
         item = {
             'item': {
                 'item_id': 'inexistente',
@@ -338,7 +338,8 @@ class TestEdgeCases:
             'opcoes': ['a', 'b'],
         }
         result = clarificar([item], 'a', 0)
-        assert result.tipo == 'invalida'
+        # Fuzzy matching encontra 'a', mas item não existe → erro
+        assert result.tipo == 'erro'
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -124,7 +124,7 @@ def build(  # noqa: PLR0915
     if incremental and existentes > 0:
         print(f'📋 Cache: {existentes}/{total} embeddings existentes')
         print(f'🔄 Gerando {total - existentes} embeddings novos...')
-        embeddings = list(embeddings_existentes)  # type: ignore[call-arg]
+        embeddings = list(embeddings_existentes)
         start_idx = existentes
     else:
         print(f'📋 Gerando {total} embeddings do zero...')
@@ -195,7 +195,7 @@ def status():
 
 
 @app.command()
-def list():
+def listar_exemplos():
     """Lista exemplos e seus embeddings."""
     cache = _carregar_cache()
     exemplos = cache.get('exemplos', [])

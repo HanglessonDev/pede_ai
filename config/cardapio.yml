@@ -114,27 +114,18 @@ itens:
     remocoes_comuns: []
 
   - id: bebida_003
-    nome: Suco Natural (Limão)
+    nome: Suco Natural
     categoria: bebida
-    aliases: [suco de limão, suco limao, limonada]
+    aliases: [suco, suco natural]
     preco: null
     variantes:
-      - opcao: 300ml
+      - opcao: limão 300ml
         preco: 500
-      - opcao: 500ml
+      - opcao: limão 500ml
         preco: 500
-    complementos: []
-    remocoes_comuns: []
-
-  - id: bebida_004
-    nome: Suco Natural (Laranja)
-    categoria: bebida
-    aliases: [suco de laranja, suco laranja]
-    preco: null
-    variantes:
-      - opcao: 300ml
+      - opcao: laranja 300ml
         preco: 500
-      - opcao: 500ml
+      - opcao: laranja 500ml
         preco: 500
     complementos: []
     remocoes_comuns: []

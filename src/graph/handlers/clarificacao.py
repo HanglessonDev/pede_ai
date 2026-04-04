@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 
 from src.config import get_item_por_id
 from src.extratores import extrair_variante
+from src.extratores.fuzzy_extrator import fuzzy_match_variante
 from src.graph.handlers.utils import formatar_carrinho
 from src.graph.state import ETAPAS, RetornoNode
 from src.observabilidade.registry import get_clarificacao_logger
@@ -95,9 +96,9 @@ def clarificar(
     """Processa a resposta do usuário durante clarificação de variante.
 
     Tenta extrair uma variante válida da mensagem usando o extrator
-    spaCy. Se válida, calcula o preço e adiciona ao carrinho. Se
-    inválida, incrementa o contador de tentativas e faz re-prompt
-    (até MAX_TENTATIVAS tentativas).
+    spaCy. Se não encontrar, usa fuzzy matching como fallback. Se
+    válida, calcula o preço e adiciona ao carrinho. Se inválida,
+    incrementa o contador de tentativas e faz re-prompt.
 
     Args:
         fila: Fila de itens pendentes de clarificação.
@@ -124,7 +125,23 @@ def clarificar(
     opcoes = item_fila['opcoes']
     item_dados = item_fila['item']
 
+    # Tenta extrair via EntityRuler
     variante = extrair_variante(mensagem, item_id)
+
+    # Valida: se EntityRuler retornou parcial (ex: "limão" em vez de "limão 300ml"),
+    # usa fuzzy matching para encontrar a variante exata
+    if variante is not None and variante not in opcoes:
+        variante_fuzzy, _score = fuzzy_match_variante(mensagem, opcoes)
+        if variante_fuzzy:
+            variante = variante_fuzzy
+        else:
+            variante = None
+
+    # Fallback: fuzzy matching se EntityRuler não encontrou
+    if variante is None:
+        variante_fuzzy, _score = fuzzy_match_variante(mensagem, opcoes)
+        if variante_fuzzy:
+            variante = variante_fuzzy
 
     if variante is not None:
         resultado = _processar_variante_valida(fila, item_id, item_dados, variante)
@@ -160,6 +177,11 @@ def _log_clarificacao(
     if logger is None:
         return
 
+    # Mapeia tipo interno para valores válidos do logger
+    tipo_logger = resultado.tipo
+    if tipo_logger == 'invalida':
+        tipo_logger = 'invalida_reprompt' if tentativas < 2 else 'invalida_desistiu'
+
     logger.registrar(
         thread_id=thread_id,
         item_id=item_id,
@@ -168,7 +190,7 @@ def _log_clarificacao(
         opcoes=opcoes,
         mensagem=mensagem,
         tentativas=tentativas,
-        resultado=resultado.tipo,
+        resultado=tipo_logger,
         variante_escolhida=variante or '',
     )
 

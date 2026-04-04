@@ -155,9 +155,19 @@ def gerar_patterns(cardapio: dict) -> list[dict]:
             _adicionar_pattern(patterns, vistos, 'ITEM', alias, item.get('id'))
 
         for variante in item.get('variantes') or []:
+            opcao = variante.get('opcao', '')
+            # Pattern completo: "limão 300ml"
             _adicionar_pattern(
-                patterns, vistos, 'VARIANTE', variante.get('opcao'), item.get('id')
+                patterns, vistos, 'VARIANTE', opcao, item.get('id')
             )
+            # Patterns parciais para matching flexível
+            # Ex: "limão 300ml" → "limão" e "laranja 500ml" → "laranja"
+            if ' ' in opcao:
+                palavra_chave = opcao.split()[0]
+                if palavra_chave.lower() not in {'ml'}:
+                    _adicionar_pattern(
+                        patterns, vistos, 'VARIANTE', palavra_chave, item.get('id')
+                    )
 
     patterns.extend(
         [{'label': 'QTD', 'pattern': palavra} for palavra in NUMEROS_ESCRITOS]
