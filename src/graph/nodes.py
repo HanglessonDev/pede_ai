@@ -24,10 +24,12 @@ Example:
 
 from langgraph.config import get_config
 
-from src.config import get_nome_item, get_tenant_nome
-from src.extratores import extrair, extrair_item_carrinho
+from src.config import get_tenant_nome
+from src.extratores import extrair
 from src.graph.handlers.clarificacao import clarificar
 from src.graph.handlers.pedir import processar as processar_pedido
+from src.graph.handlers.remover import processar_remocao
+from src.graph.handlers.utils import calcular_total_carrinho, formatar_carrinho
 from src.graph.state import RetornoNode, State
 from src.observabilidade.registry import get_obs_logger
 from src.roteador.classificador_intencoes import _classificar_intencao
@@ -185,22 +187,53 @@ def node_handler_carrinho(state: State) -> RetornoNode:
     carrinho = state.get('carrinho', [])
     if not carrinho:
         return {'resposta': 'Seu carrinho está vazio!', 'etapa': 'carrinho'}
-    linhas = []
-    total = 0
-    for item in carrinho:
-        nome = get_nome_item(item['item_id']) or item['item_id']
-        preco = item['preco']
-        linhas.append(f'{item["quantidade"]}x {nome} - R$ {preco / 100:.2f}')
-        total += preco
-    resposta = 'Seu pedido:\n' + '\n'.join(linhas) + f'\nTotal: R$ {total / 100:.2f}'
+    resposta = 'Seu pedido:\n' + formatar_carrinho(carrinho)
+    total = calcular_total_carrinho(carrinho)
+    resposta += f'\nTotal: R$ {total / 100:.2f}'
     return {'resposta': resposta, 'etapa': 'carrinho'}
 
 
 def node_handler_confirmar(state: State) -> RetornoNode:
+    """Processa confirmação do pedido pelo usuário.
+
+    Calcula o total do carrinho, gera mensagem de confirmação
+    e limpa o carrinho após o pedido ser finalizado.
+
+    Args:
+        state: Estado atual do grafo de atendimento.
+
+    Returns:
+        Dicionário com ``resposta``, ``etapa`` e ``carrinho`` atualizados.
+        Retorna mensagem de erro se o carrinho estiver vazio.
+
+    Example:
+        ```python
+        state = {
+            'mensagem_atual': 'confirmar',
+            'intent': 'confirmar',
+            'itens_extraidos': [],
+            'carrinho': [
+                {
+                    'item_id': 'lanche_001',
+                    'nome': 'Hambúrguer',
+                    'quantidade': 1,
+                    'preco': 1500,
+                    'variante': 'simples',
+                },
+            ],
+            'fila_clarificacao': [],
+            'etapa': 'inicio',
+            'resposta': '',
+        }
+        result = node_handler_confirmar(state)
+        result['etapa']
+        'finalizado'
+        ```
+    """
     carrinho = state.get('carrinho', [])
     if not carrinho:
         return {'resposta': 'Não há pedido para confirmar.'}
-    total = sum(item.get('preco', 0) for item in carrinho)
+    total = calcular_total_carrinho(carrinho)
     return {
         'resposta': f'Pedido confirmado! Total: R$ {total / 100:.2f}',
         'etapa': 'finalizado',
@@ -222,7 +255,7 @@ def node_handler_cancelar(state: State) -> RetornoNode:
     if not carrinho:
         return {'resposta': 'Não há pedido para cancelar.', 'etapa': 'inicio'}
 
-    total = sum(item.get('preco', 0) for item in carrinho)
+    total = calcular_total_carrinho(carrinho)
     return {
         'resposta': f'Pedido cancelado. Total descartado: R$ {total / 100:.2f}',
         'etapa': 'inicio',
@@ -244,62 +277,7 @@ def node_handler_remover(state: State) -> RetornoNode:
     Returns:
         Dicionário com ``resposta``, ``etapa`` e ``carrinho`` atualizados.
         Retorna mensagem de erro se não encontrar itens para remover.
-
-    Note:
-        MVP (Fase 1):
-        - Remove TODOS os matches (ignora quantidade)
-        - Match parcial por nome
-        - "tira tudo" limpa carrinho
-        TODO (Fase 2):
-        - Suportar quantidade ("tira UMA coca")
-        - Clarificação quando ambíguo
     """
     carrinho = state.get('carrinho', [])
     mensagem = state.get('mensagem_atual', '')
-
-    if not carrinho:
-        return {
-            'resposta': 'Seu carrinho está vazio! Não há nada para remover.',
-            'etapa': 'inicio',
-        }
-
-    # Extrair itens para remover
-    itens_para_remover = extrair_item_carrinho(mensagem, carrinho)
-
-    if not itens_para_remover:
-        return {
-            'resposta': 'Não encontrei esse item no seu carrinho.',
-            'etapa': 'carrinho',
-        }
-
-    # Remover itens do carrinho (de trás para frente para preservar índices)
-    carrinho_atualizado = carrinho.copy()
-    indices_para_remover = set()
-    for item in itens_para_remover:
-        indices_para_remover.update(item['indices'])
-
-    # Remove em ordem decrescente para não corromper índices
-    for indice in sorted(indices_para_remover, reverse=True):
-        carrinho_atualizado.pop(indice)
-
-    if not carrinho_atualizado:
-        return {
-            'resposta': 'Todos os itens foram removidos do seu pedido.',
-            'etapa': 'inicio',
-            'carrinho': carrinho_atualizado,
-        }
-
-    # Calcular novo total
-    total = sum(item.get('preco', 0) for item in carrinho_atualizado)
-    linhas = []
-    for item in carrinho_atualizado:
-        nome = get_nome_item(item['item_id']) or item['item_id']
-        linhas.append(f'{item["quantidade"]}x {nome} - R$ {item["preco"] / 100:.2f}')
-
-    return {
-        'resposta': 'Itens removidos!\nSeu pedido:\n'
-        + '\n'.join(linhas)
-        + f'\nTotal: R$ {total / 100:.2f}',
-        'etapa': 'carrinho',
-        'carrinho': carrinho_atualizado,
-    }
+    return processar_remocao(carrinho, mensagem).to_dict()

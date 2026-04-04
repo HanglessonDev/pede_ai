@@ -30,8 +30,9 @@ Example:
 
 from dataclasses import dataclass, field
 
-from src.config import get_item_por_id, get_nome_item
+from src.config import get_item_por_id
 from src.extratores import extrair_variante
+from src.graph.handlers.utils import formatar_carrinho
 from src.graph.state import ETAPAS, RetornoNode
 from src.observabilidade.registry import get_clarificacao_logger
 
@@ -83,22 +84,6 @@ def _proxima_clarificacao(fila: list[dict]) -> str:
     proxima = fila[0]
     opcoes_str = ', '.join(proxima['opcoes'])
     return f'{proxima["nome"]}: qual opção? {opcoes_str}'
-
-
-def _formatar_carrinho(carrinho: list[dict]) -> str:
-    """Formata o carrinho como string legível.
-
-    Args:
-        carrinho: Lista de itens no carrinho.
-
-    Returns:
-        String formatada com quantidade, nome e preço de cada item.
-    """
-    linhas = [
-        f'{it["quantidade"]}x {get_nome_item(it["item_id"]) or it["item_id"]} — R$ {it["preco"] / 100:.2f}'
-        for it in carrinho
-    ]
-    return '\n'.join(linhas)
 
 
 def clarificar(
@@ -244,7 +229,7 @@ def _processar_variante_valida(
         resposta = _proxima_clarificacao(fila)
         etapa = 'clarificando_variante'
     else:
-        resposta = _formatar_carrinho(carrinho)
+        resposta = formatar_carrinho(carrinho)
         etapa = 'inicio'
 
     return ResultadoClarificacao(

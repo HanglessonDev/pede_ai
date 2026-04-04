@@ -18,7 +18,8 @@ Example:
 
 from dataclasses import dataclass, field
 
-from src.config import get_item_por_id, get_nome_item, get_preco_item, get_variantes
+from src.config import get_item_por_id, get_preco_item, get_variantes
+from src.graph.handlers.utils import formatar_carrinho
 from src.graph.state import RetornoNode
 
 
@@ -71,22 +72,6 @@ def _calcular_preco(item: dict, item_data: dict) -> int | None:
         return variante_obj['preco'] * quantidade
 
     return None
-
-
-def _formatar_carrinho(carrinho: list[dict]) -> str:
-    """Formata o carrinho como string legível.
-
-    Args:
-        carrinho: Lista de itens no carrinho.
-
-    Returns:
-        String formatada com quantidade, nome e preço de cada item.
-    """
-    linhas = [
-        f'{it["quantidade"]}x {get_nome_item(it["item_id"]) or it["item_id"]} — R$ {it["preco"] / 100:.2f}'
-        for it in carrinho
-    ]
-    return '\n'.join(linhas)
 
 
 def processar(
@@ -144,7 +129,7 @@ def processar(
         opcoes = ', '.join(proxima['opcoes'])
         resposta = f'{proxima["nome"]}: qual opção? {opcoes}'
     elif itens_adicionados:
-        resposta = _formatar_carrinho(carrinho)
+        resposta = formatar_carrinho(carrinho)
     else:
         resposta = ''
 

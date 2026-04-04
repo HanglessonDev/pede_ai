@@ -58,10 +58,12 @@ def state_com_carrinho():
 class TestNodeRouter:
     """Testes para node_router."""
 
+    @patch('src.graph.nodes.get_config')
     @patch('src.graph.nodes.get_obs_logger')
     @patch('src.graph.nodes._classificar_intencao')
-    def test_retorna_intent(self, mock_classificar, mock_get_logger):
+    def test_retorna_intent(self, mock_classificar, mock_get_logger, mock_get_config):
         """Deve retornar a intent classificada."""
+        mock_get_config.return_value = {'configurable': {'thread_id': ''}}
         mock_classificar.return_value = {
             'intent': 'pedir',
             'confidence': 0.85,
@@ -74,10 +76,14 @@ class TestNodeRouter:
         assert result['intent'] == 'pedir'
         assert result['confidence'] == 0.85
 
+    @patch('src.graph.nodes.get_config')
     @patch('src.graph.nodes.get_obs_logger')
     @patch('src.graph.nodes._classificar_intencao')
-    def test_chama_classificar_com_mensagem(self, mock_classificar, mock_get_logger):
+    def test_chama_classificar_com_mensagem(
+        self, mock_classificar, mock_get_logger, mock_get_config
+    ):
         """Deve chamar classificar com a mensagem."""
+        mock_get_config.return_value = {'configurable': {'thread_id': ''}}
         mock_classificar.return_value = {
             'intent': 'saudacao',
             'confidence': 0.9,
@@ -89,10 +95,12 @@ class TestNodeRouter:
         node_router({'mensagem_atual': 'oi'})  # type: ignore
         mock_classificar.assert_called_with('oi', thread_id='')
 
+    @patch('src.graph.nodes.get_config')
     @patch('src.graph.nodes.get_obs_logger')
     @patch('src.graph.nodes._classificar_intencao')
-    def test_mensagem_vazia(self, mock_classificar, mock_get_logger):
+    def test_mensagem_vazia(self, mock_classificar, mock_get_logger, mock_get_config):
         """Deve tratar mensagem vazia."""
+        mock_get_config.return_value = {'configurable': {'thread_id': ''}}
         mock_classificar.return_value = {
             'intent': 'saudacao',
             'confidence': 0.9,
@@ -158,7 +166,7 @@ class TestNodeHandlerCarrinho:
         result = node_handler_carrinho(state_carrinho_vazio)  # type: ignore
         assert 'carrinho está vazio' in result['resposta'].lower()
 
-    @patch('src.graph.nodes.get_nome_item')
+    @patch('src.graph.handlers.utils.get_nome_item')
     def test_carrinho_com_itens_retorna_lista(self, mock_nome, state_com_carrinho):
         """Carrinho com itens deve retornar lista formatada."""
         mock_nome.side_effect = lambda id: (
@@ -168,7 +176,7 @@ class TestNodeHandlerCarrinho:
         assert 'Hamburguer' in result['resposta']
         assert 'Total' in result['resposta']
 
-    @patch('src.graph.nodes.get_nome_item')
+    @patch('src.graph.handlers.utils.get_nome_item')
     def test_total_calculado_corretamente(self, mock_nome, state_com_carrinho):
         """Total deve ser calculado corretamente."""
         mock_nome.side_effect = lambda id: 'Item'

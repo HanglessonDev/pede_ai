@@ -15,9 +15,9 @@ from src.graph.handlers.clarificacao import (
     MAX_TENTATIVAS,
     ResultadoClarificacao,
     clarificar,
-    _formatar_carrinho,
     _proxima_clarificacao,
 )
+from src.graph.handlers.utils import formatar_carrinho
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -115,14 +115,14 @@ class TestProximaClarificacao:
 
 
 class TestFormatarCarrinho:
-    """Testes para _formatar_carrinho()."""
+    """Testes para formatar_carrinho."""
 
     def test_formata_itens_com_preco(self):
         """Deve formatar itens com quantidade, nome e preço."""
         carrinho = [
             {'item_id': 'lanche_001', 'quantidade': 2, 'preco': 3000},
         ]
-        result = _formatar_carrinho(carrinho)
+        result = formatar_carrinho(carrinho)
         assert '2x' in result
         assert '30.00' in result
 
@@ -132,13 +132,13 @@ class TestFormatarCarrinho:
             {'item_id': 'lanche_001', 'quantidade': 1, 'preco': 1500},
             {'item_id': 'acomp_001', 'quantidade': 2, 'preco': 2000},
         ]
-        result = _formatar_carrinho(carrinho)
+        result = formatar_carrinho(carrinho)
         linhas = result.split('\n')
         assert len(linhas) == 2
 
     def test_carrinho_vazio_retorna_string_vazia(self):
         """Carrinho vazio deve retornar string vazia."""
-        result = _formatar_carrinho([])
+        result = formatar_carrinho([])
         assert result == ''
 
 
