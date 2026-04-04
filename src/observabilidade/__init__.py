@@ -48,7 +48,39 @@ See Also:
 """
 
 from src.observabilidade.clarificacao_logger import ClarificacaoLogger
+from src.observabilidade.extracao_logger import ExtracaoLogger
+from src.observabilidade.funil_logger import FunilLogger
+from src.observabilidade.handler_logger import HandlerLogger
 from src.observabilidade import registry
 from src.observabilidade.logger import ObservabilidadeLogger
+from src.observabilidade.registry import (
+    get_clarificacao_logger,
+    get_extracao_logger,
+    get_funil_logger,
+    get_handler_logger,
+    get_obs_logger,
+    set_clarificacao_logger,
+    set_extracao_logger,
+    set_funil_logger,
+    set_handler_logger,
+    set_obs_logger,
+)
 
-__all__ = ['ClarificacaoLogger', 'ObservabilidadeLogger', 'registry']
+__all__ = [
+    'ClarificacaoLogger',
+    'ExtracaoLogger',
+    'FunilLogger',
+    'HandlerLogger',
+    'ObservabilidadeLogger',
+    'get_clarificacao_logger',
+    'get_extracao_logger',
+    'get_funil_logger',
+    'get_handler_logger',
+    'get_obs_logger',
+    'registry',
+    'set_clarificacao_logger',
+    'set_extracao_logger',
+    'set_funil_logger',
+    'set_handler_logger',
+    'set_obs_logger',
+]

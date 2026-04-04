@@ -10,10 +10,16 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.observabilidade.clarificacao_logger import ClarificacaoLogger
+    from src.observabilidade.extracao_logger import ExtracaoLogger
+    from src.observabilidade.funil_logger import FunilLogger
+    from src.observabilidade.handler_logger import HandlerLogger
     from src.observabilidade.logger import ObservabilidadeLogger
 
 _obs: ObservabilidadeLogger | None = None
 _clarificacao: ClarificacaoLogger | None = None
+_extracao: ExtracaoLogger | None = None
+_handler: HandlerLogger | None = None
+_funil: FunilLogger | None = None
 
 
 def get_obs_logger() -> ObservabilidadeLogger:
@@ -57,3 +63,60 @@ def set_clarificacao_logger(logger: ClarificacaoLogger | None) -> None:
     """
     global _clarificacao  # noqa: PLW0603
     _clarificacao = logger
+
+
+def get_extracao_logger() -> ExtracaoLogger | None:
+    """Retorna o logger de extração configurado.
+
+    Returns:
+        ExtracaoLogger se configurado, None caso contrário.
+    """
+    return _extracao
+
+
+def set_extracao_logger(logger: ExtracaoLogger | None) -> None:
+    """Configura o logger de extração.
+
+    Args:
+        logger: Instância de ExtracaoLogger ou None para limpar.
+    """
+    global _extracao  # noqa: PLW0603
+    _extracao = logger
+
+
+def get_handler_logger() -> HandlerLogger | None:
+    """Retorna o logger de handler configurado.
+
+    Returns:
+        HandlerLogger se configurado, None caso contrário.
+    """
+    return _handler
+
+
+def set_handler_logger(logger: HandlerLogger | None) -> None:
+    """Configura o logger de handler.
+
+    Args:
+        logger: Instância de HandlerLogger ou None para limpar.
+    """
+    global _handler  # noqa: PLW0603
+    _handler = logger
+
+
+def get_funil_logger() -> FunilLogger | None:
+    """Retorna o logger de funil configurado.
+
+    Returns:
+        FunilLogger se configurado, None caso contrário.
+    """
+    return _funil
+
+
+def set_funil_logger(logger: FunilLogger | None) -> None:
+    """Configura o logger de funil.
+
+    Args:
+        logger: Instância de FunilLogger ou None para limpar.
+    """
+    global _funil  # noqa: PLW0603
+    _funil = logger

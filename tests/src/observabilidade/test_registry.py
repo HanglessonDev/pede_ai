@@ -12,6 +12,9 @@ class TestRegistry:
 
         registry._obs = None
         registry._clarificacao = None
+        registry._extracao = None
+        registry._handler = None
+        registry._funil = None
 
     def test_get_obs_logger_sem_setup_raises(self):
         """Deve levantar RuntimeError se logger não foi configurado."""
@@ -60,3 +63,72 @@ class TestRegistry:
 
         set_clarificacao_logger(None)
         assert get_clarificacao_logger() is None
+
+    def test_set_get_extracao_logger(self, tmp_path):
+        """Deve permitir setar e recuperar o logger de extração."""
+        from src.observabilidade.extracao_logger import ExtracaoLogger
+        from src.observabilidade.registry import (
+            get_extracao_logger,
+            set_extracao_logger,
+        )
+
+        csv_path = tmp_path / 'ext.csv'
+        logger = ExtracaoLogger(csv_path)
+        set_extracao_logger(logger)
+        assert get_extracao_logger() is logger
+
+    def test_set_get_handler_logger(self, tmp_path):
+        """Deve permitir setar e recuperar o logger de handler."""
+        from src.observabilidade.handler_logger import HandlerLogger
+        from src.observabilidade.registry import (
+            get_handler_logger,
+            set_handler_logger,
+        )
+
+        csv_path = tmp_path / 'hdl.csv'
+        logger = HandlerLogger(csv_path)
+        set_handler_logger(logger)
+        assert get_handler_logger() is logger
+
+    def test_set_get_funil_logger(self, tmp_path):
+        """Deve permitir setar e recuperar o logger de funil."""
+        from src.observabilidade.funil_logger import FunilLogger
+        from src.observabilidade.registry import (
+            get_funil_logger,
+            set_funil_logger,
+        )
+
+        csv_path = tmp_path / 'fun.csv'
+        logger = FunilLogger(csv_path)
+        set_funil_logger(logger)
+        assert get_funil_logger() is logger
+
+    def test_set_extracao_logger_none(self):
+        """Deve permitir limpar o logger de extração."""
+        from src.observabilidade.registry import (
+            get_extracao_logger,
+            set_extracao_logger,
+        )
+
+        set_extracao_logger(None)
+        assert get_extracao_logger() is None
+
+    def test_set_handler_logger_none(self):
+        """Deve permitir limpar o logger de handler."""
+        from src.observabilidade.registry import (
+            get_handler_logger,
+            set_handler_logger,
+        )
+
+        set_handler_logger(None)
+        assert get_handler_logger() is None
+
+    def test_set_funil_logger_none(self):
+        """Deve permitir limpar o logger de funil."""
+        from src.observabilidade.registry import (
+            get_funil_logger,
+            set_funil_logger,
+        )
+
+        set_funil_logger(None)
+        assert get_funil_logger() is None
