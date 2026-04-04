@@ -14,16 +14,26 @@ Example:
     ```
 """
 
+from src.extratores.fuzzy_extrator import (
+    extrair_tokens_significativos,
+    fuzzy_match_item,
+    fuzzy_match_variante,
+    match_variante_numerica,
+)
 from src.extratores.spacy_extrator import (
     extrair,
-    extrair_variante,
     extrair_item_carrinho,
     extrair_itens_troca,
+    extrair_variante,
 )
 
 __all__ = [
     'extrair',
     'extrair_item_carrinho',
     'extrair_itens_troca',
+    'extrair_tokens_significativos',
     'extrair_variante',
+    'fuzzy_match_item',
+    'fuzzy_match_variante',
+    'match_variante_numerica',
 ]

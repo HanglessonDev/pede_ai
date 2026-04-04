@@ -26,6 +26,10 @@ import unicodedata
 import spacy
 
 from src.config import get_cardapio, get_nome_item
+from src.extratores.fuzzy_extrator import (
+    fuzzy_match_item,
+    fuzzy_match_variante,
+)
 
 
 # ── Constantes ──────────────────────────────────────────────────────────────
@@ -482,6 +486,9 @@ def extrair_itens_troca(mensagem: str, carrinho: list[dict]) -> dict:
     a variante de um item, ou apenas mencionar uma variante. Classifica
     em casos para tratamento posterior.
 
+    Usa EntityRuler (spaCy) como fonte primaria e fuzzy matching como
+    fallback para typos.
+
     Args:
         mensagem: Mensagem do usuario.
         carrinho: Carrinho atual (necessario para partial match).
@@ -501,6 +508,8 @@ def extrair_itens_troca(mensagem: str, carrinho: list[dict]) -> dict:
         {'caso': 'A', 'item_original': None, 'variante_nova': None}
         extrair_itens_troca('muda pra lata', carrinho)
         {'caso': 'C', 'item_original': None, 'variante_nova': 'lata'}
+        extrair_itens_troca('muda o hamburguer pra duple', carrinho)
+        {'caso': 'B', 'item_original': {...}, 'variante_nova': 'duplo'}
         ```
     """
     if not mensagem or not mensagem.strip():
@@ -551,9 +560,7 @@ def extrair_itens_troca(mensagem: str, carrinho: list[dict]) -> dict:
 
         item_original = None
         if matches:
-            # Pega o primeiro match
             match = matches[0]
-            # Pegar nome do item para o retorno
             nome = get_nome_item(match['item_id']) or match['item_id']
             item_original = {
                 'item_id': match['item_id'],
@@ -562,6 +569,12 @@ def extrair_itens_troca(mensagem: str, carrinho: list[dict]) -> dict:
             }
 
         variante_nova = item_mencionado.get('variante')
+
+        # Fallback fuzzy: se variante não foi extraída pelo EntityRuler
+        if variante_nova is None:
+            _, variante_nova = _tentar_fuzzy_variante(
+                mensagem, item_original['item_id'] if item_original else None
+            )
 
         return {
             'caso': 'B',
@@ -577,8 +590,92 @@ def extrair_itens_troca(mensagem: str, carrinho: list[dict]) -> dict:
             'variante_nova': variantes_sozinhas[0],
         }
 
-    # Vazio
-    return {'caso': 'vazio', 'item_original': None, 'variante_nova': None}
+    # Fallback fuzzy: se nada foi extraído, tentar fuzzy match
+    return _fallback_fuzzy_completo(mensagem, carrinho)
+
+
+def _tentar_fuzzy_variante(
+    mensagem: str, item_id: str | None
+) -> tuple[str | None, float]:
+    """Tenta extrair variante via fuzzy matching.
+
+    Args:
+        mensagem: Mensagem original do usuário.
+        item_id: ID do item já identificado (ou None).
+
+    Returns:
+        Tupla (variante, score) ou (None, 0).
+    """
+    cardapio = get_cardapio()
+    if item_id:
+        item_data = next((i for i in cardapio['itens'] if i['id'] == item_id), None)
+        variantes = (
+            [v['opcao'] for v in item_data.get('variantes', [])] if item_data else []
+        )
+    else:
+        variantes = []
+        for item in cardapio['itens']:
+            for v in item.get('variantes', []):
+                if v['opcao'] not in variantes:
+                    variantes.append(v['opcao'])
+
+    return fuzzy_match_variante(mensagem, variantes)
+
+
+def _fallback_fuzzy_completo(mensagem: str, carrinho: list[dict]) -> dict:
+    """Fallback completo quando EntityRuler não extrai nada.
+
+    Args:
+        mensagem: Mensagem original.
+        carrinho: Carrinho atual.
+
+    Returns:
+        Dict com resultado da extração fuzzy.
+    """
+    cardapio = get_cardapio()
+    alias_para_id: dict[str, str] = {}
+    for item in cardapio['itens']:
+        for texto in [item['nome'], *item.get('aliases', [])]:
+            if texto and texto not in alias_para_id:
+                alias_para_id[texto] = item['id']
+
+    alias, _score, item_id = fuzzy_match_item(mensagem, alias_para_id)
+    if item_id is None:
+        return {'caso': 'vazio', 'item_original': None, 'variante_nova': None}
+
+    # Buscar no carrinho
+    item_para_busca = {
+        'texto': normalizar(alias) if alias else '',
+        'variante': None,
+        'ent_id': item_id,
+    }
+    matches = _buscar_matches_no_carrinho([item_para_busca], carrinho)
+
+    item_original = None
+    if matches:
+        match = matches[0]
+        nome = get_nome_item(match['item_id']) or match['item_id']
+        item_original = {
+            'item_id': match['item_id'],
+            'nome': nome,
+            'indices': match['indices'],
+        }
+    else:
+        nome = get_nome_item(item_id) or item_id
+        item_original = {
+            'item_id': item_id,
+            'nome': nome,
+            'indices': [],
+        }
+
+    # Tentar fuzzy variante
+    variante, _ = _tentar_fuzzy_variante(mensagem, item_id)
+
+    return {
+        'caso': 'B' if item_original else 'vazio',
+        'item_original': item_original,
+        'variante_nova': variante,
+    }
 
 
 def extrair_item_carrinho(mensagem: str, carrinho: list) -> list[dict]:
