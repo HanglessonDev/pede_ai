@@ -21,8 +21,10 @@ from langchain_ollama import OllamaLLM
 
 from src.config import get_intencoes_validas, get_prompt
 from src.roteador.rag_utils import (
+    INTENT_PRIORITY,
     buscar_similares,
     calcular_votacao,
+    calcular_votacao_com_prioridade,
     lookup_intencao_direta,
     montar_prompt_rag,
     normalizar_input,
@@ -72,6 +74,10 @@ RAG_FORTE_THRESHOLD = 0.95
 # Threshold mínimo de confiança para usar RAG.
 # Se confidence < 0.5, usa fallback com LLM diretamente.
 RAG_FRACO_THRESHOLD = 0.5
+
+# Intents de alta prioridade: quando presentes no top-k, prevalecem sobre
+# intents de conversação (saudacao) mesmo com menor similaridade.
+ALTA_PRIORIDADE_INTENTS = {'pedir', 'remover', 'trocar', 'carrinho', 'confirmar', 'cancelar'}
 
 MAX_CHARS = 500
 
@@ -127,6 +133,9 @@ def _decidir_intent(
 ) -> dict[str, Any]:
     """Decide a intenção baseada na confiança dos similares RAG.
 
+    Usa votação com prioridade para lidar com mensagens compostas
+    como "bom dia, quero um suco" (saudacao + pedir → pedir vence).
+
     Args:
         similares: Lista de exemplos similares com similaridade.
         mensagem_truncada: Mensagem normalizada e truncada.
@@ -152,7 +161,8 @@ def _decidir_intent(
         }
 
     if confidence >= RAG_FORTE_THRESHOLD:
-        intent = calcular_votacao(similares)
+        # Usa votação com prioridade para mensagens compostas
+        intent = calcular_votacao_com_prioridade(similares)
         return {
             'intent': intent,
             'confidence': confidence,
@@ -162,18 +172,28 @@ def _decidir_intent(
             'mensagem_norm': mensagem_norm,
         }
 
-    # RAG médio: valida com LLM
-    intencao_rag = calcular_votacao(similares)
-    try:
-        prompt_rag = montar_prompt_rag(mensagem_truncada, similares, intencao_rag)
-        intent, _ = validar_com_llm(prompt_rag)
-    except Exception:
+    # RAG médio: verifica se há alta prioridade no top-k
+    intencao_rag = calcular_votacao_com_prioridade(similares)
+
+    # Se a prioridade encontrou uma intent de alta prioridade,
+    # usa direto sem validação LLM (evita que LLM volte para saudacao)
+    if INTENT_PRIORITY.get(intencao_rag, 99) <= INTENT_PRIORITY.get('carrinho', 99):
         intent = intencao_rag
+        caminho = 'rag_forte'
+    else:
+        # Sem alta prioridade: valida com LLM
+        try:
+            prompt_rag = montar_prompt_rag(mensagem_truncada, similares, intencao_rag)
+            intent, _ = validar_com_llm(prompt_rag)
+            caminho = 'llm_rag'
+        except Exception:
+            intent = intencao_rag
+            caminho = 'llm_rag'
 
     return {
         'intent': intent,
         'confidence': confidence,
-        'caminho': 'llm_rag',
+        'caminho': caminho,
         'top1_texto': top1_texto,
         'top1_intencao': top1_intencao,
         'mensagem_norm': mensagem_norm,

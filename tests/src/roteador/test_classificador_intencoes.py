@@ -356,16 +356,19 @@ class TestLLMInteractions:
 
     @patch(
         'src.roteador.classificador_intencoes.buscar_similares',
-        return_value=[{'texto': 'mock', 'intencao': 'pedir', 'similaridade': 0.70}],
+        return_value=[{'texto': 'qual o preço', 'intencao': 'duvida', 'similaridade': 0.70}],
     )
     @patch(
-        'src.roteador.classificador_intencoes.calcular_votacao', return_value='pedir'
+        'src.roteador.classificador_intencoes.calcular_votacao', return_value='duvida'
+    )
+    @patch(
+        'src.roteador.classificador_intencoes.calcular_votacao_com_prioridade', return_value='duvida'
     )
     @patch('src.roteador.classificador_intencoes.modelo_llm')
-    def test_llm_recebe_prompt_formatado(self, mock_llm, mock_votacao, mock_similares):
+    def test_llm_recebe_prompt_formatado(self, mock_llm, mock_pri, mock_votacao, mock_similares):
         """LLM deve receber prompt formatado com a mensagem."""
-        mock_llm.invoke.return_value = 'pedir'
-        mensagem = 'quero um xbacon'
+        mock_llm.invoke.return_value = 'duvida'
+        mensagem = 'qual o preço do lanche'
 
         classificar_intencao(mensagem)
 

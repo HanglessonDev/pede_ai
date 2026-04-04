@@ -7,6 +7,21 @@ from typing import Any
 import numpy as np
 import ollama
 
+# Prioridade de intents: quanto menor, mais importante
+# Pedir > Remover/Trocar > Carrinho > Confirmar/Cancelar > Saudacao
+INTENT_PRIORITY = {
+    'pedir': 1,
+    'remover': 2,
+    'trocar': 3,
+    'carrinho': 4,
+    'duvida': 5,
+    'confirmar': 6,
+    'negar': 7,
+    'cancelar': 8,
+    'saudacao': 9,
+    'desconhecido': 10,
+}
+
 
 EMBEDDING_MODEL = 'mini-embed'
 
@@ -180,7 +195,8 @@ def calcular_votacao_hybrid(
 
     Lógica:
     - Se top-1 tem similaridade >= 0.95: retorna intenção do top-1 (match exato)
-    - Senão: usa voto majoritário (evita viés de redundância)
+    - Senão: usa voto majoritário com tiebreaker de prioridade
+      (ex: empate entre saudacao e pedir → pedir vence)
 
     Args:
         similares: Lista de exemplos similares com 'intencao' e 'similaridade'.
@@ -198,8 +214,69 @@ def calcular_votacao_hybrid(
     if top_sim >= threshold:
         return similares[0]['intencao']
 
-    # Ambiguidade: usa voto majoritário
-    return calcular_votacao_max(similares)
+    # Ambiguidade: usa voto majoritário com tiebreaker de prioridade
+    votos = Counter(s['intencao'] for s in similares)
+    max_votos = votos.most_common(1)[0][1]
+
+    # Pega todas as intents empatadas no topo
+    empatadas = [
+        intent for intent, count in votos.items() if count == max_votos
+    ]
+
+    # Se há empate, usa prioridade como tiebreaker
+    if len(empatadas) > 1:
+        return min(empatadas, key=lambda i: INTENT_PRIORITY.get(i, 99))
+
+    return votos.most_common(1)[0][0]
+
+
+def calcular_votacao_com_prioridade(
+    similares: list[dict[str, Any]], threshold: float = 0.95
+) -> str:
+    """Votação com prioridade de intents quando há múltiplas intents no top-K.
+
+    Útil para mensagens compostas como "bom dia, quero um suco" onde
+    saudação e pedido aparecem juntos.
+
+    Regra: se há qualquer exemplo de alta prioridade (pedir, remover, trocar)
+    no top-K com similaridade >= 0.55, essa intent prevalece sobre
+    intents de baixa prioridade (saudacao), mesmo que saudacao tenha
+    mais exemplos ou maior similaridade.
+
+    Args:
+        similares: Lista de exemplos similares com 'intencao' e 'similaridade'.
+        threshold: Similaridade mínima para confiar no top-1 (padrão: 0.95).
+
+    Returns:
+        Nome da intenção classificada.
+    """
+    if not similares:
+        return 'desconhecido'
+
+    top_sim = similares[0]['similaridade']
+
+    # Match muito forte (>0.98 = praticamente idêntico): confia no top-1
+    if top_sim >= 0.98:
+        return similares[0]['intencao']
+
+    # Intents de alta prioridade (pedido/ação > conversação)
+    ALTA_PRIORIDADE = {'pedir', 'remover', 'trocar', 'carrinho', 'confirmar', 'cancelar'}
+
+    # Busca a melhor intent de alta prioridade no top-K
+    best_high = None
+    best_high_sim = 0.0
+    for s in similares:
+        if s['intencao'] in ALTA_PRIORIDADE and s['similaridade'] > best_high_sim:
+            best_high = s['intencao']
+            best_high_sim = s['similaridade']
+
+    # Se encontrou alta prioridade com similaridade razoável, ela vence
+    if best_high and best_high_sim >= MIN_SIMILARITY_THRESHOLD:
+        return best_high
+
+    # Fallback: maioria simples
+    votos = Counter(s['intencao'] for s in similares)
+    return votos.most_common(1)[0][0]
 
 
 def calcular_votacao(similares: list[dict[str, Any]]) -> str:

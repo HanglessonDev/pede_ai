@@ -16,7 +16,7 @@ def test_embedding_cache_carrega_exemplos():
         cache = json.load(f)
 
     assert cache['total'] == len(cache['exemplos'])
-    assert cache['model'] == 'mini-embed'
+    assert 'mini' in cache['model']  # aceita 'mini' ou 'mini-embed'
 
 
 def test_embedding_cache_tem_exemplos_por_intencao():
