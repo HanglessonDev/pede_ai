@@ -192,11 +192,13 @@ class TestNodeHandlerCarrinho:
 class TestNodeHandlerPedir:
     """Testes para node_handler_pedir."""
 
+    @patch('src.graph.nodes.get_config')
     @patch('src.graph.nodes.processar_pedido')
-    def test_delega_para_handler_pedir(self, mock_processar):
+    def test_delega_para_handler_pedir(self, mock_processar, mock_config):
         """Deve delegar processamento para o handler."""
         from src.graph.handlers.pedir import ResultadoPedir
 
+        mock_config.return_value = {'configurable': {'thread_id': 'teste'}}
         mock_processar.return_value = ResultadoPedir(
             carrinho=[{'item_id': 'lanche_001', 'preco': 1500}],
             fila=[],
@@ -211,8 +213,10 @@ class TestNodeHandlerPedir:
         assert mock_processar.called
         assert len(result['carrinho']) == 1
 
-    def test_itens_extraidos_vazio(self):
+    @patch('src.graph.nodes.get_config')
+    def test_itens_extraidos_vazio(self, mock_config):
         """Itens extraidos vazio deve retornar listas vazias."""
+        mock_config.return_value = {'configurable': {'thread_id': 'teste'}}
         state = {'itens_extraidos': [], 'carrinho': [], 'fila_clarificacao': []}
         result = node_handler_pedir(state)  # type: ignore
         assert result['carrinho'] == []
