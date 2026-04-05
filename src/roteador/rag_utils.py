@@ -1,4 +1,15 @@
-"""RAG utilities para classificação de intenções."""
+"""RAG utilities para classificação de intenções.
+
+DEPRECATED — Código legado, mantido apenas para compatibilidade.
+
+Este módulo foi substituído por:
+- `src/roteador/embedding_service.py` — EmbeddingService (cache + busca)
+- `src/roteador/voting.py` — votar_com_prioridade
+- `src/infra/embedding_providers.py` — SentenceTransformerEmbeddings
+
+TODO: Remover este arquivo após migrar todos os imports externos.
+Rastrear: `git grep rag_utils` para verificar uso.
+"""
 
 import re
 from collections import Counter
@@ -219,9 +230,7 @@ def calcular_votacao_hybrid(
     max_votos = votos.most_common(1)[0][1]
 
     # Pega todas as intents empatadas no topo
-    empatadas = [
-        intent for intent, count in votos.items() if count == max_votos
-    ]
+    empatadas = [intent for intent, count in votos.items() if count == max_votos]
 
     # Se há empate, usa prioridade como tiebreaker
     if len(empatadas) > 1:
@@ -260,7 +269,14 @@ def calcular_votacao_com_prioridade(
         return similares[0]['intencao']
 
     # Intents de alta prioridade (pedido/ação > conversação)
-    ALTA_PRIORIDADE = {'pedir', 'remover', 'trocar', 'carrinho', 'confirmar', 'cancelar'}
+    ALTA_PRIORIDADE = {
+        'pedir',
+        'remover',
+        'trocar',
+        'carrinho',
+        'confirmar',
+        'cancelar',
+    }
 
     # Busca a melhor intent de alta prioridade no top-K
     best_high = None

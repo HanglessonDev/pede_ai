@@ -30,8 +30,10 @@ from src.config.prompts import (
     get_tenant_info,
     get_tenant_nome,
 )
+from src.config.roteador_config import RoteadorConfig, get_roteador_config
 
 __all__ = [
+    'RoteadorConfig',
     'get_cardapio',
     'get_intencoes_validas',
     'get_item_por_id',
@@ -41,6 +43,7 @@ __all__ = [
     'get_preco_item',
     'get_prompt',
     'get_remocoes_genericas',
+    'get_roteador_config',
     'get_tenant_id',
     'get_tenant_info',
     'get_tenant_nome',

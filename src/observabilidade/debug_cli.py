@@ -10,7 +10,6 @@ from rich.console import Console
 from rich.table import Table
 
 from src.extratores import extrair
-from src.roteador.classificador_intencoes import _classificar_intencao
 
 app = typer.Typer(help='Debug CLI para Pede AI')
 console = Console()
@@ -40,9 +39,10 @@ def ultima_sessao(thread_id: str | None = None) -> None:
             f"SELECT * FROM '{funil_csv}' ORDER BY timestamp DESC LIMIT 20"
         ).fetchall()
 
-    cols = [desc[0] for desc in conn.execute(
-        f"SELECT * FROM '{funil_csv}' LIMIT 1"
-    ).description]
+    cols = [
+        desc[0]
+        for desc in conn.execute(f"SELECT * FROM '{funil_csv}' LIMIT 1").description
+    ]
 
     table = Table(title='Funil de Pedidos')
     for col in cols:
@@ -101,14 +101,15 @@ def erros_handlers() -> None:
 
 @app.command()
 def classificar(mensagem: str) -> None:
-    """Testa classificacao de uma mensagem sem executar o grafo."""
-    resultado = _classificar_intencao(mensagem)
-    table = Table(title=f'Classificacao: "{mensagem}"')
-    table.add_column('Campo')
-    table.add_column('Valor')
-    for k, v in resultado.items():
-        table.add_row(str(k), str(v))
-    console.print(table)
+    """Testa classificacao de uma mensagem sem executar o grafo.
+
+    Nota: requer classificador configurado via main.py.
+    Use 'python main.py' para teste interativo completo.
+    """
+    console.print('[yellow]Classificacao CLI desabilitada na refatoracao.[/yellow]')
+    console.print(
+        '[dim]Use o main.py para teste interativo com Groq + Transformers.[/dim]'
+    )
 
 
 @app.command()

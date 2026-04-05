@@ -1,5 +1,21 @@
 """
-Classificador de intenções do Pede AI.
+DEPRECATED — Código legado, mantido apenas para compatibilidade.
+
+Este módulo foi substituído por `src/roteador/service.py` (ClassificadorIntencoes)
+durante a refatoração de 04/2026. O código OO usa injeção de dependência,
+providers intercambiáveis (Groq, Ollama) e embeddings via sentence-transformers.
+
+Arquivos substitutos:
+- `src/roteador/service.py` — ClassificadorIntencoes (orchestrator)
+- `src/roteador/modelos.py` — ResultadoClassificacao, ExemploSimilar
+- `src/roteador/protocolos.py` — LLMProvider, EmbeddingProvider
+- `src/roteador/classificadores/` — Lookup, RAG, LLM
+- `src/roteador/voting.py` — votar_com_prioridade
+- `src/roteador/embedding_service.py` — EmbeddingService
+- `src/infra/` — GroqProvider, OllamaProvider, SentenceTransformerEmbeddings
+
+TODO: Remover este arquivo após migrar todos os imports externos.
+Rastrear: `git grep classificador_intencoes` para verificar uso.
 
 Classifica mensagens do usuário em intenções como:
 saudacao, pedir, remover, trocar, carrinho, duvida, etc.
@@ -23,7 +39,7 @@ from src.config import get_intencoes_validas, get_prompt
 from src.roteador.rag_utils import (
     INTENT_PRIORITY,
     buscar_similares,
-    calcular_votacao,
+    calcular_votacao,  # noqa: F401 — usado por testes antigos
     calcular_votacao_com_prioridade,
     lookup_intencao_direta,
     montar_prompt_rag,
@@ -77,7 +93,14 @@ RAG_FRACO_THRESHOLD = 0.5
 
 # Intents de alta prioridade: quando presentes no top-k, prevalecem sobre
 # intents de conversação (saudacao) mesmo com menor similaridade.
-ALTA_PRIORIDADE_INTENTS = {'pedir', 'remover', 'trocar', 'carrinho', 'confirmar', 'cancelar'}
+ALTA_PRIORIDADE_INTENTS = {
+    'pedir',
+    'remover',
+    'trocar',
+    'carrinho',
+    'confirmar',
+    'cancelar',
+}
 
 MAX_CHARS = 500
 

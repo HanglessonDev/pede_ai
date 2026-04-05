@@ -1,0 +1,39 @@
+# Configuracao do classificador de intencoes
+# Valores calibrados para embeddings all-MiniLM-L6-v2
+
+classificador:
+  # Thresholds de confianca RAG
+  rag_forte_threshold: 0.95    # >= usa RAG direto sem LLM
+  rag_fraco_threshold: 0.50    # < usa fallback LLM puro
+  min_similarity: 0.55         # similaridade minima para incluir exemplo
+  max_chars: 500               # truncamento da mensagem
+  top_k: 5                     # numero de exemplos similares a buscar
+
+  # Intents de alta prioridade (acao > conversacao)
+  alta_prioridade:
+    - pedir
+    - remover
+    - trocar
+    - carrinho
+    - confirmar
+    - cancelar
+
+llm:
+  # Provider padrao: groq (cloud, rapido)
+  # Alternativa: ollama (local, dev/testing)
+  provider: groq
+
+  groq:
+    model: llama-3.1-8b-instant
+
+  ollama:
+    model: qwen3.5:2b
+
+embedding:
+  # Provider: sentence_transformers (local, sem Ollama)
+  provider: sentence_transformers
+  model: sentence-transformers/all-MiniLM-L6-v2
+  cache_path: data/embeddings/all-MiniLM-L6-v2.json
+
+dados:
+  exemplos_path: data/exemplos-classificacao.json

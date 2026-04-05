@@ -1,231 +1,198 @@
-"""Testes para o classificador RAG com confidence."""
+"""Testes para o classificador RAG."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock
+
+import pytest
+
+from src.config.roteador_config import RoteadorConfig
+from src.roteador.classificadores.rag import ClassificadorRAG
+from src.roteador.embedding_service import EmbeddingService
+from src.roteador.modelos import ExemploSimilar
+from src.roteador.protocolos import LLMProvider
 
 
-class TestClassificarIntencaoComConfidence:
-    """Testes para _classificar_intencao."""
+# ══════════════════════════════════════════════════════════════════════════════
+# FIXTURES
+# ══════════════════════════════════════════════════════════════════════════════
 
-    def test_sem_embeddings_retorna_fallback(self):
-        """Se não houver embeddings, usa fallback."""
-        from src.roteador import classificador_intencoes
-        from src.roteador.classificador_intencoes import (
-            _classificar_intencao,
-        )
 
-        original_embeddings = classificador_intencoes.EMBEDDINGS
-        classificador_intencoes.EMBEDDINGS = []
+@pytest.fixture
+def mock_embedding_service() -> MagicMock:
+    """Mock do EmbeddingService."""
+    service = MagicMock(spec=EmbeddingService)
+    service.tem_embeddings = True
+    service.buscar_similares.return_value = [
+        ExemploSimilar('quero xbacon', 'pedir', 0.90),
+        ExemploSimilar('me ve lanche', 'pedir', 0.80),
+    ]
+    return service
 
-        try:
-            with patch.object(
-                classificador_intencoes,
-                'classificar_com_llm',
-                return_value='saudacao',
-            ):
-                result = _classificar_intencao('oi')
-        finally:
-            classificador_intencoes.EMBEDDINGS = original_embeddings
 
-        assert result['intent'] == 'saudacao'
-        assert result['confidence'] == 1.0
+@pytest.fixture
+def mock_llm() -> MagicMock:
+    """Mock do LLM provider."""
+    llm = MagicMock(spec=LLMProvider)
+    llm.completar.return_value = 'pedir'
+    return llm
 
-    def test_sem_similares_retorna_fallback(self):
-        """Se não encontrar similares, usa fallback."""
-        from src.roteador import classificador_intencoes
-        from src.roteador.classificador_intencoes import (
-            _classificar_intencao,
-        )
 
-        with (
-            patch.object(classificador_intencoes, 'buscar_similares', return_value=[]),
-            patch.object(
-                classificador_intencoes,
-                'classificar_com_llm',
-                return_value='pedir',
-            ),
-        ):
-            result = _classificar_intencao('mensagem qualquer')
+@pytest.fixture
+def config() -> RoteadorConfig:
+    """Config padrao."""
+    from src.config import get_roteador_config
 
-        assert result['intent'] == 'pedir'
-        assert result['confidence'] == 1.0
+    return get_roteador_config()
 
-    def test_rag_forte_skip_llm(self):
-        """RAG com confidence >= 0.95 deve retornar direto, sem chamar LLM."""
-        from src.roteador import classificador_intencoes
-        from src.roteador.classificador_intencoes import (
-            _classificar_intencao,
-        )
 
-        similares = [
-            {'texto': 'cancela tudo', 'intencao': 'cancelar', 'similaridade': 0.98},
+@pytest.fixture
+def intencoes_validas() -> list[str]:
+    return [
+        'saudacao',
+        'pedir',
+        'remover',
+        'trocar',
+        'carrinho',
+        'duvida',
+        'confirmar',
+        'negar',
+        'cancelar',
+    ]
+
+
+@pytest.fixture
+def prompt_template() -> str:
+    return 'Classifique: {mensagem}'
+
+
+@pytest.fixture
+def classificador(
+    mock_embedding_service: MagicMock,
+    mock_llm: MagicMock,
+    config: RoteadorConfig,
+    prompt_template: str,
+    intencoes_validas: list[str],
+) -> ClassificadorRAG:
+    return ClassificadorRAG(
+        embedding_service=mock_embedding_service,
+        config=config,
+        llm=mock_llm,
+        prompt_template=prompt_template,
+        intencoes_validas=intencoes_validas,
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CLASSIFICADOR RAG
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestClassificadorRAG:
+    """Testes para ClassificadorRAG."""
+
+    def test_rag_forte_skip_llm(
+        self,
+        mock_embedding_service: MagicMock,
+        mock_llm: MagicMock,
+        classificador: ClassificadorRAG,
+    ):
+        """RAG forte (>= 0.95) nao deve chamar LLM."""
+        mock_embedding_service.buscar_similares.return_value = [
+            ExemploSimilar('cancela tudo', 'cancelar', 0.98),
         ]
 
-        with (
-            patch.object(
-                classificador_intencoes, 'buscar_similares', return_value=similares
-            ),
-            patch.object(
-                classificador_intencoes, 'calcular_votacao', return_value='cancelar'
-            ),
-            patch.object(classificador_intencoes, 'validar_com_llm') as mock_llm,
-        ):
-            result = _classificar_intencao('cancela tudo')
+        resultado = classificador.classificar('cancela tudo')
 
-        # LLM NÃO deve ser chamado
-        mock_llm.assert_not_called()
+        mock_llm.completar.assert_not_called()
+        assert resultado is not None
+        assert resultado.intent == 'cancelar'
+        assert resultado.caminho == 'rag_forte'
+        assert resultado.confidence == 0.98
 
-        # Deve retornar decisão do RAG
-        assert result['intent'] == 'cancelar'
-        assert result['confidence'] == 0.98
-
-    def test_rag_medio_chama_llm(self):
-        """RAG com confidence 0.50-0.95 deve chamar LLM para validar."""
-        from src.roteador import classificador_intencoes
-        from src.roteador.classificador_intencoes import (
-            _classificar_intencao,
-        )
-
-        similares = [
-            {'texto': 'quero um xbacon', 'intencao': 'pedir', 'similaridade': 0.75},
+    def test_rag_medio_chama_llm(
+        self,
+        mock_embedding_service: MagicMock,
+        mock_llm: MagicMock,
+        classificador: ClassificadorRAG,
+    ):
+        """RAG medio (0.50-0.95) deve chamar LLM."""
+        mock_embedding_service.buscar_similares.return_value = [
+            ExemploSimilar('quero xbacon', 'pedir', 0.75),
         ]
 
-        with (
-            patch.object(
-                classificador_intencoes, 'buscar_similares', return_value=similares
-            ),
-            patch.object(
-                classificador_intencoes, 'calcular_votacao', return_value='pedir'
-            ),
-            patch.object(
-                classificador_intencoes, 'montar_prompt_rag', return_value='prompt'
-            ),
-            patch.object(
-                classificador_intencoes, 'validar_com_llm', return_value=('pedir', 1.0)
-            ),
-        ):
-            result = _classificar_intencao('quero um lanche')
+        resultado = classificador.classificar('quero lanche')
 
-        # LLM deve ser chamado
-        assert result['intent'] == 'pedir'
+        mock_llm.completar.assert_called_once()
+        assert resultado is not None
+        assert resultado.caminho == 'llm_rag'
 
-    def test_rag_fraco_fallback(self):
-        """RAG com confidence < 0.50 deve usar fallback (prompt fixo)."""
-        from src.roteador import classificador_intencoes
-        from src.roteador.classificador_intencoes import (
-            _classificar_intencao,
-        )
-
-        similares = [
-            {'texto': 'abc', 'intencao': 'desconhecido', 'similaridade': 0.40},
+    def test_rag_fraco_retorna_none(
+        self,
+        mock_embedding_service: MagicMock,
+        classificador: ClassificadorRAG,
+    ):
+        """RAG fraco (< 0.50) deve retornar None."""
+        mock_embedding_service.buscar_similares.return_value = [
+            ExemploSimilar('abc', 'desconhecido', 0.40),
         ]
 
-        with (
-            patch.object(
-                classificador_intencoes, 'buscar_similares', return_value=similares
-            ),
-            patch.object(
-                classificador_intencoes, 'calcular_votacao', return_value='desconhecido'
-            ),
-            patch.object(
-                classificador_intencoes,
-                'classificar_com_llm',
-                return_value='duvida',
-            ),
-        ):
-            result = _classificar_intencao('mensagem estranha')
+        resultado = classificador.classificar('mensagem estranha')
 
-        # Intent vem do fallback, mas confidence preserva a do RAG
-        assert result['intent'] == 'duvida'
-        assert result['confidence'] == 0.40
-        assert result['caminho'] == 'llm_rag'
+        assert resultado is None
 
+    def test_sem_embeddings_retorna_none(
+        self,
+        mock_embedding_service: MagicMock,
+        classificador: ClassificadorRAG,
+    ):
+        """Sem embeddings deve retornar None."""
+        mock_embedding_service.tem_embeddings = False
 
-class TestClassificarIntencao:
-    """Testes para classificar_intencao (API compatível)."""
+        resultado = classificador.classificar('teste')
 
-    def test_retorna_string_nao_tupla(self):
-        """classificar_intencao deve retornar string, não tupla."""
-        with patch(
-            'src.roteador.classificador_intencoes._classificar_intencao',
-            return_value={
-                'intent': 'pedir',
-                'confidence': 0.85,
-                'caminho': 'llm_rag',
-                'top1_texto': '',
-                'top1_intencao': '',
-                'mensagem_norm': '',
-            },
-        ):
-            from src.roteador.classificador_intencoes import classificar_intencao
+        assert resultado is None
 
-            result = classificar_intencao('quero xbacon')
+    def test_sem_similares_retorna_none(
+        self,
+        mock_embedding_service: MagicMock,
+        classificador: ClassificadorRAG,
+    ):
+        """Sem similares deve retornar None."""
+        mock_embedding_service.buscar_similares.return_value = []
 
-        assert isinstance(result, str)
-        assert result == 'pedir'
+        resultado = classificador.classificar('teste')
 
+        assert resultado is None
 
-class TestRAGForTeThreshold:
-    """Testes específicos para o threshold RAG_FORTE_THRESHOLD."""
-
-    def test_threshold_constante_existe(self):
-        """Constante RAG_FORTE_THRESHOLD deve existir."""
-        from src.roteador.classificador_intencoes import RAG_FORTE_THRESHOLD
-
-        assert RAG_FORTE_THRESHOLD == 0.95
-
-    def test_threshold_na_fronteira_095(self):
-        """Confidence exatamente 0.95 deve skipar LLM."""
-        from src.roteador import classificador_intencoes
-        from src.roteador.classificador_intencoes import (
-            _classificar_intencao,
-        )
-
-        similares_095 = [
-            {'texto': 'exato', 'intencao': 'confirmar', 'similaridade': 0.95},
+    def test_llm_fallback_usa_votacao(
+        self,
+        mock_embedding_service: MagicMock,
+        mock_llm: MagicMock,
+        classificador: ClassificadorRAG,
+    ):
+        """Se LLM retorna invalido, deve usar votacao RAG."""
+        mock_llm.completar.return_value = 'intencao_invalida'
+        mock_embedding_service.buscar_similares.return_value = [
+            ExemploSimilar('quero xbacon', 'pedir', 0.75),
         ]
 
-        with (
-            patch.object(
-                classificador_intencoes, 'buscar_similares', return_value=similares_095
-            ),
-            patch.object(
-                classificador_intencoes, 'calcular_votacao', return_value='confirmar'
-            ),
-            patch.object(classificador_intencoes, 'validar_com_llm') as mock_llm,
-        ):
-            result = _classificar_intencao('exato')
+        resultado = classificador.classificar('quero lanche')
 
-        mock_llm.assert_not_called()
-        assert result['intent'] == 'confirmar'
+        assert resultado is not None
+        assert resultado.intent == 'pedir'
 
-    def test_threshold_abaixo_094_chama_llm(self):
-        """Confidence 0.94 deve chamar LLM."""
-        from src.roteador import classificador_intencoes
-        from src.roteador.classificador_intencoes import (
-            _classificar_intencao,
-        )
-
-        similares_094 = [
-            {'texto': 'quase', 'intencao': 'confirmar', 'similaridade': 0.94},
+    def test_resultado_contem_metadata(
+        self,
+        mock_embedding_service: MagicMock,
+        classificador: ClassificadorRAG,
+    ):
+        """Resultado deve conter metadata."""
+        mock_embedding_service.buscar_similares.return_value = [
+            ExemploSimilar('quero xbacon', 'pedir', 0.96),
         ]
 
-        with (
-            patch.object(
-                classificador_intencoes, 'buscar_similares', return_value=similares_094
-            ),
-            patch.object(
-                classificador_intencoes, 'calcular_votacao', return_value='confirmar'
-            ),
-            patch.object(
-                classificador_intencoes, 'montar_prompt_rag', return_value='prompt'
-            ),
-            patch.object(
-                classificador_intencoes,
-                'validar_com_llm',
-                return_value=('confirmar', 1.0),
-            ),
-        ):
-            result = _classificar_intencao('quase')
+        resultado = classificador.classificar('quero lanche')
 
-        # LLM deve ser chamado
-        assert result['intent'] == 'confirmar'
+        assert resultado is not None
+        assert resultado.top1_texto == 'quero xbacon'
+        assert resultado.top1_intencao == 'pedir'
+        assert resultado.confidence == 0.96

@@ -20,6 +20,7 @@ from langgraph.graph import END, StateGraph
 
 from src.graph.handlers.desconhecido import node_handler_desconhecido
 from src.graph.nodes import (
+    _criar_node_router,
     node_clarificacao,
     node_extrator,
     node_handler_cancelar,
@@ -29,10 +30,10 @@ from src.graph.nodes import (
     node_handler_remover,
     node_handler_saudacao,
     node_handler_trocar,
-    node_router,
     node_verificar_etapa,
 )
 from src.graph.state import State
+from src.roteador.service import ClassificadorIntencoes
 
 
 def _decidir_entrada(state: State) -> str:
@@ -78,11 +79,15 @@ def _decidir_por_intent(state: State) -> str:
     return mapeamento.get(intent, 'handler_saudacao')
 
 
-def criar_graph(checkpointer: SqliteSaver) -> StateGraph:
+def criar_graph(
+    checkpointer: SqliteSaver,
+    classificador: ClassificadorIntencoes,
+) -> StateGraph:
     """Constroi e compila o grafo de atendimento.
 
     Args:
         checkpointer: Checkpointer para persistência de estado (SqliteSaver).
+        classificador: Instancia de ClassificadorIntencoes injetada.
 
     Returns:
         Grafo compilado pronto para uso com invoke().
@@ -93,11 +98,12 @@ def criar_graph(checkpointer: SqliteSaver) -> StateGraph:
         import sqlite3
 
         conn = sqlite3.connect('./pede_ai.db')
-        graph = criar_graph(SqliteSaver(conn))
+        graph = criar_graph(SqliteSaver(conn), classificador)
         config = {'configurable': {'thread_id': 'usuario_001'}}
         result = graph.invoke({'mensagem_atual': 'oi'}, config)
         ```
     """
+    node_router = _criar_node_router(classificador)
     builder = StateGraph(State)
 
     # 1. registra nodes

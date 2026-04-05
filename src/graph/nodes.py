@@ -40,7 +40,194 @@ from src.observabilidade.registry import (
     get_handler_logger,
     get_obs_logger,
 )
-from src.roteador.classificador_intencoes import _classificar_intencao
+
+# Classificador padrao — sobrescrito pelo builder via _criar_node_router.
+# Usado por testes que mockam _classificar_intencao diretamente.
+_classificador_padrao = None
+
+
+def _classificar_intencao(mensagem: str, thread_id: str = '') -> dict:
+    """Wrapper compativel com a API antiga para testes.
+
+    Usa o classificador injetado se disponivel, senao retorna dict vazio.
+    """
+    if _classificador_padrao is not None:
+        resultado = _classificador_padrao.classificar(mensagem)
+        return {
+            'intent': resultado.intent,
+            'confidence': resultado.confidence,
+            'caminho': resultado.caminho,
+            'top1_texto': resultado.top1_texto,
+            'top1_intencao': resultado.top1_intencao,
+            'mensagem_norm': resultado.mensagem_norm,
+        }
+    return {
+        'intent': 'desconhecido',
+        'confidence': 0.0,
+        'caminho': 'llm_fixo',
+        'top1_texto': '',
+        'top1_intencao': '',
+        'mensagem_norm': mensagem,
+    }
+
+
+def _criar_node_router(classificador):
+    """Factory para node_router com classificador injetado.
+
+    Args:
+        classificador: Instancia de ClassificadorIntencoes.
+
+    Returns:
+        Funcao node_router com classificador injetado.
+    """
+    global _classificador_padrao  # noqa: PLW0603 — injecao via factory
+    _classificador_padrao = classificador
+
+    def node_router(state: State) -> RetornoNode:
+        """Classifica a intenção da mensagem e atualiza o estado.
+
+        Nó de roteamento que envia a mensagem atual para o classificador
+        de intenções e armazena o resultado no estado.
+
+        Args:
+            state: Estado atual do grafo de atendimento.
+
+        Returns:
+            Dicionário com ``intent`` e ``confidence`` atualizados.
+
+        Example:
+            ```python
+            state = {
+                'mensagem_atual': 'oi',
+                'intent': '',
+                'itens_extraidos': [],
+                'carrinho': [],
+                'fila_clarificacao': [],
+                'etapa': 'inicio',
+                'resposta': '',
+            }
+            result = node_router(state)
+            'intent' in result
+            True
+            ```
+        """
+        mensagem = state.get('mensagem_atual', '')
+        thread_id = get_config().get('configurable', {}).get('thread_id', '')
+        inicio = time.monotonic()
+        etapa_anterior = state.get('etapa', 'inicio')
+
+        resultado = classificador.classificar(mensagem)
+
+        # Registra evento de observabilidade
+        obs_logger = get_obs_logger()
+        obs_logger.registrar(
+            thread_id=thread_id,
+            mensagem=mensagem,
+            mensagem_norm=resultado.mensagem_norm,
+            intent=resultado.intent,
+            confidence=resultado.confidence,
+            caminho=resultado.caminho,
+            top1_texto=resultado.top1_texto,
+            top1_intencao=resultado.top1_intencao,
+        )
+
+        # Log de funil
+        funil_logger = get_funil_logger()
+        if funil_logger:
+            funil_logger.registrar(
+                thread_id=thread_id,
+                etapa_anterior=etapa_anterior,
+                etapa_atual='roteado',
+                intent=resultado.intent,
+                carrinho_size=len(state.get('carrinho', [])),
+            )
+
+        tempo_ms = (time.monotonic() - inicio) * 1000
+
+        # Log de handler
+        handler_logger = get_handler_logger()
+        if handler_logger:
+            handler_logger.registrar(
+                thread_id=thread_id,
+                handler='node_router',
+                intent=resultado.intent,
+                input_dados={'mensagem': mensagem},
+                output_dados={
+                    'intent': resultado.intent,
+                    'confidence': resultado.confidence,
+                    'caminho': resultado.caminho,
+                    'top1_texto': resultado.top1_texto,
+                    'top1_intencao': resultado.top1_intencao,
+                },
+                tempo_ms=tempo_ms,
+            )
+
+        return {
+            'intent': resultado.intent,
+            'confidence': resultado.confidence,
+        }
+
+    return node_router
+
+
+def node_router(state: State) -> RetornoNode:
+    """Classifica a intenção da mensagem e atualiza o estado.
+
+    Versao standalone para testes — usa _classificar_intencao
+    que pode ser mockado ou usa o classificador injetado.
+
+    Args:
+        state: Estado atual do grafo de atendimento.
+
+    Returns:
+        Dicionário com ``intent`` e ``confidence`` atualizados.
+    """
+    mensagem = state.get('mensagem_atual', '')
+    thread_id = get_config().get('configurable', {}).get('thread_id', '')
+    inicio = time.monotonic()
+    etapa_anterior = state.get('etapa', 'inicio')
+
+    resultado = _classificar_intencao(mensagem, thread_id=thread_id)
+
+    obs_logger = get_obs_logger()
+    obs_logger.registrar(
+        thread_id=thread_id,
+        mensagem=mensagem,
+        mensagem_norm=resultado['mensagem_norm'],
+        intent=resultado['intent'],
+        confidence=resultado['confidence'],
+        caminho=resultado['caminho'],
+        top1_texto=resultado['top1_texto'],
+        top1_intencao=resultado['top1_intencao'],
+    )
+
+    funil_logger = get_funil_logger()
+    if funil_logger:
+        funil_logger.registrar(
+            thread_id=thread_id,
+            etapa_anterior=etapa_anterior,
+            etapa_atual='roteado',
+            intent=resultado['intent'],
+            carrinho_size=len(state.get('carrinho', [])),
+        )
+
+    tempo_ms = (time.monotonic() - inicio) * 1000
+
+    handler_logger = get_handler_logger()
+    if handler_logger:
+        handler_logger.registrar(
+            thread_id=thread_id,
+            handler='node_router',
+            intent=resultado['intent'],
+            input_dados={'mensagem': mensagem},
+            output_dados=resultado,
+            tempo_ms=tempo_ms,
+        )
+
+    return {
+        'intent': resultado['intent'],
+        'confidence': resultado['confidence'],
+    }
 
 
 def node_verificar_etapa(state: State) -> RetornoNode:
@@ -57,85 +244,6 @@ def node_verificar_etapa(state: State) -> RetornoNode:
         Dicionário vazio - apenas passa adiante sem modificar o estado.
     """
     return {}  # não faz nada, só passa adiante
-
-
-def node_router(state: State) -> RetornoNode:
-    """Classifica a intenção da mensagem e atualiza o estado.
-
-    Nó de roteamento que envia a mensagem atual para o classificador
-    de intenções e armazena o resultado no estado.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário com ``intent`` e ``confidence`` atualizados.
-
-    Example:
-        ```python
-        state = {
-            'mensagem_atual': 'oi',
-            'intent': '',
-            'itens_extraidos': [],
-            'carrinho': [],
-            'fila_clarificacao': [],
-            'etapa': 'inicio',
-            'resposta': '',
-        }
-        result = node_router(state)
-        'intent' in result
-        True
-        ```
-    """
-    mensagem = state.get('mensagem_atual', '')
-    thread_id = get_config().get('configurable', {}).get('thread_id', '')
-    inicio = time.monotonic()
-    etapa_anterior = state.get('etapa', 'inicio')
-
-    resultado = _classificar_intencao(mensagem, thread_id=thread_id)
-
-    # Registra evento de observabilidade
-    obs_logger = get_obs_logger()
-    obs_logger.registrar(
-        thread_id=thread_id,
-        mensagem=mensagem,
-        mensagem_norm=resultado['mensagem_norm'],
-        intent=resultado['intent'],
-        confidence=resultado['confidence'],
-        caminho=resultado['caminho'],
-        top1_texto=resultado['top1_texto'],
-        top1_intencao=resultado['top1_intencao'],
-    )
-
-    # Log de funil
-    funil_logger = get_funil_logger()
-    if funil_logger:
-        funil_logger.registrar(
-            thread_id=thread_id,
-            etapa_anterior=etapa_anterior,
-            etapa_atual='roteado',
-            intent=resultado['intent'],
-            carrinho_size=len(state.get('carrinho', [])),
-        )
-
-    tempo_ms = (time.monotonic() - inicio) * 1000
-
-    # Log de handler
-    handler_logger = get_handler_logger()
-    if handler_logger:
-        handler_logger.registrar(
-            thread_id=thread_id,
-            handler='node_router',
-            intent=resultado['intent'],
-            input_dados={'mensagem': mensagem},
-            output_dados=resultado,
-            tempo_ms=tempo_ms,
-        )
-
-    return {
-        'intent': resultado['intent'],
-        'confidence': resultado['confidence'],
-    }
 
 
 def node_clarificacao(state: State) -> RetornoNode:
