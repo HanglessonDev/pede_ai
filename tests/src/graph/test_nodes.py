@@ -197,7 +197,7 @@ class TestNodeHandlerPedir:
     @patch('src.graph.nodes.processar_pedido')
     def test_delega_para_handler_pedir(self, mock_processar, mock_config):
         """Deve delegar processamento para o handler."""
-        from src.graph.handlers.pedir import ResultadoPedir
+        from src.graph.handlers.pedido_handler import ResultadoPedir
 
         mock_config.return_value = {'configurable': {'thread_id': 'teste'}}
         mock_processar.return_value = ResultadoPedir(

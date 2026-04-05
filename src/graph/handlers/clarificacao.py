@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from src.config import get_item_por_id
 from src.extratores import extrair_variante
 from src.extratores.fuzzy_extrator import fuzzy_match_variante
-from src.graph.handlers.utils import formatar_carrinho
+from src.graph.handlers.carrinho import Carrinho
 from src.graph.state import ETAPAS, RetornoNode
 from src.observabilidade.registry import get_clarificacao_logger
 
@@ -251,7 +251,7 @@ def _processar_variante_valida(
         resposta = _proxima_clarificacao(fila)
         etapa = 'clarificando_variante'
     else:
-        resposta = formatar_carrinho(carrinho)
+        resposta = Carrinho.from_state_dicts(carrinho).formatar()
         etapa = 'inicio'
 
     return ResultadoClarificacao(
