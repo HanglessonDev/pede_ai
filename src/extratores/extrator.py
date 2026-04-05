@@ -94,6 +94,7 @@ class Extrator:
         prox_remocao = 0
         itens: list[ItemExtraido] = []
         item_atual: ItemExtraido | None = None
+        variante_pendente: str | None = None  # variante antes do ITEM
 
         def _consumir_remocoes_ate(limite: int) -> None:
             nonlocal prox_remocao
@@ -129,18 +130,24 @@ class Extrator:
                 item_atual = ItemExtraido(
                     item_id=ent.ent_id_,
                     quantidade=qtd_pendente,
-                    variante=None,
+                    variante=variante_pendente,  # aplica variante pendente
                     remocoes=[],
                 )
+                variante_pendente = None  # consumida
                 qtd_pendente = 1
 
-            elif ent.label_ == 'VARIANTE' and item_atual is not None:
-                item_atual = ItemExtraido(
-                    item_id=item_atual.item_id,
-                    quantidade=item_atual.quantidade,
-                    variante=ent.text,
-                    remocoes=item_atual.remocoes,
-                )
+            elif ent.label_ == 'VARIANTE':
+                if item_atual is not None:
+                    # Variante depois do ITEM — associa direto
+                    item_atual = ItemExtraido(
+                        item_id=item_atual.item_id,
+                        quantidade=item_atual.quantidade,
+                        variante=ent.text,
+                        remocoes=item_atual.remocoes,
+                    )
+                else:
+                    # Variante antes do ITEM — guarda para associar depois
+                    variante_pendente = ent.text
 
         if item_atual is not None:
             _consumir_remocoes_ate(len(doc))

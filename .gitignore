@@ -24,6 +24,7 @@ logs/*.csv
 
 # Scripts de teste/debug temporários
 testar_*.py
+debug_*.py
 
 # Git worktrees
 .worktrees/

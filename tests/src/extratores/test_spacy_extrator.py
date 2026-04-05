@@ -613,3 +613,63 @@ class TestExtrairVariante:
 
         result = extrair_variante('duplo', 'item_inexistente')
         assert result is None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Testes de Fuzzy Fallback — extrair() via fuzzy quando EntityRuler falha
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestFuzzyFallback:
+    """Testes para o fallback fuzzy do extrator principal."""
+
+    def test_typo_no_nome_encontra_item(self):
+        """Typo como 'hambuerger' deve encontrar 'hamburguer' via fuzzy."""
+        result = extrair('quero um hambuerger')
+        assert len(result) == 1
+        assert result[0]['item_id'] == 'lanche_001'
+
+    def test_typo_com_variante_encontra_item_e_variante(self):
+        """Typo com variante: 'hanburgers duplos' deve achar item + variante."""
+        result = extrair('quero 3 hanburgers duplos')
+        assert len(result) == 1
+        assert result[0]['item_id'] == 'lanche_001'
+        assert result[0]['quantidade'] == 3
+        assert result[0]['variante'] == 'duplo'
+
+    def test_quantidade_extensa_preservada(self):
+        """'dez hamburgueres' deve resultar em quantidade 10."""
+        result = extrair('dez hamburgueres')
+        assert len(result) == 1
+        assert result[0]['quantidade'] == 10
+
+    def test_remocao_nao_vira_variante(self):
+        """'hamburguer sem cebola' — cebola é remoção, não variante."""
+        result = extrair('hamburguer sem cebola')
+        assert len(result) == 1
+        assert result[0]['variante'] is None
+        assert 'cebola' in result[0]['remocoes']
+
+    def test_item_sem_variante_retorna_none(self):
+        """Item sem variante na mensagem deve ter variante None."""
+        result = extrair('hambuerger')
+        assert len(result) == 1
+        assert result[0]['variante'] is None
+
+    def test_variante_antes_do_item(self):
+        """Variante antes do item: 'duplo hamburguer' deve funcionar."""
+        result = extrair('duplo hamburguer')
+        assert len(result) == 1
+        assert result[0]['variante'] == 'duplo'
+
+    def test_coca_com_variante_lata(self):
+        """'coca lata' deve encontrar bebida com variante lata."""
+        result = extrair('coca lata')
+        assert len(result) == 1
+        assert result[0]['item_id'] == 'bebida_001'
+        assert result[0]['variante'] == 'lata'
+
+    def test_frase_sem_item_conhecido_retorna_vazio(self):
+        """Frase sem item do cardápio deve retornar lista vazia."""
+        result = extrair('quero uma pizza de calabresa')
+        assert result == []
