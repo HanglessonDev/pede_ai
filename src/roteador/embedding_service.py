@@ -107,7 +107,9 @@ class EmbeddingService:
             for d in dados
         ]
 
-    def _carregar_cache(self) -> tuple[dict[str, list[float]], list[list[float]] | None]:
+    def _carregar_cache(
+        self,
+    ) -> tuple[dict[str, list[float]], list[list[float]] | None]:
         """Le embeddings do cache JSON.
 
         Suporta dois formatos:

@@ -49,15 +49,17 @@ class ResultadoClassificacao:
 
     def __hash__(self) -> int:
         """Hash baseado em campos hashable (ignora metadados dict)."""
-        return hash((
-            self.intent,
-            self.confidence,
-            self.caminho,
-            self.top1_texto,
-            self.top1_intencao,
-            self.mensagem_norm,
-            tuple(sorted(self.metadados.items())),
-        ))
+        return hash(
+            (
+                self.intent,
+                self.confidence,
+                self.caminho,
+                self.top1_texto,
+                self.top1_intencao,
+                self.mensagem_norm,
+                tuple(sorted(self.metadados.items())),
+            )
+        )
 
 
 @dataclass(frozen=True)

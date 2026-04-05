@@ -562,7 +562,8 @@ class TestCacheComHash:
         """Reordenar exemplos no JSON ainda associa embeddings corretamente via hash."""
         # Cache com hashes em ordem diferente dos exemplos
         embeddings = {
-            _hash_texto(exemplos_dados[2]['texto']): [0.3] * 384,  # ultimo exemplo primeiro
+            _hash_texto(exemplos_dados[2]['texto']): [0.3]
+            * 384,  # ultimo exemplo primeiro
             _hash_texto(exemplos_dados[0]['texto']): [0.1] * 384,
             _hash_texto(exemplos_dados[1]['texto']): [0.2] * 384,
         }

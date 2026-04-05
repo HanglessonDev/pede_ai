@@ -1,302 +1,206 @@
 """Script para gerar embeddings e salvar no cache (geração incremental).
 
-Suporta geração incremental (só novos embeddings) e geração completa.
-Cria backup automático antes de sobrescrever o cache.
-Usa formato de cache com hashes SHA256 (formato 2).
+Usa o EmbeddingService já implementado em src/roteador/.
+O provedor de embeddings e os caminhos vêm da config em roteador.yml.
+
+Exemplos de uso:
+    uv run python scripts/build_embedding_cache.py status
+    uv run python scripts/build_embedding_cache.py listar-exemplos
+    uv run python scripts/build_embedding_cache.py build --full
 """
 
+import contextlib
+import io
 import json
-import time
+import logging
+import os
+import sys
+import warnings
 from pathlib import Path
 
-import ollama
+# Garante que o root do projeto esteja no path para imports de src/
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# Suprime warnings do HF Hub antes de importar qualquer coisa relacionada
+os.environ.setdefault('HF_HUB_DISABLE_TELEMETRY', '1')
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', module='huggingface_hub')
+warnings.filterwarnings('ignore', module='sentence_transformers')
+logging.getLogger('huggingface_hub').setLevel(logging.ERROR)
+logging.getLogger('sentence_transformers').setLevel(logging.ERROR)
+logging.getLogger('torch').setLevel(logging.ERROR)
+
 import typer
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
+from rich.table import Table
 
-from src.roteador.embedding_service import _hash_texto
+from src.config.roteador_config import get_roteador_config
+from src.infra.embedding_providers import SentenceTransformerEmbeddings
+from src.roteador.embedding_service import EmbeddingService, _hash_texto
 
-app = typer.Typer(help='Gera embeddings para exemplos de classificação de intenções.')
-
-CACHE_PATH = Path(__file__).parent.parent / 'src' / 'roteador' / 'embedding_cache.json'
-
-MODELOS = {
-    'mini': 'mini-embed',
-    'nomic': 'nomic-embed-text',
-}
-
-DEFAULT_MODEL = 'mini'
-
-
-def _migrar_cache_antigo(
-    dados: dict | list,
-) -> dict[str, list[float]]:
-    """Migra cache no formato antigo (lista) para formato 2 (dict com hashes).
-
-    Args:
-        dados: Dados carregados do cache no formato antigo.
-
-    Returns:
-        Dicionario com {hash: embedding}.
-    """
-    # Extrair lista de embeddings
-    embeddings_lista: list[list[float]] | None = None
-    if isinstance(dados, dict):
-        emb = dados.get('embeddings')
-        if isinstance(emb, list):
-            embeddings_lista = emb
-    elif isinstance(dados, list):
-        embeddings_lista = dados
-
-    if embeddings_lista is None:
-        return {}
-
-    # Obter textos dos exemplos
-    exemplos: list[dict] = []
-    if isinstance(dados, dict) and 'exemplos' in dados:
-        exemplos = dados['exemplos']
-    if not exemplos:
-        cache_path = Path(__file__).parent.parent / 'data' / 'exemplos-classificacao.json'
-        if cache_path.exists():
-            with open(cache_path, encoding='utf-8') as f:
-                exemplos = json.load(f)
-
-    # Associar posicoes aos hashes
-    embeddings_dict: dict[str, list[float]] = {}
-    for i, emb in enumerate(embeddings_lista):
-        if i < len(exemplos):
-            h = _hash_texto(exemplos[i]['texto'])
-            embeddings_dict[h] = emb
-
-    return embeddings_dict
+app = typer.Typer(
+    help='Gera embeddings para exemplos de classificação de intenções.',
+    rich_markup_mode='rich',
+)
+console = Console()
 
 
-def _carregar_cache() -> dict:
-    """Carrega o cache de embeddings existente, migrando se necessario.
-
-    Detecta formato antigo (lista ou {"format": 1}) e migra para formato 2.
-    Formato novo ({"format": 2, "embeddings": {hash: emb}}) carrega direto.
-
-    Returns:
-        Dicionario com dados do cache pronto para manipulacao, incluindo:
-        - 'format': 2
-        - 'embeddings': dict com {hash: embedding}
-        - 'exemplos': lista de exemplos (se existir)
-        - 'model': modelo usado (se existir)
-
-    Raises:
-        typer.Exit: Se o arquivo de cache nao existir.
-    """
-    if not CACHE_PATH.exists():
-        print(f'❌ Cache não encontrado: {CACHE_PATH}')
-        raise typer.Exit(1)
-    with open(CACHE_PATH, encoding='utf-8') as f:
-        dados: dict | list = json.load(f)
-
-    # Formato 2: ja esta no formato correto
-    if isinstance(dados, dict) and dados.get('format') == 2:
-        return dados
-
-    # Migrar formato antigo
-    embeddings_dict = _migrar_cache_antigo(dados)
-    if not embeddings_dict and not isinstance(dados, dict):
-        return {'format': 2, 'embeddings': {}}
-
-    # Montar dict migrado
-    migrado: dict = {'format': 2, 'embeddings': embeddings_dict}
-    if isinstance(dados, dict):
-        for chave in ('exemplos', 'model', 'total'):
-            if chave in dados:
-                migrado[chave] = dados[chave]
-
-    # Salvar no formato novo
-    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(CACHE_PATH, 'w', encoding='utf-8') as f:
-        json.dump(migrado, f, ensure_ascii=False, indent=2)
-
-    return migrado
-
-
-def _gerar_embedding(
-    modelo: str, texto: str, tentativas: int = 3
-) -> list[float] | None:
-    """Gera embedding para um texto com retry em caso de erro.
-
-    Args:
-        modelo: Nome do modelo de embedding (ex: 'mini-embed').
-        texto: Texto para gerar embedding.
-        tentativas: Número máximo de tentativas antes de desistir.
-
-    Returns:
-        Lista de floats representando o embedding, ou None se falhar.
-    """
-    for tentativa in range(tentativas):
-        try:
-            response = ollama.embed(model=modelo, input=texto)
-            return response['embeddings'][0]
-        except Exception as e:
-            if tentativa < tentativas - 1:
-                time.sleep(1)
-            else:
-                print(f'\n❌ Erro ao gerar embedding para "{texto}": {e}')
-                return None
-
-
-def _back_cache(cache: dict) -> None:
-    """Cria backup do cache antes de sobrescrever.
-
-    Args:
-        cache: Dados atuais do cache para backup.
-    """
-    backup = CACHE_PATH.with_suffix('.json.bak')
-    with open(backup, 'w', encoding='utf-8') as f:
-        json.dump(cache, f, ensure_ascii=False, indent=2)
-    print(f'💾 Backup criado: {backup}')
+def _criar_provider() -> SentenceTransformerEmbeddings:
+    """Cria provider suprimindo output ruidoso do sentence-transformers."""
+    with (
+        contextlib.redirect_stderr(io.StringIO()),
+        contextlib.redirect_stdout(io.StringIO()),
+    ):
+        return SentenceTransformerEmbeddings()
 
 
 @app.command()
-def build(  # noqa: PLR0915
-    modelo: str = typer.Option(
-        DEFAULT_MODEL, '--model', '-m', help='Modelo de embedding'
-    ),
-    incremental: bool = typer.Option(
-        True,
-        '--incremental/--full',
-        '-i/-f',
-        help='Geração incremental (só novos embeddings)',
+def build(
+    full: bool = typer.Option(
+        False,
+        '--full',
+        '-f',
+        help='Regenerar todos os embeddings do zero',
     ),
 ):
-    """Gera embeddings para exemplos no cache."""
-    modelo_nome = MODELOS.get(modelo, modelo)
+    """Gera embeddings faltantes para exemplos de classificação."""
+    config = get_roteador_config()
+    provider = _criar_provider()
+    service = EmbeddingService(
+        provider=provider,
+        exemplos_path=config.exemplos_path,
+        cache_path=config.embedding_cache_path,
+    )
 
-    cache = _carregar_cache()
-    exemplos = cache.get('exemplos', [])
-    embeddings_dict: dict[str, list[float]] = cache.get('embeddings', {})
+    existentes = len(service._embeddings)
+    total = len(service.exemplos)
 
-    if not exemplos:
-        print('❌ Nenhum exemplo encontrado no cache.')
-        raise typer.Exit(1)
-
-    total = len(exemplos)
-    existentes = len(embeddings_dict)
-
-    # Validação: verifica dimensão do modelo
-    if existentes > 0 and incremental:
-        dim_esperada = len(next(iter(embeddings_dict.values())))
-        teste = _gerar_embedding(modelo_nome, 'teste')
-        dim_modelo = len(teste) if teste else 0
-        if dim_esperada != dim_modelo:
-            print(
-                f'⚠️  Dimensão incompatível: cache={dim_esperada}, modelo={dim_modelo}'
-            )
-            print('🔄 Gerando todos os embeddings do zero...')
-            incremental = False
-            embeddings_dict = {}
-
-    if incremental and existentes == total:
-        print(f'✅ Cache já está completo ({total} embeddings). Nada a fazer.')
+    if not full and existentes >= total:
+        console.print(
+            f'\n[green]✅[/green] Cache já está completo ({total} embeddings).'
+        )
         return
 
-    # Determinar quais hashes faltam
-    hashes_faltantes: list[tuple[int, str]] = []
-    for i, ex in enumerate(exemplos):
-        h = _hash_texto(ex['texto'])
-        if h not in embeddings_dict:
-            hashes_faltantes.append((i, h))
+    if full:
+        console.print(
+            '[yellow]🔄[/yellow] Regenerando [bold]{total}[/bold] embeddings do zero...'
+        )
+        service._embeddings_dict = {}
+        service._embeddings = []
 
-    if incremental and existentes > 0:
-        print(f'📋 Cache: {existentes}/{total} embeddings existentes')
-        print(f'🔄 Gerando {len(hashes_faltantes)} embeddings novos...')
-    else:
-        print(f'📋 Gerando {total} embeddings do zero...')
-        embeddings_dict = {}
+    console.print(f'[blue]📋[/blue] Gerando [bold]{total}[/bold] embeddings...')
 
-    # Backup antes de sobrescrever
-    _back_cache(cache)
+    with Progress(
+        TextColumn('[progress.description]{task.description}'),
+        BarColumn(complete_style='blue', finished_style='green'),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task('Gerando embeddings', total=total)
 
-    # Gera embeddings faltantes
-    erros = 0
-    embedding_fallback: list[float] | None = None
-    for idx, (i, h) in enumerate(hashes_faltantes):
-        ex = exemplos[i]
-        try:
-            emb = _gerar_embedding(modelo_nome, ex['texto'])
-            embeddings_dict[h] = emb
-            embedding_fallback = emb
-            progresso = (idx + 1) / len(hashes_faltantes) * 100
-            print(f'  [{idx + 1}/{len(hashes_faltantes)}] ({progresso:.0f}%) {ex["texto"]}')
-        except Exception:
-            erros += 1
-            if embedding_fallback is None:
-                fb = _gerar_embedding(modelo_nome, 'fallback')
-                embedding_fallback = fb if fb else [0.0] * 384
-            embeddings_dict[h] = [0.0] * len(embedding_fallback)
-            print(f'  ⚠️  ERRO: {ex["texto"]} (placeholder)')
+        # Gera todos do zero (full) ou só faltantes (incremental)
+        if full:
+            textos_gerar = [ex.texto for ex in service.exemplos]
+        else:
+            textos_gerar = []
+            for ex in service.exemplos:
+                h = _hash_texto(ex.texto)
+                if h not in service._embeddings_dict:
+                    textos_gerar.append(ex.texto)
+            progress.update(task, advance=existentes)
 
-    # Atualiza cache no formato 2
-    cache['format'] = 2
-    cache['embeddings'] = embeddings_dict
-    cache['model'] = modelo
-    cache['total'] = total
+        # Gera em batches
+        novos = provider.embed_batch(textos_gerar)
+        progress.update(task, advance=len(novos))
 
-    with open(CACHE_PATH, 'w', encoding='utf-8') as f:
-        json.dump(cache, f, ensure_ascii=False, indent=2)
+        # Salva
+        for texto, emb in zip(textos_gerar, novos, strict=True):
+            h = _hash_texto(texto)
+            service._embeddings_dict[h] = emb
 
-    # Resumo
-    print()
-    print('=' * 60)
-    print('📊 RESUMO')
-    print('=' * 60)
-    print(f'   Modelo: {modelo_nome}')
-    print(f'   Exemplos: {total}')
-    print(f'   Embeddings gerados: {len(hashes_faltantes)}')
-    print(f'   Embeddings preservados: {existentes}')
-    primeiro_emb = next(iter(embeddings_dict.values()), None)
-    print(f'   Dimensão: {len(primeiro_emb) if primeiro_emb else "N/A"}')
-    print(f'   Erros: {erros}')
-    print(f'   Cache: {CACHE_PATH}')
-    if erros > 0:
-        print(f'   ⚠️  {erros} embeddings com placeholder (zeros)')
-    print()
+        service._embeddings, service._exemplo_indices = service._montar_lista_alinhada()
+        service._cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(service._cache_path, 'w', encoding='utf-8') as f:
+            json.dump({'format': 2, 'embeddings': service._embeddings_dict}, f)
+
+    table = Table(title='Resumo', show_header=False, box=None)
+    table.add_column('Campo', style='cyan')
+    table.add_column('Valor', style='white')
+    primeiro = next(iter(service._embeddings_dict.values()), None)
+    table.add_row('Exemplos', str(total))
+    table.add_row('Embeddings', str(len(service._embeddings)))
+    table.add_row('Dimensão', str(len(primeiro)) if primeiro else 'N/A')
+    table.add_row('Cache', str(config.embedding_cache_path))
+    console.print(table)
 
 
 @app.command()
 def status():
     """Mostra status atual do cache."""
-    cache = _carregar_cache()
-    exemplos = cache.get('exemplos', [])
-    embeddings_dict: dict[str, list[float]] = cache.get('embeddings', {})
+    config = get_roteador_config()
+    provider = _criar_provider()
+    service = EmbeddingService(
+        provider=provider,
+        exemplos_path=config.exemplos_path,
+        cache_path=config.embedding_cache_path,
+    )
 
-    primeiro_emb = next(iter(embeddings_dict.values()), None)
+    total = len(service.exemplos)
+    existentes = len(service._embeddings)
+    pct = existentes / total * 100 if total else 0
 
-    print('=' * 60)
-    print('📋 STATUS DO CACHE')
-    print('=' * 60)
-    print(f'   Arquivo: {CACHE_PATH}')
-    print(f'   Formato: {cache.get("format", "desconhecido")}')
-    print(f'   Modelo: {cache.get("model", "desconhecido")}')
-    print(f'   Exemplos: {len(exemplos)}')
-    print(f'   Embeddings: {len(embeddings_dict)}')
-    if primeiro_emb:
-        print(f'   Dimensão: {len(primeiro_emb)}')
-    print(f'   Completo: {"✅ Sim" if len(embeddings_dict) == len(exemplos) else "❌ Não"}')
-    print()
+    completo = existentes >= total
+    status_icon = '[green]✅[/green] Sim' if completo else '[red]❌[/red] Não'
+
+    table = Table(title='Status do Cache')
+    table.add_column('Campo', style='cyan', no_wrap=True)
+    table.add_column('Valor', style='white')
+    table.add_row('Arquivo', str(config.embedding_cache_path))
+    table.add_row('Exemplos', str(total))
+    table.add_row('Embeddings', f'{existentes}/{total}')
+    table.add_row('Progresso', f'{pct:.0f}%')
+    table.add_row('Completo', status_icon)
+    console.print(table)
 
 
 @app.command()
 def listar_exemplos():
     """Lista exemplos e indica se possuem embedding."""
-    cache = _carregar_cache()
-    exemplos = cache.get('exemplos', [])
-    embeddings_dict: dict[str, list[float]] = cache.get('embeddings', {})
+    config = get_roteador_config()
+    provider = _criar_provider()
+    service = EmbeddingService(
+        provider=provider,
+        exemplos_path=config.exemplos_path,
+        cache_path=config.embedding_cache_path,
+    )
 
-    print('=' * 60)
-    print('📋 EXEMPLOS NO CACHE')
-    print('=' * 60)
-    for i, ex in enumerate(exemplos):
-        h = _hash_texto(ex['texto'])
-        tem_emb = h in embeddings_dict and embeddings_dict[h][0] != 0.0
-        status = '✅' if tem_emb else '❌'
-        print(f'   {status} [{i + 1}] {ex["texto"]!r} → {ex["intencao"]}')
-    print()
+    table = Table(title='Exemplos no Cache')
+    table.add_column('#', style='dim', width=4)
+    table.add_column('Status', width=4)
+    table.add_column('Texto', style='white')
+    table.add_column('Intenção', style='cyan')
+
+    for i, ex in enumerate(service.exemplos, 1):
+        h = _hash_texto(ex.texto)
+        tem = h in service._embeddings_dict
+        icon = '[green]✅[/green]' if tem else '[red]❌[/red]'
+        table.add_row(str(i), icon, ex.texto, ex.intencao)
+
+    console.print(table)
+    console.print(
+        f'Total: [bold]{len(service.exemplos)}[/bold] | '
+        f'Com embedding: [bold]{len(service._embeddings)}[/bold]'
+    )
 
 
 if __name__ == '__main__':
