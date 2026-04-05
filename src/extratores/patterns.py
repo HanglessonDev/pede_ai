@@ -110,7 +110,10 @@ def gerar_patterns(
                     )
 
     patterns.extend(
-        [{'label': 'QTD', 'pattern': palavra} for palavra in config.numeros_escritos]
+        [
+            {'label': 'QTD', 'pattern': [{'LOWER': palavra}]}
+            for palavra in config.numeros_escritos
+        ]
     )
 
     return patterns

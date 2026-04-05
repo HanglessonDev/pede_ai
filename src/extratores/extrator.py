@@ -65,7 +65,28 @@ class Extrator:
             return itens_spacy
 
         # Fallback: tenta fuzzy matching para tolerar typos
-        return self._extrair_fuzzy(mensagem)
+        # Preserva quantidade QTD encontrada pelo EntityRuler
+        qtd = self._extrair_qtd_do_doc(doc)
+        return self._extrair_fuzzy(mensagem, qtd)
+
+    def _extrair_qtd_do_doc(self, doc) -> int:
+        """Extrai quantidade de entidades QTD no doc.
+
+        Args:
+            doc: Documento spaCy processado.
+
+        Returns:
+            Quantidade encontrada ou 1 (default).
+        """
+        for ent in doc.ents:
+            if ent.label_ == 'QTD':
+                texto = ent.text.lower()
+                return (
+                    int(ent.text)
+                    if ent.text.isdigit()
+                    else self._config.numeros_escritos.get(texto, 1)
+                )
+        return 1
 
     def _extrair_spacy(self, doc) -> list[ItemExtraido]:
         """Extrai itens via spaCy EntityRuler."""
@@ -128,11 +149,12 @@ class Extrator:
 
         return itens
 
-    def _extrair_fuzzy(self, mensagem: str) -> list[ItemExtraido]:
+    def _extrair_fuzzy(self, mensagem: str, quantidade: int = 1) -> list[ItemExtraido]:
         """Fallback com fuzzy matching quando EntityRuler nao acha nada.
 
         Args:
             mensagem: Mensagem original do usuario.
+            quantidade: Quantidade extraida do doc (ou 1 como default).
 
         Returns:
             Lista com 0 ou 1 ItemExtraido encontrado via fuzzy.
@@ -168,7 +190,7 @@ class Extrator:
         return [
             ItemExtraido(
                 item_id=item_id,
-                quantidade=1,
+                quantidade=quantidade,
                 variante=variante,
                 remocoes=[],
             )
