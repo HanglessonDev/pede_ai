@@ -70,5 +70,9 @@ class TestEntityRulerNumPending:
         ]
 
         # 'um' e 'dois' devem aparecer no maximo 1 vez
-        assert lower_tokens.count('um') <= 1, f"'um' aparece {lower_tokens.count('um')} vezes nos patterns"
-        assert lower_tokens.count('dois') <= 1, f"'dois' aparece {lower_tokens.count('dois')} vezes nos patterns"
+        assert lower_tokens.count('um') <= 1, (
+            f"'um' aparece {lower_tokens.count('um')} vezes nos patterns"
+        )
+        assert lower_tokens.count('dois') <= 1, (
+            f"'dois' aparece {lower_tokens.count('dois')} vezes nos patterns"
+        )
