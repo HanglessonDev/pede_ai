@@ -1,63 +1,67 @@
-"""Testes para dataclasses em modelos.py."""
+"""Testes para modelos de dados — ItemExtraido com novos campos."""
+
+from dataclasses import asdict
 
 import pytest
-import spacy
 
-from src.extratores.modelos import Segmento
-
-
-class TestSegmentoSliceTokens:
-    """Testes para Segmento.slice_tokens."""
-
-    @pytest.fixture(scope="class")
-    def doc(self):
-        """Documento spaCy processado para testes."""
-        nlp = spacy.blank("pt")
-        text = "Quero um x-burguer sem cebola e uma coca cola"
-        return nlp(text)
-
-    def test_segmento_slice_tokens(self, doc):
-        """Segmento com start=0, end=2 deve retornar texto dos 2 primeiros tokens."""
-        segmento = Segmento(texto=doc.text, start=0, end=2)
-        resultado = segmento.slice_tokens(doc)
-        # Os 2 primeiros tokens do texto sao "Quero" e "um"
-        esperado = doc[0:2].text
-        assert resultado == esperado
-
-    def test_segmento_slice_tokens_meio(self, doc):
-        """Segmento no meio do texto deve retornar fatia correta."""
-        segmento = Segmento(texto=doc.text, start=2, end=5)
-        resultado = segmento.slice_tokens(doc)
-        esperado = doc[2:5].text
-        assert resultado == esperado
-
-    def test_segmento_indices_sao_tokens_nao_chars(self, doc):
-        """start/end sao indices de token, nao de caractere.
-
-        Isso e documentado via type hint (int) e pelo comportamento:
-        slice_tokens usa doc[start:end] que e fatiamento por token no spaCy.
-        """
-        # Se start/end fossem caracteres, start=0, end=5 pegaria "Quero"
-        # Mas como sao tokens, start=0, end=1 pega apenas o primeiro token
-        segmento = Segmento(texto=doc.text, start=0, end=1)
-        resultado = segmento.slice_tokens(doc)
-        assert resultado == "Quero"
-        # Confirmar que e um token inteiro, nao caracteres soltos
-        assert " " not in resultado
+from src.extratores.modelos import ItemExtraido
 
 
-class TestSegmentoTypeHints:
-    """Testes para type hints e imutabilidade do Segmento."""
+class TestItemExtraidoNovosCampos:
+    """ItemExtraido deve suportar quantidade float e novos campos com defaults."""
 
-    @pytest.fixture(scope="class")
-    def doc(self):
-        """Documento spaCy processado para testes."""
-        nlp = spacy.blank("pt")
-        text = "Quero um x-burguer sem cebola e uma coca cola"
-        return nlp(text)
+    def test_item_extraido_quantidade_float(self):
+        """Criar ItemExtraido com quantidade=0.5 nao deve levantar TypeError."""
+        item = ItemExtraido(
+            item_id='lanche_001',
+            quantidade=0.5,
+            variante=None,
+            remocoes=[],
+        )
+        assert item.quantidade == 0.5
 
-    def test_segmento_eh_frozen(self, doc):
-        """Segmento deve ser imutavel (frozen=True)."""
-        segmento = Segmento(texto=doc.text, start=0, end=2)
-        with pytest.raises(Exception):  # FrozenInstanceError
-            segmento.start = 5
+    def test_item_extraido_campos_novos_com_defaults(self):
+        """Criar sem passar complementos, observacoes, confianca, fonte — defaults corretos."""
+        item = ItemExtraido(
+            item_id='lanche_001',
+            quantidade=1,
+            variante=None,
+            remocoes=[],
+        )
+        assert item.complementos == []
+        assert item.observacoes == []
+        assert item.confianca == 1.0
+        assert item.fonte == 'ruler'
+
+    def test_item_extraido_asdict_inclui_novos_campos(self):
+        """asdict(item) deve ter chaves complementos, observacoes, confianca, fonte."""
+        item = ItemExtraido(
+            item_id='lanche_001',
+            quantidade=1,
+            variante=None,
+            remocoes=[],
+        )
+        d = asdict(item)
+        assert 'complementos' in d
+        assert 'observacoes' in d
+        assert 'confianca' in d
+        assert 'fonte' in d
+        assert d['complementos'] == []
+        assert d['observacoes'] == []
+        assert d['confianca'] == 1.0
+        assert d['fonte'] == 'ruler'
+
+    def test_compatibilidade_retroativa(self):
+        """Consumidor usando item.get('complementos', []) nao levanta excecao."""
+        item = ItemExtraido(
+            item_id='lanche_001',
+            quantidade=1,
+            variante=None,
+            remocoes=[],
+        )
+        d = asdict(item)
+        # Simula consumidor antigo que acessa via dict.get com default
+        complementos = d.get('complementos', [])
+        assert complementos == []
+        observacoes = d.get('observacoes', [])
+        assert observacoes == []

@@ -19,7 +19,7 @@ Example:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 
@@ -29,15 +29,23 @@ class ItemExtraido:
 
     Attributes:
         item_id: ID do item no cardapio.
-        quantidade: Quantidade solicitada.
+        quantidade: Quantidade solicitada (inteira ou fracionaria).
         variante: Variante selecionada (ou None).
         remocoes: Lista de ingredientes a remover.
+        complementos: Lista de complementos adicionados ao item.
+        observacoes: Lista de observacoes/modificadores do item.
+        confianca: Nivel de confianca na extracao (0.0 a 1.0).
+        fonte: Fonte que realizou a extracao.
     """
 
     item_id: str
-    quantidade: int
+    quantidade: int | float
     variante: str | None
     remocoes: list[str]
+    complementos: list[str] = field(default_factory=list)
+    observacoes: list[str] = field(default_factory=list)
+    confianca: float = 1.0
+    fonte: Literal['ruler', 'fuzzy', 'llm', 'slot_fill'] = 'ruler'
 
 
 @dataclass(frozen=True)
@@ -83,32 +91,6 @@ class MatchCarrinho:
     item_id: str
     variante: str | None
     indices: list[int]
-
-
-@dataclass(frozen=True)
-class Segmento:
-    """Fatia do texto para processamento por camada.
-
-    Attributes:
-        texto: Texto completo da mensagem (referencia).
-        start: Indice de token inicial (nao caractere).
-        end: Indice de token final (exclusive).
-    """
-
-    texto: str
-    start: int  # indice de TOKEN
-    end: int    # indice de TOKEN (exclusive)
-
-    def slice_tokens(self, doc) -> str:
-        """Extrai texto do segmento usando indices de token.
-
-        Args:
-            doc: Documento spaCy processado.
-
-        Returns:
-            Texto fatiado do segmento.
-        """
-        return doc[self.start:self.end].text
 
 
 @dataclass(frozen=True)
