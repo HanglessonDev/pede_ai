@@ -24,8 +24,10 @@ from __future__ import annotations
 from dataclasses import asdict
 
 from src.extratores.config import ExtratorConfig
+from src.extratores.fuzzy_extrator import fuzzy_match_item, fuzzy_match_variante
 from src.extratores.modelos import ItemExtraido
 from src.extratores.nlp_engine import NlpEngine
+from src.extratores.normalizador import normalizar_para_fuzzy
 from src.extratores.remocoes import capturar_remocoes
 
 
@@ -45,6 +47,9 @@ class Extrator:
     def extrair(self, mensagem: str) -> list[ItemExtraido]:
         """Extrai itens do cardapio de uma mensagem.
 
+        Tenta EntityRuler (spaCy) primeiro. Se nao encontrar itens,
+        usa fuzzy matching como fallback para tolerar typos.
+
         Args:
             mensagem: Texto da mensagem do usuario.
 
@@ -53,6 +58,17 @@ class Extrator:
         """
         doc = self._engine.processar(mensagem)
 
+        itens_spacy = self._extrair_spacy(doc)
+
+        # EntityRuler encontrou itens — usa direto
+        if itens_spacy:
+            return itens_spacy
+
+        # Fallback: tenta fuzzy matching para tolerar typos
+        return self._extrair_fuzzy(mensagem)
+
+    def _extrair_spacy(self, doc) -> list[ItemExtraido]:
+        """Extrai itens via spaCy EntityRuler."""
         qtd_pendente = 1
         remocoes_fila = capturar_remocoes(doc, self._config)
         prox_remocao = 0
@@ -76,7 +92,6 @@ class Extrator:
                 prox_remocao += 1
 
         for ent in doc.ents:
-            # Consome remocoes que estao antes desta entidade
             if item_atual is not None:
                 _consumir_remocoes_ate(ent.start)
 
@@ -107,12 +122,57 @@ class Extrator:
                     remocoes=item_atual.remocoes,
                 )
 
-        # Consome remocoes restantes pro ultimo item
         if item_atual is not None:
             _consumir_remocoes_ate(len(doc))
             itens.append(item_atual)
 
         return itens
+
+    def _extrair_fuzzy(self, mensagem: str) -> list[ItemExtraido]:
+        """Fallback com fuzzy matching quando EntityRuler nao acha nada.
+
+        Args:
+            mensagem: Mensagem original do usuario.
+
+        Returns:
+            Lista com 0 ou 1 ItemExtraido encontrado via fuzzy.
+        """
+        from src.config import get_cardapio  # noqa: PLC0415 — lazy loading
+
+        cardapio = get_cardapio()
+        alias_para_id: dict[str, str] = {}
+        for item in cardapio.get('itens', []):
+            alias_para_id[item['nome'].lower()] = item['id']
+            for alias in item.get('aliases', []):
+                alias_para_id[alias.lower()] = item['id']
+
+        alias, _score, item_id = fuzzy_match_item(mensagem, alias_para_id)
+        if item_id is None:
+            return []
+
+        # Tenta extrair variante do texto restante
+        item_cfg = next(
+            (i for i in cardapio.get('itens', []) if i['id'] == item_id), None
+        )
+        variante = None
+        if item_cfg and item_cfg.get('variantes'):
+            variantes = [v['opcao'] for v in item_cfg['variantes']]
+            texto_sem_item = (
+                normalizar_para_fuzzy(mensagem).replace(alias or '', '').strip()
+            )
+            if texto_sem_item:
+                var_match, _var_score = fuzzy_match_variante(texto_sem_item, variantes)
+                if var_match:
+                    variante = var_match
+
+        return [
+            ItemExtraido(
+                item_id=item_id,
+                quantidade=1,
+                variante=variante,
+                remocoes=[],
+            )
+        ]
 
     def extrair_variante(self, mensagem: str, item_id: str) -> str | None:
         """Extrai e valida uma variante de uma mensagem para um item especifico.
