@@ -137,17 +137,36 @@ class Extrator:
                     )
                 prox_remocao += 1
 
+        def _resolver_quantidade(texto: str) -> int | float:
+            """Resolve texto para quantidade, incluindo fracionarios."""
+            if texto.isdigit():
+                return int(texto)
+            # Fracionarios primeiro (meio, meia, etc.)
+            if texto in self._config.numeros_fracionarios:
+                return self._config.numeros_fracionarios[texto]
+            # Numeros por extenso
+            return self._config.numeros_escritos.get(texto, 1)
+
         for ent in doc.ents:
             if item_atual is not None:
                 _consumir_remocoes_ate(ent.start)
 
             if ent.label_ in ('QTD', 'NUM_PENDING'):
                 texto = ent.text.lower()
-                qtd_pendente = (
-                    int(ent.text)
-                    if ent.text.isdigit()
-                    else self._config.numeros_escritos.get(texto, 1)
-                )
+                qtd = _resolver_quantidade(texto)
+
+                # Se ja temos um item atual, atualiza a quantidade dele
+                # (caso 'hamburguer 2' — numero depois do item)
+                if item_atual is not None:
+                    item_atual = ItemExtraido(
+                        item_id=item_atual.item_id,
+                        quantidade=qtd,
+                        variante=item_atual.variante,
+                        remocoes=item_atual.remocoes,
+                    )
+                else:
+                    # Numero antes do item — fica pendente para o proximo
+                    qtd_pendente = qtd
 
             elif ent.label_ == 'ITEM':
                 if item_atual is not None:
