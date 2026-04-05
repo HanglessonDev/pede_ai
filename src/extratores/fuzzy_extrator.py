@@ -18,7 +18,8 @@ import re
 from rapidfuzz import fuzz, process
 
 from src.extratores.config import get_extrator_config
-from src.extratores.normalizador import normalizar_para_fuzzy
+from src.extratores.modelos import ItemExtraido
+from src.extratores.normalizador import normalizar_para_busca, normalizar_para_fuzzy
 
 
 # ── Matching de variante numerica ──────────────────────────────────────────
@@ -180,7 +181,86 @@ def fuzzy_match_variante(
     return resultado[0], resultado[1]
 
 
+# ── Extração fuzzy completa (fallback do Extrator) ──────────────────────────
+
+
+def extrair_item_fuzzy(
+    mensagem: str,
+    quantidade: int = 1,
+) -> list[ItemExtraido]:
+    """Fallback fuzzy completo quando EntityRuler nao encontra itens.
+
+    Tenta match do item via fuzzy e extrai variante dos tokens
+    significativos da mensagem.
+
+    Args:
+        mensagem: Mensagem original do usuario.
+        quantidade: Quantidade extraida de outra fonte (ou 1).
+
+    Returns:
+        Lista com 0 ou 1 ItemExtraido encontrado via fuzzy.
+
+    Example:
+        ```python
+        extrair_item_fuzzy('quero 3 hanburgers duplos')
+        [ItemExtraido(item_id='lanche_001', quantidade=3, variante='duplo')]
+        ```
+    """
+    from src.config import get_cardapio  # noqa: PLC0415 — lazy loading
+
+    cardapio = get_cardapio()
+    alias_para_id: dict[str, str] = {}
+    for item in cardapio.get('itens', []):
+        alias_para_id[item['nome'].lower()] = item['id']
+        for alias in item.get('aliases', []):
+            alias_para_id[alias.lower()] = item['id']
+
+    alias, _score, item_id = fuzzy_match_item(mensagem, alias_para_id)
+    if item_id is None:
+        return []
+
+    # Tenta extrair variante dos tokens significativos,
+    # filtrando o token do item (mesmo com typo).
+    item_cfg = next((i for i in cardapio.get('itens', []) if i['id'] == item_id), None)
+    variante = None
+    if item_cfg and item_cfg.get('variantes'):
+        variantes = [v['opcao'] for v in item_cfg['variantes']]
+
+        alias_norm = normalizar_para_busca(alias or '')
+
+        def _similar_ao_alias(token: str) -> bool:
+            return fuzz.ratio(normalizar_para_busca(token), alias_norm) >= 70
+
+        tokens = extrair_tokens_significativos(mensagem)
+        candidatos = [
+            t
+            for t in tokens
+            if not t.isdigit()
+            and t not in {'um', 'uma', 'dois', 'duas', 'tres'}
+            and not _similar_ao_alias(t)
+        ]
+        # Melhor score entre todos os candidatos
+        melhor_var: str | None = None
+        melhor_score = 0.0
+        for t in candidatos:
+            var_match, var_score = fuzzy_match_variante(t, variantes)
+            if var_match and var_score > melhor_score:
+                melhor_var = var_match
+                melhor_score = var_score
+        variante = melhor_var
+
+    return [
+        ItemExtraido(
+            item_id=item_id,
+            quantidade=quantidade,
+            variante=variante,
+            remocoes=[],
+        )
+    ]
+
+
 __all__ = [
+    'extrair_item_fuzzy',
     'extrair_tokens_significativos',
     'fuzzy_match_item',
     'fuzzy_match_variante',
