@@ -78,7 +78,7 @@ class Extrator:
             Quantidade encontrada ou 1 (default).
         """
         for ent in doc.ents:
-            if ent.label_ == 'QTD':
+            if ent.label_ in ('QTD', 'NUM_PENDING'):
                 texto = ent.text.lower()
                 return (
                     int(ent.text)
@@ -133,7 +133,7 @@ class Extrator:
             if item_atual is not None:
                 _consumir_remocoes_ate(ent.start)
 
-            if ent.label_ == 'QTD':
+            if ent.label_ in ('QTD', 'NUM_PENDING'):
                 texto = ent.text.lower()
                 qtd_pendente = (
                     int(ent.text)

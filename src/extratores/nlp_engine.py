@@ -58,7 +58,7 @@ class NlpEngine:
 
         self._nlp = spacy.load(self._config.spacy_model)
         ruler = self._nlp.add_pipe('entity_ruler', before='ner')
-        ruler.add_patterns([{'label': 'QTD', 'pattern': [{'IS_DIGIT': True}]}])
+        ruler.add_patterns([{'label': 'NUM_PENDING', 'pattern': [{'IS_DIGIT': True}]}])
 
         # Gerar e adicionar patterns do cardapio
         patterns = gerar_patterns(self._cardapio, normalizar_para_busca)

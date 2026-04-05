@@ -97,9 +97,10 @@ def gerar_patterns(
             )
             # Patterns parciais para matching flexivel
             # Ex: "limao 300ml" -> "limao" e "laranja 500ml" -> "laranja"
+            # Digitos nao geram partial patterns — NUM_PENDING cuida disso
             if ' ' in opcao:
                 palavra_chave = opcao.split()[0]
-                if palavra_chave.lower() not in {'ml'}:
+                if palavra_chave.lower() not in {'ml'} and not palavra_chave.isdigit():
                     _adicionar_pattern(
                         patterns,
                         vistos,
