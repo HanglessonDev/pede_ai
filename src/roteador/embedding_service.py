@@ -70,6 +70,7 @@ class EmbeddingService:
         self._exemplos: list[ExemploClassificacao] = []
         self._embeddings_dict: dict[str, list[float]] = {}
         self._embeddings: list[list[float]] = []
+        self._exemplo_indices: list[int] = []
         self._carregar()
 
     def _carregar(self) -> None:
@@ -85,8 +86,9 @@ class EmbeddingService:
         if raw_fallback and not self._exemplos:
             # Cache legado sem exemplos: usa lista diretamente
             self._embeddings = raw_fallback
+            self._exemplo_indices = list(range(len(raw_fallback)))
         else:
-            self._embeddings = self._montar_lista_alinhada()
+            self._embeddings, self._exemplo_indices = self._montar_lista_alinhada()
 
     def _carregar_exemplos(self) -> list[ExemploClassificacao]:
         """Le exemplos do JSON.
@@ -154,21 +156,25 @@ class EmbeddingService:
 
         return embeddings_dict, None
 
-    def _montar_lista_alinhada(self) -> list[list[float]]:
+    def _montar_lista_alinhada(self) -> tuple[list[list[float]], list[int]]:
         """Monta lista de embeddings alinhada aos exemplos via hash.
 
         Para cada exemplo, busca o embedding no dict pelo hash.
         Exemplos sem embedding no cache sao pulados.
 
         Returns:
-            Lista contigua de embeddings para uso com numpy.
+            Tupla (lista_embeddings, indices_exemplos) onde:
+            - lista_embeddings: lista contigua de embeddings para numpy
+            - indices_exemplos: mapeia posicao em lista_embeddings -> indice em _exemplos
         """
-        resultado: list[list[float]] = []
-        for exemplo in self._exemplos:
+        embeddings: list[list[float]] = []
+        indices: list[int] = []
+        for i, exemplo in enumerate(self._exemplos):
             h = _hash_texto(exemplo.texto)
             if h in self._embeddings_dict:
-                resultado.append(self._embeddings_dict[h])
-        return resultado
+                embeddings.append(self._embeddings_dict[h])
+                indices.append(i)
+        return embeddings, indices
 
     def buscar_similares(
         self,
@@ -200,8 +206,8 @@ class EmbeddingService:
 
         results = [
             ExemploSimilar(
-                texto=self._exemplos[idx].texto,
-                intencao=self._exemplos[idx].intencao,
+                texto=self._exemplos[self._exemplo_indices[idx]].texto,
+                intencao=self._exemplos[self._exemplo_indices[idx]].intencao,
                 similaridade=float(similarities[idx]),
             )
             for idx in top_indices
@@ -246,7 +252,7 @@ class EmbeddingService:
             self._embeddings_dict[h] = emb
 
         # Re-monta lista alinhada
-        self._embeddings = self._montar_lista_alinhada()
+        self._embeddings, self._exemplo_indices = self._montar_lista_alinhada()
 
         # Salva cache no formato 2
         self._cache_path.parent.mkdir(parents=True, exist_ok=True)

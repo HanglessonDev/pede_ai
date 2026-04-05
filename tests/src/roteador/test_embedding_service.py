@@ -616,6 +616,45 @@ class TestCacheComHash:
         assert service._embeddings[0] == [0.1] * 384
         assert service._embeddings[1] == [0.3] * 384
 
+    def test_buscar_similares_com_embedding_faltante_retorna_texto_correto(
+        self,
+        provider: MagicMock,
+        exemplos_path: Path,
+        cache_path: Path,
+    ):
+        """buscar_similares com exemplo do meio faltante retorna textos corretos."""
+        exemplos = [
+            {'texto': 'quero um lanche', 'intencao': 'pedir'},
+            {'texto': 'exemplo novo sem embedding', 'intencao': 'teste'},
+            {'texto': 'oi tudo bem', 'intencao': 'saudacao'},
+        ]
+        # Cache tem hashes apenas do primeiro e ultimo (meio sem embedding)
+        embeddings = {
+            _hash_texto('quero um lanche'): [1.0, 0.0] + [0.0] * 382,
+            _hash_texto('oi tudo bem'): [0.9, 0.1] + [0.0] * 382,
+        }
+        cache_novo = {
+            'format': 2,
+            'embeddings': embeddings,
+        }
+        with open(exemplos_path, 'w', encoding='utf-8') as f:
+            json.dump(exemplos, f)
+        with open(cache_path, 'w', encoding='utf-8') as f:
+            json.dump(cache_novo, f)
+
+        # Query similar ao primeiro exemplo
+        provider.embed.return_value = [0.99, 0.01] + [0.0] * 382
+        service = EmbeddingService(provider, exemplos_path, cache_path)
+
+        resultado = service.buscar_similares('teste', top_k=2, min_similarity=0.5)
+
+        # O mais similar deve ser 'quero um lanche', nao 'exemplo novo sem embedding'
+        assert len(resultado) == 2
+        assert resultado[0].texto == 'quero um lanche'
+        assert resultado[0].intencao == 'pedir'
+        assert resultado[1].texto == 'oi tudo bem'
+        assert resultado[1].intencao == 'saudacao'
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ATUALIZAR CACHE COM HASH
