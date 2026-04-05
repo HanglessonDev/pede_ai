@@ -116,7 +116,7 @@ def criar_graph(
     builder.add_conditional_edges(
         'router',
         _decidir_por_intent,
-        _INTENT_TO_NODE,
+        _INTENT_TO_NODE,  # type: ignore[arg-type]
     )
 
     # 4. edges simples

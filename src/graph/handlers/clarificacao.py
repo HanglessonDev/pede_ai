@@ -132,10 +132,7 @@ def clarificar(
     # usa fuzzy matching para encontrar a variante exata
     if variante is not None and variante not in opcoes:
         variante_fuzzy, _score = fuzzy_match_variante(mensagem, opcoes)
-        if variante_fuzzy:
-            variante = variante_fuzzy
-        else:
-            variante = None
+        variante = variante_fuzzy or None
 
     # Fallback: fuzzy matching se EntityRuler não encontrou
     if variante is None:

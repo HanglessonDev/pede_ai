@@ -20,7 +20,7 @@ class TestRegistry:
         """Deve levantar RuntimeError se logger não foi configurado."""
         from src.observabilidade.registry import get_obs_logger
 
-        with pytest.raises(RuntimeError, match='Use set_obs_logger'):
+        with pytest.raises(RuntimeError, match='nao configurado'):
             get_obs_logger()
 
     def test_get_clarificacao_logger_sem_setup_retorna_none(self):

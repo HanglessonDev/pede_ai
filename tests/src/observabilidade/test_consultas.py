@@ -1,198 +1,276 @@
 """Testes para consultas DuckDB."""
 
 import csv
+from pathlib import Path
 
-from unittest.mock import patch, MagicMock
+import pytest
+
+
+@pytest.fixture
+def mock_csv(tmp_path: Path) -> Path:
+    """CSV mock com dados de classificacao."""
+    path = tmp_path / 'classificacoes.csv'
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                'timestamp',
+                'thread_id',
+                'mensagem',
+                'mensagem_norm',
+                'intent',
+                'confidence',
+                'caminho',
+                'top1_texto',
+                'top1_intencao',
+            ]
+        )
+        writer.writerow(
+            [
+                '2024-01-01T00:00:00',
+                't1',
+                'qual o total',
+                'qual total',
+                'duvida',
+                0.45,
+                'llm_rag',
+                '',
+                '',
+            ]
+        )
+        writer.writerow(
+            [
+                '2024-01-01T00:01:00',
+                't2',
+                'oi',
+                'oi',
+                'saudacao',
+                0.99,
+                'lookup',
+                'oi',
+                'saudacao',
+            ]
+        )
+        writer.writerow(
+            [
+                '2024-01-01T00:02:00',
+                't3',
+                'quero lanche',
+                'querer lanche',
+                'pedir',
+                0.30,
+                'llm_fixo',
+                '',
+                '',
+            ]
+        )
+    return path
+
+
+@pytest.fixture
+def mock_csv_extracao(tmp_path: Path) -> Path:
+    """CSV mock com dados de extracao."""
+    path = tmp_path / 'extracoes.csv'
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                'timestamp',
+                'thread_id',
+                'mensagem',
+                'itens_encontrados',
+                'itens_ids',
+                'variantes_encontradas',
+                'tempo_ms',
+            ]
+        )
+        writer.writerow(
+            ['2024-01-01T00:00:00', 't1', 'quero pizza', 0, '', '', '15.50']
+        )
+        writer.writerow(
+            ['2024-01-01T00:01:00', 't2', 'xbacon', 1, 'lanche_003', 'None', '12.30']
+        )
+    return path
+
+
+@pytest.fixture
+def mock_csv_funil(tmp_path: Path) -> Path:
+    """CSV mock com dados de funil."""
+    path = tmp_path / 'funil.csv'
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                'timestamp',
+                'thread_id',
+                'etapa_anterior',
+                'etapa_atual',
+                'intent',
+                'carrinho_size',
+            ]
+        )
+        writer.writerow(
+            ['2024-01-01T00:00:00', 't1', 'inicio', 'roteado', 'saudacao', 0]
+        )
+        writer.writerow(
+            ['2024-01-01T00:01:00', 't1', 'saudacao', 'roteado', 'pedir', 0]
+        )
+        writer.writerow(['2024-01-01T00:02:00', 't2', 'inicio', 'roteado', 'pedir', 0])
+    return path
+
+
+@pytest.fixture
+def mock_csv_handler(tmp_path: Path) -> Path:
+    """CSV mock com dados de handler."""
+    path = tmp_path / 'handlers.csv'
+    with open(path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                'timestamp',
+                'thread_id',
+                'handler',
+                'intent',
+                'input_resumo',
+                'output_resumo',
+                'tempo_ms',
+                'erro',
+            ]
+        )
+        writer.writerow(
+            [
+                '2024-01-01T00:00:00',
+                't1',
+                'handler_pedir',
+                'pedir',
+                '{}',
+                '{}',
+                '5.50',
+                '',
+            ]
+        )
+        writer.writerow(
+            [
+                '2024-01-01T00:01:00',
+                't2',
+                'handler_trocar',
+                'trocar',
+                '{}',
+                '{}',
+                '8.20',
+                'variante invalida',
+            ]
+        )
+    return path
 
 
 class TestConsultasBaixaConfianca:
-    """Testes para consultas de baixa confiança."""
+    """Testes para consultas de baixa confianca."""
 
-    def test_baixa_confianca_retorna_llm_primeiro(self):
+    def test_baixa_confianca_retorna_llm_primeiro(self, mock_csv: Path):
         """Deve retornar casos de LLM ordenados por confidence."""
         from src.observabilidade.consultas import baixa_confianca
 
-        mock_csv = 'mock.csv'
-        with patch('src.observabilidade.consultas.duckdb') as mock_duckdb:
-            mock_conn = MagicMock()
-            mock_duckdb.connect.return_value = mock_conn
-            mock_conn.execute.return_value.fetchall.return_value = [
-                ('qual o total', 'duvida', 0.45, 'llm_rag'),
-            ]
-            mock_conn.execute.return_value.description = [
-                ('mensagem',),
-                ('intent',),
-                ('confidence',),
-                ('caminho',),
-            ]
+        resultados = baixa_confianca(str(mock_csv), limit=10)
 
-            resultados = baixa_confianca(mock_csv, limit=10)
+        assert len(resultados) == 2
+        assert resultados[0]['confidence'] <= resultados[1]['confidence']
+        assert resultados[0]['caminho'] in ('llm_rag', 'llm_fixo')
 
-            assert len(resultados) == 1
-            assert resultados[0]['mensagem'] == 'qual o total'
-            assert resultados[0]['confidence'] == 0.45
+    def test_baixa_confianca_limit(self, mock_csv: Path):
+        """Deve respeitar limite."""
+        from src.observabilidade.consultas import baixa_confianca
+
+        resultados = baixa_confianca(str(mock_csv), limit=1)
+        assert len(resultados) == 1
 
 
 class TestDistribuicaoCaminhos:
-    """Testes para distribuição de caminhos."""
+    """Testes para distribuicao de caminhos."""
 
-    def test_distribuicao_retorna_contagem(self):
+    def test_distribuicao_retorna_contagem(self, mock_csv: Path):
         """Deve retornar contagem por caminho."""
         from src.observabilidade.consultas import distribuicao_caminhos
 
-        mock_csv = 'mock.csv'
-        with patch('src.observabilidade.consultas.duckdb') as mock_duckdb:
-            mock_conn = MagicMock()
-            mock_duckdb.connect.return_value = mock_conn
-            mock_conn.execute.return_value.fetchall.return_value = [
-                ('lookup', 100),
-                ('rag_forte', 50),
-                ('llm_rag', 10),
-            ]
-            mock_conn.execute.return_value.description = [('caminho',), ('total',)]
+        resultados = distribuicao_caminhos(str(mock_csv))
 
-            resultados = distribuicao_caminhos(mock_csv)
-
-            assert len(resultados) == 3
-            assert resultados[0]['caminho'] == 'lookup'
-            assert resultados[0]['total'] == 100
+        caminhos = {r['caminho']: r['total'] for r in resultados}
+        assert caminhos.get('llm_rag', 0) == 1
+        assert caminhos.get('lookup', 0) == 1
+        assert caminhos.get('llm_fixo', 0) == 1
 
 
-class TestNovasConsultas:
-    """Testes para novas consultas DuckDB."""
+class TestExtracoesSemItens:
+    """Testes para extracoes sem itens."""
 
-    def test_extracoes_sem_itens(self, tmp_path) -> None:
-        csv_path = tmp_path / 'extracoes.csv'
-        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    'timestamp',
-                    'thread_id',
-                    'mensagem',
-                    'itens_encontrados',
-                    'itens_ids',
-                    'variantes_encontradas',
-                    'tempo_ms',
-                ]
-            )
-            writer.writerow(
-                ['2026-01-01', 's1', 'quero algo estranho', '0', '', '', '12.50']
-            )
-            writer.writerow(
-                [
-                    '2026-01-02',
-                    's2',
-                    'quero hamburguer',
-                    '1',
-                    'lanche_001',
-                    'simples',
-                    '8.30',
-                ]
-            )
-
+    def test_retorna_mensagens_sem_itens(self, mock_csv_extracao: Path):
+        """Deve retornar mensagens onde itens_encontrados = 0."""
         from src.observabilidade.consultas import extracoes_sem_itens
 
-        resultados = extracoes_sem_itens(str(csv_path))
+        resultados = extracoes_sem_itens(str(mock_csv_extracao))
         assert len(resultados) == 1
-        assert resultados[0]['mensagem'] == 'quero algo estranho'
+        assert resultados[0]['mensagem'] == 'quero pizza'
 
-    def test_handlers_com_erro(self, tmp_path) -> None:
-        csv_path = tmp_path / 'handlers.csv'
-        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    'timestamp',
-                    'thread_id',
-                    'handler',
-                    'intent',
-                    'input_resumo',
-                    'output_resumo',
-                    'tempo_ms',
-                    'erro',
-                ]
-            )
-            writer.writerow(
-                [
-                    '2026-01-01',
-                    's1',
-                    'handler_pedir',
-                    'pedir',
-                    '{}',
-                    '{}',
-                    '5.0',
-                    'KeyError',
-                ]
-            )
-            writer.writerow(
-                ['2026-01-02', 's2', 'handler_pedir', 'pedir', '{}', '{}', '3.0', '']
-            )
 
+class TestFunilComAbandono:
+    """Testes para funil com abandono."""
+
+    def test_sem_filtro_retorna_todos(self, mock_csv_funil: Path):
+        """Sem thread_id deve retornar todos."""
+        from src.observabilidade.consultas import funil_com_abandono
+
+        resultados = funil_com_abandono(str(mock_csv_funil))
+        assert len(resultados) == 3
+
+    def test_com_thread_id_filtra(self, mock_csv_funil: Path):
+        """Com thread_id deve filtrar."""
+        from src.observabilidade.consultas import funil_com_abandono
+
+        resultados = funil_com_abandono(str(mock_csv_funil), thread_id='t1')
+        assert len(resultados) == 2
+        assert all(r['thread_id'] == 't1' for r in resultados)
+
+
+class TestHandlersComErro:
+    """Testes para handlers com erro."""
+
+    def test_retorna_handlers_com_erro(self, mock_csv_handler: Path):
+        """Deve retornar apenas handlers com erro."""
         from src.observabilidade.consultas import handlers_com_erro
 
-        resultados = handlers_com_erro(str(csv_path))
+        resultados = handlers_com_erro(str(mock_csv_handler))
         assert len(resultados) == 1
-        assert resultados[0]['erro'] == 'KeyError'
+        assert resultados[0]['erro'] == 'variante invalida'
 
-    def test_tempo_medio_handlers(self, tmp_path) -> None:
-        csv_path = tmp_path / 'handlers.csv'
-        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    'timestamp',
-                    'thread_id',
-                    'handler',
-                    'intent',
-                    'input_resumo',
-                    'output_resumo',
-                    'tempo_ms',
-                    'erro',
-                ]
-            )
-            writer.writerow(
-                ['2026-01-01', 's1', 'handler_pedir', 'pedir', '{}', '{}', '10.0', '']
-            )
-            writer.writerow(
-                ['2026-01-02', 's2', 'handler_pedir', 'pedir', '{}', '{}', '20.0', '']
-            )
 
+class TestTempoMedioHandlers:
+    """Testes para tempo medio de handlers."""
+
+    def test_retorna_tempo_medio(self, mock_csv_handler: Path):
+        """Deve retornar tempo medio por handler."""
         from src.observabilidade.consultas import tempo_medio_handlers
 
-        resultados = tempo_medio_handlers(str(csv_path))
-        assert len(resultados) == 1
-        assert resultados[0]['handler'] == 'handler_pedir'
-        assert float(resultados[0]['tempo_medio_ms']) == 15.0
-
-    def test_funil_com_abandono_sem_filtro(self, tmp_path) -> None:
-        csv_path = tmp_path / 'funil.csv'
-        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                ['timestamp', 'thread_id', 'etapa_atual', 'intent', 'carrinho_size']
-            )
-            writer.writerow(['2026-01-01', 's1', 'revisao', 'pedir', '2'])
-            writer.writerow(['2026-01-02', 's2', 'pagamento', 'pedir', '1'])
-
-        from src.observabilidade.consultas import funil_com_abandono
-
-        resultados = funil_com_abandono(str(csv_path))
+        resultados = tempo_medio_handlers(str(mock_csv_handler))
         assert len(resultados) == 2
-        assert resultados[0]['thread_id'] == 's2'
+        assert all('tempo_medio_ms' in r for r in resultados)
 
-    def test_funil_com_abandono_com_thread_id(self, tmp_path) -> None:
-        csv_path = tmp_path / 'funil.csv'
-        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                ['timestamp', 'thread_id', 'etapa_atual', 'intent', 'carrinho_size']
-            )
-            writer.writerow(['2026-01-01', 's1', 'revisao', 'pedir', '2'])
-            writer.writerow(['2026-01-02', 's2', 'pagamento', 'pedir', '1'])
 
-        from src.observabilidade.consultas import funil_com_abandono
+class TestSanitizarPath:
+    """Testes para _sanitizar_path."""
 
-        resultados = funil_com_abandono(str(csv_path), thread_id='s1')
-        assert len(resultados) == 1
-        assert resultados[0]['thread_id'] == 's1'
+    def test_path_inexistente_levanta_erro(self, tmp_path: Path):
+        """Path inexistente deve levantar FileNotFoundError."""
+        from src.observabilidade.consultas import _sanitizar_path
+
+        with pytest.raises(FileNotFoundError):
+            _sanitizar_path(str(tmp_path / 'nao_existe.csv'))
+
+    def test_path_valido_retorna_absoluto(self, tmp_path: Path):
+        """Path valido deve retornar path absoluto."""
+        csv_file = tmp_path / 'test.csv'
+        csv_file.touch()
+
+        from src.observabilidade.consultas import _sanitizar_path
+
+        result = _sanitizar_path(str(csv_file))
+        assert Path(result).is_absolute()

@@ -1,10 +1,14 @@
 """Logger generico para execucao de handlers."""
 
-import csv
+from __future__ import annotations
+
 import json
-import threading
 from datetime import UTC, datetime
-from pathlib import Path
+
+from src.observabilidade.base_logger import BaseCsvLogger
+
+JSON_TRUNCATE_LIMIT = 200
+"""Limite maximo de caracteres para campos JSON serializados."""
 
 HEADERS = [
     'timestamp',
@@ -18,21 +22,28 @@ HEADERS = [
 ]
 
 
-class HandlerLogger:
+class HandlerLogger(BaseCsvLogger):
     """Logger thread-safe para registrar execucoes de handlers."""
 
-    def __init__(self, csv_path: Path | str) -> None:
-        self.csv_path = Path(csv_path)
-        self.csv_path.parent.mkdir(parents=True, exist_ok=True)
-        self._lock = threading.Lock()
-        self._inicializar_csv()
+    @property
+    def headers(self) -> list[str]:
+        return HEADERS
 
-    def _inicializar_csv(self) -> None:
-        with self._lock:
-            if not self.csv_path.exists():
-                with open(self.csv_path, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.writer(f)
-                    writer.writerow(HEADERS)
+    def _to_row(self, **kwargs) -> list:
+        return [
+            datetime.now(UTC).isoformat(),
+            kwargs.get('thread_id', ''),
+            kwargs.get('handler', ''),
+            kwargs.get('intent', ''),
+            json.dumps(kwargs.get('input_dados', {}), ensure_ascii=False)[
+                :JSON_TRUNCATE_LIMIT
+            ],
+            json.dumps(kwargs.get('output_dados', {}), ensure_ascii=False)[
+                :JSON_TRUNCATE_LIMIT
+            ],
+            f'{kwargs.get("tempo_ms", 0.0):.2f}',
+            kwargs.get('erro') or '',
+        ]
 
     def registrar(
         self,
@@ -44,17 +55,12 @@ class HandlerLogger:
         tempo_ms: float,
         erro: str | None = None,
     ) -> None:
-        with self._lock, open(self.csv_path, 'a', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    datetime.now(UTC).isoformat(),
-                    thread_id,
-                    handler,
-                    intent,
-                    json.dumps(input_dados, ensure_ascii=False)[:200],
-                    json.dumps(output_dados, ensure_ascii=False)[:200],
-                    f'{tempo_ms:.2f}',
-                    erro or '',
-                ]
-            )
+        super().registrar(
+            thread_id=thread_id,
+            handler=handler,
+            intent=intent,
+            input_dados=input_dados,
+            output_dados=output_dados,
+            tempo_ms=tempo_ms,
+            erro=erro,
+        )

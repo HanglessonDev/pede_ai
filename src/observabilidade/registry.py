@@ -1,7 +1,15 @@
 """Registry central para loggers de observabilidade.
 
-Permite configurar e acessar os loggers de forma centralizada,
-evitando imports circulares e facilitando testes.
+Usa dict interno em vez de variaveis de modulo — zero ``global`` statements.
+Mantem aliases retroativos para compatibilidade com codigo existente.
+
+Example:
+    ```python
+    from src.observabilidade.registry import set_logger, get_logger
+
+    set_logger('observabilidade', ObservabilidadeLogger('logs/obs.csv'))
+    logger = get_logger('observabilidade')
+    ```
 """
 
 from __future__ import annotations
@@ -15,108 +23,108 @@ if TYPE_CHECKING:
     from src.observabilidade.handler_logger import HandlerLogger
     from src.observabilidade.logger import ObservabilidadeLogger
 
-_obs: ObservabilidadeLogger | None = None
-_clarificacao: ClarificacaoLogger | None = None
-_extracao: ExtracaoLogger | None = None
-_handler: HandlerLogger | None = None
-_funil: FunilLogger | None = None
+
+class LoggerRegistry:
+    """Registry central para loggers — sem globals.
+
+    Usa dict interno para armazenar loggers por nome.
+    """
+
+    def __init__(self) -> None:
+        self._loggers: dict[str, object] = {}
+
+    def get(self, nome: str) -> object | None:
+        """Retorna logger por nome, ou None se nao configurado."""
+        return self._loggers.get(nome)
+
+    def set(self, nome: str, logger: object) -> None:
+        """Configura logger por nome."""
+        self._loggers[nome] = logger
+
+    def get_required(self, nome: str) -> object:
+        """Retorna logger ou levanta RuntimeError se nao configurado."""
+        logger = self._loggers.get(nome)
+        if logger is None:
+            raise RuntimeError(f'Logger "{nome}" nao configurado. Use set_logger().')
+        return logger
+
+    def reset(self) -> None:
+        """Limpa todos os loggers (util para testes)."""
+        self._loggers.clear()
+
+
+# Singleton global — unico global aceitavel (ponto de entrada)
+_registry = LoggerRegistry()
+
+
+def get_logger(nome: str) -> object | None:
+    """Retorna logger por nome, ou None se nao configurado."""
+    return _registry.get(nome)
+
+
+def set_logger(nome: str, logger: object) -> None:
+    """Configura logger por nome."""
+    _registry.set(nome, logger)
+
+
+def get_required_logger(nome: str) -> object:
+    """Retorna logger ou levanta RuntimeError se nao configurado."""
+    return _registry.get_required(nome)
+
+
+def reset_loggers() -> None:
+    """Limpa todos os loggers (util para testes)."""
+    _registry.reset()
+
+
+# ── Aliases retroativos para compatibilidade ────────────────────────────────
 
 
 def get_obs_logger() -> ObservabilidadeLogger:
-    """Retorna o logger de observabilidade configurado.
-
-    Raises:
-        RuntimeError: Se o logger não foi configurado via set_obs_logger().
-    """
-    if _obs is None:
-        raise RuntimeError(
-            'ObservabilidadeLogger não inicializado. '
-            'Use set_obs_logger() antes de usar o logger.'
-        )
-    return _obs
+    """Retorna o logger de observabilidade configurado."""
+    return _registry.get_required('observabilidade')  # type: ignore[return-value]
 
 
 def set_obs_logger(logger: ObservabilidadeLogger) -> None:
-    """Configura o logger de observabilidade.
-
-    Args:
-        logger: Instância de ObservabilidadeLogger.
-    """
-    global _obs  # noqa: PLW0603
-    _obs = logger
+    """Configura o logger de observabilidade."""
+    _registry.set('observabilidade', logger)
 
 
 def get_clarificacao_logger() -> ClarificacaoLogger | None:
-    """Retorna o logger de clarificação configurado.
-
-    Returns:
-        ClarificacaoLogger se configurado, None caso contrário.
-    """
-    return _clarificacao
+    """Retorna o logger de clarificacao configurado."""
+    return _registry.get('clarificacao')  # type: ignore[return-value]
 
 
 def set_clarificacao_logger(logger: ClarificacaoLogger | None) -> None:
-    """Configura o logger de clarificação.
-
-    Args:
-        logger: Instância de ClarificacaoLogger ou None para limpar.
-    """
-    global _clarificacao  # noqa: PLW0603
-    _clarificacao = logger
+    """Configura o logger de clarificacao."""
+    _registry.set('clarificacao', logger)
 
 
 def get_extracao_logger() -> ExtracaoLogger | None:
-    """Retorna o logger de extração configurado.
-
-    Returns:
-        ExtracaoLogger se configurado, None caso contrário.
-    """
-    return _extracao
+    """Retorna o logger de extracao configurado."""
+    return _registry.get('extracao')  # type: ignore[return-value]
 
 
 def set_extracao_logger(logger: ExtracaoLogger | None) -> None:
-    """Configura o logger de extração.
-
-    Args:
-        logger: Instância de ExtracaoLogger ou None para limpar.
-    """
-    global _extracao  # noqa: PLW0603
-    _extracao = logger
+    """Configura o logger de extracao."""
+    _registry.set('extracao', logger)
 
 
 def get_handler_logger() -> HandlerLogger | None:
-    """Retorna o logger de handler configurado.
-
-    Returns:
-        HandlerLogger se configurado, None caso contrário.
-    """
-    return _handler
+    """Retorna o logger de handler configurado."""
+    return _registry.get('handler')  # type: ignore[return-value]
 
 
 def set_handler_logger(logger: HandlerLogger | None) -> None:
-    """Configura o logger de handler.
-
-    Args:
-        logger: Instância de HandlerLogger ou None para limpar.
-    """
-    global _handler  # noqa: PLW0603
-    _handler = logger
+    """Configura o logger de handler."""
+    _registry.set('handler', logger)
 
 
 def get_funil_logger() -> FunilLogger | None:
-    """Retorna o logger de funil configurado.
-
-    Returns:
-        FunilLogger se configurado, None caso contrário.
-    """
-    return _funil
+    """Retorna o logger de funil configurado."""
+    return _registry.get('funil')  # type: ignore[return-value]
 
 
 def set_funil_logger(logger: FunilLogger | None) -> None:
-    """Configura o logger de funil.
-
-    Args:
-        logger: Instância de FunilLogger ou None para limpar.
-    """
-    global _funil  # noqa: PLW0603
-    _funil = logger
+    """Configura o logger de funil."""
+    _registry.set('funil', logger)

@@ -75,7 +75,9 @@ class TestItemNaoEncontrado:
 
     def test_item_nao_encontrado(self, carrinho_um_item):
         """Item nao encontrado deve retornar mensagem de erro."""
-        with patch('src.graph.handlers.remocao_handler.extrair_item_carrinho', return_value=[]):
+        with patch(
+            'src.graph.handlers.remocao_handler.extrair_item_carrinho', return_value=[]
+        ):
             result = processar_remocao(carrinho_um_item, 'tira a pizza')
             assert 'não encontrei' in result.resposta.lower()
             assert result.etapa == 'carrinho'

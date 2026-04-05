@@ -1,9 +1,10 @@
 """Logger para progressao no funil de pedidos."""
 
-import csv
-import threading
+from __future__ import annotations
+
 from datetime import UTC, datetime
-from pathlib import Path
+
+from src.observabilidade.base_logger import BaseCsvLogger
 
 HEADERS = [
     'timestamp',
@@ -15,21 +16,22 @@ HEADERS = [
 ]
 
 
-class FunilLogger:
+class FunilLogger(BaseCsvLogger):
     """Logger thread-safe para registrar transicoes no funil."""
 
-    def __init__(self, csv_path: Path | str) -> None:
-        self.csv_path = Path(csv_path)
-        self.csv_path.parent.mkdir(parents=True, exist_ok=True)
-        self._lock = threading.Lock()
-        self._inicializar_csv()
+    @property
+    def headers(self) -> list[str]:
+        return HEADERS
 
-    def _inicializar_csv(self) -> None:
-        with self._lock:
-            if not self.csv_path.exists():
-                with open(self.csv_path, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.writer(f)
-                    writer.writerow(HEADERS)
+    def _to_row(self, **kwargs) -> list:
+        return [
+            datetime.now(UTC).isoformat(),
+            kwargs.get('thread_id', ''),
+            kwargs.get('etapa_anterior', ''),
+            kwargs.get('etapa_atual', ''),
+            kwargs.get('intent', ''),
+            kwargs.get('carrinho_size', 0),
+        ]
 
     def registrar(
         self,
@@ -39,15 +41,10 @@ class FunilLogger:
         intent: str,
         carrinho_size: int = 0,
     ) -> None:
-        with self._lock, open(self.csv_path, 'a', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    datetime.now(UTC).isoformat(),
-                    thread_id,
-                    etapa_anterior,
-                    etapa_atual,
-                    intent,
-                    carrinho_size,
-                ]
-            )
+        super().registrar(
+            thread_id=thread_id,
+            etapa_anterior=etapa_anterior,
+            etapa_atual=etapa_atual,
+            intent=intent,
+            carrinho_size=carrinho_size,
+        )

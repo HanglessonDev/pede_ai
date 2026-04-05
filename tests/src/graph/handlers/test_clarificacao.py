@@ -119,19 +119,38 @@ class TestFormatarCarrinho:
 
     def test_formata_itens_com_preco(self):
         """Deve formatar itens com quantidade, nome e preco."""
-        carrinho = Carrinho.from_state_dicts([
-            {'item_id': 'lanche_001', 'quantidade': 2, 'preco': 3000, 'variante': None},
-        ])
+        carrinho = Carrinho.from_state_dicts(
+            [
+                {
+                    'item_id': 'lanche_001',
+                    'quantidade': 2,
+                    'preco': 3000,
+                    'variante': None,
+                },
+            ]
+        )
         result = carrinho.formatar()
         assert '2x' in result
         assert '60.00' in result
 
     def test_multiplos_itens(self):
         """Deve formatar multiplos itens em linhas separadas."""
-        carrinho = Carrinho.from_state_dicts([
-            {'item_id': 'lanche_001', 'quantidade': 1, 'preco': 1500, 'variante': None},
-            {'item_id': 'acomp_001', 'quantidade': 2, 'preco': 2000, 'variante': None},
-        ])
+        carrinho = Carrinho.from_state_dicts(
+            [
+                {
+                    'item_id': 'lanche_001',
+                    'quantidade': 1,
+                    'preco': 1500,
+                    'variante': None,
+                },
+                {
+                    'item_id': 'acomp_001',
+                    'quantidade': 2,
+                    'preco': 2000,
+                    'variante': None,
+                },
+            ]
+        )
         result = carrinho.formatar()
         linhas = result.split('\n')
         # Inclui linha de Total

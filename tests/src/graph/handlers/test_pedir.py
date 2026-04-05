@@ -10,8 +10,6 @@ Cobertura:
 - Item inexistente no cardapio
 """
 
-from unittest.mock import patch
-
 import pytest
 
 from src.graph.handlers.pedido_handler import ResultadoPedir, processar_pedido
@@ -356,7 +354,12 @@ class TestCarrinhoExistente:
     def test_mantem_itens_existentes(self, itens_fixos):
         """Itens existentes devem ser mantidos."""
         carrinho_existente = [
-            {'item_id': 'bebida_001', 'quantidade': 1, 'preco': 500, 'variante': 'lata'},
+            {
+                'item_id': 'bebida_001',
+                'quantidade': 1,
+                'preco': 500,
+                'variante': 'lata',
+            },
         ]
         result = processar_pedido(itens_fixos, carrinho_existente)
         assert len(result.carrinho) == 2
@@ -365,7 +368,12 @@ class TestCarrinhoExistente:
     def test_adiciona_novos_ao_final(self, itens_fixos):
         """Novos itens devem ser adicionados ao final."""
         carrinho_existente = [
-            {'item_id': 'bebida_001', 'quantidade': 1, 'preco': 500, 'variante': 'lata'},
+            {
+                'item_id': 'bebida_001',
+                'quantidade': 1,
+                'preco': 500,
+                'variante': 'lata',
+            },
         ]
         result = processar_pedido(itens_fixos, carrinho_existente)
         assert result.carrinho[1]['item_id'] == 'lanche_002'

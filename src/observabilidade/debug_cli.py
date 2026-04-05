@@ -1,7 +1,5 @@
 """CLI de debug para analisar logs do Pede AI."""
 
-# ruff: noqa: S608  # CLI interna de debug, queries usam paths fixos do projeto
-
 from pathlib import Path
 
 import duckdb
@@ -17,6 +15,20 @@ console = Console()
 LOG_DIR = Path('logs')
 
 
+def _ler_csv_duckdb(
+    csv_path: Path, query: str, params: list | None = None
+) -> tuple[list[str], list[tuple]]:
+    """Le CSV com DuckDB usando parametros seguros para valores de usuario."""
+    if not csv_path.exists():
+        return [], []
+    conn = duckdb.connect()
+    result = conn.execute(query, params or [])
+    cols = [desc[0] for desc in result.description]
+    rows = result.fetchall()
+    conn.close()
+    return cols, rows
+
+
 @app.command()
 def ultima_sessao(thread_id: str | None = None) -> None:
     """Mostra a linha do tempo da ultima sessao ou de uma especifica."""
@@ -29,20 +41,12 @@ def ultima_sessao(thread_id: str | None = None) -> None:
         console.print('[yellow]Nenhum log de funil encontrado[/yellow]')
         return
 
-    conn = duckdb.connect()
     if thread_id:
-        rows = conn.execute(
-            f"SELECT * FROM '{funil_csv}' WHERE thread_id = '{thread_id}' ORDER BY timestamp"
-        ).fetchall()
+        query = f"SELECT * FROM '{funil_csv}' WHERE thread_id = ? ORDER BY timestamp"  # noqa: S608 — path controlado internamente
+        cols, rows = _ler_csv_duckdb(funil_csv, query, [thread_id])
     else:
-        rows = conn.execute(
-            f"SELECT * FROM '{funil_csv}' ORDER BY timestamp DESC LIMIT 20"
-        ).fetchall()
-
-    cols = [
-        desc[0]
-        for desc in conn.execute(f"SELECT * FROM '{funil_csv}' LIMIT 1").description
-    ]
+        query = f"SELECT * FROM '{funil_csv}' ORDER BY timestamp DESC LIMIT 20"  # noqa: S608 — path controlado internamente
+        cols, rows = _ler_csv_duckdb(funil_csv, query)
 
     table = Table(title='Funil de Pedidos')
     for col in cols:
@@ -50,7 +54,6 @@ def ultima_sessao(thread_id: str | None = None) -> None:
     for row in rows:
         table.add_row(*[str(v) for v in row])
     console.print(table)
-    conn.close()
 
 
 @app.command()
@@ -61,10 +64,8 @@ def extracoes_falhas() -> None:
         console.print('[yellow]Nenhum log de extracao encontrado[/yellow]')
         return
 
-    conn = duckdb.connect()
-    rows = conn.execute(
-        f"SELECT mensagem, tempo_ms FROM '{extracao_csv}' WHERE itens_encontrados = 0 ORDER BY timestamp DESC LIMIT 20"
-    ).fetchall()
+    query = f"SELECT mensagem, tempo_ms FROM '{extracao_csv}' WHERE itens_encontrados = 0 ORDER BY timestamp DESC LIMIT 20"  # noqa: S608
+    _, rows = _ler_csv_duckdb(extracao_csv, query)
 
     table = Table(title='Extracoes sem Resultados')
     table.add_column('Mensagem')
@@ -72,7 +73,6 @@ def extracoes_falhas() -> None:
     for row in rows:
         table.add_row(row[0], f'{row[1]:.2f}')
     console.print(table)
-    conn.close()
 
 
 @app.command()
@@ -83,10 +83,8 @@ def erros_handlers() -> None:
         console.print('[yellow]Nenhum log de handler encontrado[/yellow]')
         return
 
-    conn = duckdb.connect()
-    rows = conn.execute(
-        f"SELECT handler, intent, erro, tempo_ms FROM '{handler_csv}' WHERE erro != '' ORDER BY timestamp DESC LIMIT 20"
-    ).fetchall()
+    query = f"SELECT handler, intent, erro, tempo_ms FROM '{handler_csv}' WHERE erro != '' ORDER BY timestamp DESC LIMIT 20"  # noqa: S608
+    _, rows = _ler_csv_duckdb(handler_csv, query)
 
     table = Table(title='Erros em Handlers')
     table.add_column('Handler')
@@ -96,7 +94,6 @@ def erros_handlers() -> None:
     for row in rows:
         table.add_row(row[0], row[1], row[2], f'{row[3]:.2f}')
     console.print(table)
-    conn.close()
 
 
 @app.command()
