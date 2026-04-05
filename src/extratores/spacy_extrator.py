@@ -1,4 +1,24 @@
 """
+DEPRECATED — Código legado, mantido apenas para compatibilidade.
+
+Este módulo foi substituído pela arquitetura OO durante a refatoração de 04/2026.
+O novo módulo usa lazy initialization (NlpEngine), models tipados (dataclasses),
+configuração externalizada (ExtratorConfig) e providers intercambiáveis.
+
+Arquivos substitutos:
+- `src/extratores/extrator.py` — Extrator, extrair(), extrair_variante()
+- `src/extratores/troca_extrator.py` — TrocaExtrator, extrair_itens_troca()
+- `src/extratores/carrinho_extrator.py` — CarrinhoExtrator, extrair_item_carrinho()
+- `src/extratores/nlp_engine.py` — NlpEngine com lazy init
+- `src/extratores/modelos.py` — ItemExtraido, ExtracaoTroca, MatchCarrinho, etc.
+- `src/extratores/config.py` — ExtratorConfig
+- `src/extratores/normalizador.py` — normalizar_para_busca(), normalizar_para_fuzzy()
+- `src/extratores/remocoes.py` — capturar_remocoes()
+- `src/extratores/patterns.py` — gerar_patterns()
+
+TODO: Remover este arquivo após migrar todos os imports externos.
+Rastrear: `git grep spacy_extrator` para verificar uso.
+
 Extrator spaCy para NLP em português.
 
 Processa mensagens do usuário para extrair itens do cardápio,
