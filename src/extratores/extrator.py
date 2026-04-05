@@ -88,7 +88,24 @@ class Extrator:
         return 1
 
     def _extrair_spacy(self, doc) -> list[ItemExtraido]:
-        """Extrai itens via spaCy EntityRuler."""
+        """Extrai itens via spaCy EntityRuler.
+
+        Fluxo de quantidades:
+        - QTD antes do ITEM → aplica ao próximo item (qtd_pendente)
+        - QTD depois do ITEM já registrado (item_atual not None) → **NÃO**
+          guardar como qtd_pendente para o próximo item. Em vez disso,
+          atualizar item_atual.quantidade diretamente. Isso resolve o caso
+          'hamburguer 2' onde o número aparece DEPOIS do item e deve ser
+          associado a ele, não ao item seguinte.
+        - Variante depois do ITEM → associa direto ao item_atual
+        - Variante antes do ITEM → guarda como variante_pendente
+
+        Nota de design (EXTRATOR_DESIGN.md §5.4):
+        O Branch 4 redundante do desambiguar() foi removido porque tanto o
+        'elif ultimo_item_ent is not None' quanto o 'else' produziam o mesmo
+        output (Entidade QTD). A associação correta é feita aqui, no
+        _extrair_spacy(), onde temos contexto do item_atual.
+        """
         qtd_pendente = 1
         remocoes_fila = capturar_remocoes(doc, self._config)
         prox_remocao = 0
