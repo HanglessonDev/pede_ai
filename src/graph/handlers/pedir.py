@@ -20,7 +20,6 @@ import time
 from dataclasses import dataclass, field
 
 from src.config import get_item_por_id, get_preco_item, get_variantes
-from src.extratores.fuzzy_extrator import fuzzy_match_variante
 from src.graph.handlers.utils import formatar_carrinho
 from src.graph.state import RetornoNode
 from src.observabilidade.registry import get_handler_logger

@@ -406,7 +406,12 @@ class TestNodesObservabilidade:
     @patch('src.graph.nodes.get_obs_logger')
     @patch('src.graph.nodes._classificar_intencao')
     def test_node_router_registra_funil(
-        self, mock_classificar, mock_get_obs, mock_get_handler, mock_get_funil, mock_get_config
+        self,
+        mock_classificar,
+        mock_get_obs,
+        mock_get_handler,
+        mock_get_funil,
+        mock_get_config,
     ):
         """Node router deve registrar logs de funil e handler."""
         mock_get_config.return_value = {'configurable': {'thread_id': 't1'}}
@@ -437,7 +442,12 @@ class TestNodesObservabilidade:
     @patch('src.graph.nodes.get_obs_logger')
     @patch('src.graph.nodes._classificar_intencao')
     def test_node_router_loggers_nulos_nao_quebram(
-        self, mock_classificar, mock_get_obs, mock_get_handler, mock_get_funil, mock_get_config
+        self,
+        mock_classificar,
+        mock_get_obs,
+        mock_get_handler,
+        mock_get_funil,
+        mock_get_config,
     ):
         """Loggers nulos nao devem causar erro."""
         mock_get_config.return_value = {'configurable': {'thread_id': 't1'}}

@@ -341,7 +341,12 @@ class TestHandlerPedirObservabilidade:
 
         processar_pedido(
             itens_extraidos=[
-                {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}
+                {
+                    'item_id': 'lanche_002',
+                    'quantidade': 1,
+                    'variante': None,
+                    'remocoes': [],
+                }
             ],
             carrinho_existente=[],
             thread_id='sessao_teste',
@@ -352,14 +357,21 @@ class TestHandlerPedirObservabilidade:
         assert call_kwargs['output_dados']['carrinho_size'] == 1
 
     @patch('src.graph.handlers.pedir.get_handler_logger')
-    def test_processar_pedido_log_contem_handler_e_intent(self, mock_get_logger) -> None:
+    def test_processar_pedido_log_contem_handler_e_intent(
+        self, mock_get_logger
+    ) -> None:
         """Log deve conter handler e intent corretos."""
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
         processar_pedido(
             itens_extraidos=[
-                {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}
+                {
+                    'item_id': 'lanche_002',
+                    'quantidade': 1,
+                    'variante': None,
+                    'remocoes': [],
+                }
             ],
             carrinho_existente=[],
             thread_id='sessao_teste',
@@ -376,7 +388,12 @@ class TestHandlerPedirObservabilidade:
 
         processar_pedido(
             itens_extraidos=[
-                {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}
+                {
+                    'item_id': 'lanche_002',
+                    'quantidade': 1,
+                    'variante': None,
+                    'remocoes': [],
+                }
             ],
             carrinho_existente=[],
             thread_id='sessao_teste',
@@ -392,7 +409,12 @@ class TestHandlerPedirObservabilidade:
 
         result = processar_pedido(
             itens_extraidos=[
-                {'item_id': 'lanche_002', 'quantidade': 1, 'variante': None, 'remocoes': []}
+                {
+                    'item_id': 'lanche_002',
+                    'quantidade': 1,
+                    'variante': None,
+                    'remocoes': [],
+                }
             ],
             carrinho_existente=[],
             thread_id='sessao_teste',

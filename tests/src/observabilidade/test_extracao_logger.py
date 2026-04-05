@@ -10,12 +10,14 @@ def test_registra_extracao_sucesso(tmp_path: Path) -> None:
     logger.registrar(
         thread_id='sessao_1',
         mensagem='quero um suco de laranja',
-        itens_extraidos=[{
-            'item_id': 'bebida_004',
-            'quantidade': 1,
-            'variante': None,
-            'remocoes': [],
-        }],
+        itens_extraidos=[
+            {
+                'item_id': 'bebida_004',
+                'quantidade': 1,
+                'variante': None,
+                'remocoes': [],
+            }
+        ],
         tempo_ms=45.2,
     )
     assert csv_path.exists()
@@ -45,20 +47,32 @@ def test_registra_multiplas_extracoes(tmp_path: Path) -> None:
         thread_id='sessao_1',
         mensagem='quero x-burguer e coca',
         itens_extraidos=[
-            {'item_id': 'lanche_001', 'quantidade': 1, 'variante': 'simples', 'remocoes': []},
-            {'item_id': 'bebida_001', 'quantidade': 1, 'variante': None, 'remocoes': []},
+            {
+                'item_id': 'lanche_001',
+                'quantidade': 1,
+                'variante': 'simples',
+                'remocoes': [],
+            },
+            {
+                'item_id': 'bebida_001',
+                'quantidade': 1,
+                'variante': None,
+                'remocoes': [],
+            },
         ],
         tempo_ms=62.5,
     )
     logger.registrar(
         thread_id='sessao_2',
         mensagem='uma batata frita',
-        itens_extraidos=[{
-            'item_id': 'acompanhamento_001',
-            'quantidade': 2,
-            'variante': 'grande',
-            'remocoes': ['cebola'],
-        }],
+        itens_extraidos=[
+            {
+                'item_id': 'acompanhamento_001',
+                'quantidade': 2,
+                'variante': 'grande',
+                'remocoes': ['cebola'],
+            }
+        ],
         tempo_ms=30.0,
     )
     with open(csv_path, encoding='utf-8') as f:
@@ -107,7 +121,9 @@ def test_tempo_ms_formatado_com_duas_casas_decimais(tmp_path: Path) -> None:
     logger.registrar(
         thread_id='sessao_1',
         mensagem='teste',
-        itens_extraidos=[{'item_id': 'item_1', 'quantidade': 1, 'variante': None, 'remocoes': []}],
+        itens_extraidos=[
+            {'item_id': 'item_1', 'quantidade': 1, 'variante': None, 'remocoes': []}
+        ],
         tempo_ms=100.0,
     )
     with open(csv_path, encoding='utf-8') as f:

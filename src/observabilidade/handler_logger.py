@@ -46,13 +46,15 @@ class HandlerLogger:
     ) -> None:
         with self._lock, open(self.csv_path, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow([
-                datetime.now(UTC).isoformat(),
-                thread_id,
-                handler,
-                intent,
-                json.dumps(input_dados, ensure_ascii=False)[:200],
-                json.dumps(output_dados, ensure_ascii=False)[:200],
-                f'{tempo_ms:.2f}',
-                erro or '',
-            ])
+            writer.writerow(
+                [
+                    datetime.now(UTC).isoformat(),
+                    thread_id,
+                    handler,
+                    intent,
+                    json.dumps(input_dados, ensure_ascii=False)[:200],
+                    json.dumps(output_dados, ensure_ascii=False)[:200],
+                    f'{tempo_ms:.2f}',
+                    erro or '',
+                ]
+            )

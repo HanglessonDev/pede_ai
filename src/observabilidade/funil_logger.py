@@ -41,11 +41,13 @@ class FunilLogger:
     ) -> None:
         with self._lock, open(self.csv_path, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow([
-                datetime.now(UTC).isoformat(),
-                thread_id,
-                etapa_anterior,
-                etapa_atual,
-                intent,
-                carrinho_size,
-            ])
+            writer.writerow(
+                [
+                    datetime.now(UTC).isoformat(),
+                    thread_id,
+                    etapa_anterior,
+                    etapa_atual,
+                    intent,
+                    carrinho_size,
+                ]
+            )

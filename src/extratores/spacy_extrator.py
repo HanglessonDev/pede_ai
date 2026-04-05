@@ -157,9 +157,7 @@ def gerar_patterns(cardapio: dict) -> list[dict]:
         for variante in item.get('variantes') or []:
             opcao = variante.get('opcao', '')
             # Pattern completo: "limão 300ml"
-            _adicionar_pattern(
-                patterns, vistos, 'VARIANTE', opcao, item.get('id')
-            )
+            _adicionar_pattern(patterns, vistos, 'VARIANTE', opcao, item.get('id'))
             # Patterns parciais para matching flexível
             # Ex: "limão 300ml" → "limão" e "laranja 500ml" → "laranja"
             if ' ' in opcao:

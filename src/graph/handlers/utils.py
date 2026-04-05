@@ -37,7 +37,12 @@ def formatar_carrinho(carrinho: list[dict]) -> str:
     Example:
         ```python
         carrinho = [
-            {'item_id': 'lanche_001', 'quantidade': 1, 'preco': 1500, 'variante': 'duplo'},
+            {
+                'item_id': 'lanche_001',
+                'quantidade': 1,
+                'preco': 1500,
+                'variante': 'duplo',
+            },
         ]
         formatar_carrinho(carrinho)
         '1x Hambúrguer (duplo) — R$ 15.00'
@@ -49,7 +54,5 @@ def formatar_carrinho(carrinho: list[dict]) -> str:
         variante = it.get('variante')
         if variante:
             nome = f'{nome} ({variante})'
-        linhas.append(
-            f'{it["quantidade"]}x {nome} — R$ {it["preco"] / 100:.2f}'
-        )
+        linhas.append(f'{it["quantidade"]}x {nome} — R$ {it["preco"] / 100:.2f}')
     return '\n'.join(linhas)
