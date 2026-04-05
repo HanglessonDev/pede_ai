@@ -27,7 +27,6 @@ from src.extratores.config import ExtratorConfig
 from src.extratores.fuzzy_extrator import fuzzy_match_item, fuzzy_match_variante
 from src.extratores.modelos import ItemExtraido
 from src.extratores.nlp_engine import NlpEngine
-from src.extratores.normalizador import normalizar_para_fuzzy
 from src.extratores.remocoes import capturar_remocoes
 
 
@@ -159,7 +158,11 @@ class Extrator:
         Returns:
             Lista com 0 ou 1 ItemExtraido encontrado via fuzzy.
         """
+        from rapidfuzz import fuzz  # noqa: PLC0415 — lazy loading
+
         from src.config import get_cardapio  # noqa: PLC0415 — lazy loading
+        from src.extratores.fuzzy_extrator import extrair_tokens_significativos  # noqa: PLC0415
+        from src.extratores.normalizador import normalizar_para_busca  # noqa: PLC0415
 
         cardapio = get_cardapio()
         alias_para_id: dict[str, str] = {}
@@ -172,20 +175,36 @@ class Extrator:
         if item_id is None:
             return []
 
-        # Tenta extrair variante do texto restante
+        # Tenta extrair variante dos tokens significativos,
+        # filtrando o token do item (mesmo com typo).
         item_cfg = next(
             (i for i in cardapio.get('itens', []) if i['id'] == item_id), None
         )
         variante = None
         if item_cfg and item_cfg.get('variantes'):
             variantes = [v['opcao'] for v in item_cfg['variantes']]
-            texto_sem_item = (
-                normalizar_para_fuzzy(mensagem).replace(alias or '', '').strip()
-            )
-            if texto_sem_item:
-                var_match, _var_score = fuzzy_match_variante(texto_sem_item, variantes)
-                if var_match:
-                    variante = var_match
+
+            alias_norm = normalizar_para_busca(alias or '')
+
+            def _similar_ao_alias(token: str) -> bool:
+                return fuzz.ratio(normalizar_para_busca(token), alias_norm) >= 70
+
+            tokens = extrair_tokens_significativos(mensagem)
+            candidatos = [
+                t for t in tokens
+                if not t.isdigit()
+                and t not in {'um', 'uma', 'dois', 'duas', 'tres'}
+                and not _similar_ao_alias(t)
+            ]
+            # Melhor score entre todos os candidatos
+            melhor_var: str | None = None
+            melhor_score = 0.0
+            for t in candidatos:
+                var_match, var_score = fuzzy_match_variante(t, variantes)
+                if var_match and var_score > melhor_score:
+                    melhor_var = var_match
+                    melhor_score = var_score
+            variante = melhor_var
 
         return [
             ItemExtraido(
