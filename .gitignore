@@ -16,6 +16,9 @@ wheels/
 # Documentação
 site/
 
+# Modelos de embedding (~80MB, baixados automaticamente)
+modelos/
+
 # Logs de observabilidade (CSV não versionado)
 logs/*.csv
 

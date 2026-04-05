@@ -38,7 +38,7 @@ def criar_classificador() -> ClassificadorIntencoes:
     """Factory para o classificador de intencoes."""
     config = get_roteador_config()
     llm = GroqProvider(api_key=os.getenv('GROQ_API_KEY', ''))
-    embeddings = SentenceTransformerEmbeddings()
+    embeddings = SentenceTransformerEmbeddings(diretorio_modelos='modelos')
     embedding_service = EmbeddingService(
         provider=embeddings,
         exemplos_path=config.exemplos_path,
