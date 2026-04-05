@@ -13,8 +13,8 @@ Example:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,9 @@ class ExtratorConfig:
         numeros_escritos: Mapeamento de numeros por extenso para inteiros.
         stop_words: Stop words para fuzzy matching.
         spacy_model: Nome do modelo spaCy a carregar.
+        palavras_complemento: Palavras que indicam complementos de um item.
+        numeros_fracionarios: Mapeamento de numeros fracionarios por extenso.
+        palavras_negacao: Palavras e expressoes que indicam negacao/cancelamento.
     """
 
     fuzzy_item_cutoff: int = 75
@@ -116,6 +119,23 @@ class ExtratorConfig:
         )
     )
     spacy_model: str = 'pt_core_news_sm'
+    palavras_complemento: frozenset[str] = field(
+        default_factory=lambda: frozenset({'com', 'extra', 'adicional'})
+    )
+    numeros_fracionarios: Mapping[str, float] = field(
+        default_factory=lambda: {
+            'meio': 0.5, 'meia': 0.5,
+            'um e meio': 1.5, 'uma e meia': 1.5,
+        }
+    )
+    palavras_negacao: frozenset[str] = field(
+        default_factory=lambda: frozenset({
+            'nao', 'não', 'nem', 'quero nao', 'quero não',
+            'esquece', 'esqueça', 'cancela', 'cancelar',
+            'deixa pra la', 'deixa para lá', 'deixa',
+            'desisto', 'muda de ideia',
+        })
+    )
 
 
 class _ExtratorCache:
