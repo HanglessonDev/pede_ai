@@ -24,8 +24,7 @@ Example:
 from dataclasses import dataclass, field
 
 from src.config import get_item_por_id, get_nome_item, get_preco_item
-from src.extratores import extrair_itens_troca
-from src.extratores.spacy_extrator import _nlp, normalizar
+from src.extratores import extrair, extrair_itens_troca, normalizar
 from src.graph.handlers.utils import formatar_carrinho
 from src.graph.state import ETAPAS, RetornoNode
 
@@ -96,10 +95,9 @@ def _extrair_primeiro_item_da_mensagem(mensagem: str) -> str:
     Returns:
         Texto do primeiro ITEM encontrado, ou 'item' como fallback.
     """
-    doc = _nlp(mensagem)
-    for ent in doc.ents:
-        if ent.label_ == 'ITEM':
-            return normalizar(ent.text)
+    itens = extrair(mensagem)
+    if itens:
+        return normalizar(itens[0].get('item_id', 'item'))
     return 'item'
 
 

@@ -1,7 +1,7 @@
 """Fuzzy matching para fallback do extrator spaCy.
 
-Funções puras para correção de typos em nomes de itens e variantes
-do cardápio usando rapidfuzz.
+Funcoes puras para correcao de typos em nomes de itens e variantes
+do cardapio usando rapidfuzz.
 
 Example:
     ```python
@@ -14,103 +14,59 @@ Example:
 """
 
 import re
-import unicodedata
 
 from rapidfuzz import fuzz, process
 
-
-# ── Constantes ──────────────────────────────────────────────────────────────
-
-STOP_WORDS = {
-    'quero',
-    'quer',
-    'me',
-    'da',
-    'de',
-    'do',
-    'um',
-    'uma',
-    'uns',
-    'umas',
-    'o',
-    'a',
-    'os',
-    'as',
-    'e',
-    'ou',
-    'pra',
-    'para',
-    'por',
-    'pelo',
-    'pela',
-    'no',
-    'na',
-    'nos',
-    'nas',
-    'muda',
-    'mudar',
-    'troca',
-    'trocar',
-    'coloca',
-    'bota',
-    'veja',
-    'ver',
-    'mostra',
-    'mostrar',
-    'pode',
-    'favor',
-    'por favor',
-    'aqui',
-    'ali',
-    'isso',
-    'isto',
-    'esse',
-    'essa',
-}
-"""Stop words a remover durante pré-processamento."""
-
-FUZZY_ITEM_CUTOFF = 75
-"""Score mínimo para fuzzy match de itens (0-100)."""
-
-FUZZY_VARIANTE_CUTOFF = 75
-"""Score mínimo para fuzzy match de variantes (0-100)."""
-
-AMBIGUIDADE_LIMITE = 5
-"""Diferença máxima entre top-2 scores para considerar ambíguo."""
+from src.extratores.config import get_extrator_config
+from src.extratores.normalizador import normalizar_para_fuzzy
 
 
-# ── Normalização ────────────────────────────────────────────────────────────
+# ── Matching de variante numerica ──────────────────────────────────────────
 
 
-def normalizar(texto: str) -> str:
-    """Normaliza texto para comparação (lowercase, sem acentos, sem pontuação).
+def match_variante_numerica(typo: str, variantes: list[str]) -> str | None:
+    """Resolve typos em variantes numericas do tipo NNNml.
+
+    Usa substring matching: se o numero do typo e substring do numero
+    da variante, e um match. Ex: '50' em '500' → match.
 
     Args:
-        texto: Texto original.
+        typo: Texto digitado pelo usuario.
+        variantes: Lista de variantes validas do cardapio.
 
     Returns:
-        Texto normalizado.
+        Variante matchada, ou None se ambiguo ou sem match.
 
     Example:
         ```python
-        normalizar('Hambúrguer!')
-        'hamburguer'
+        match_variante_numerica('50ml', ['300ml', '500ml'])
+        '500ml'
+        match_variante_numerica('50ml', ['350ml', '500ml'])
+        None  # ambiguo: 50 esta em ambos
         ```
     """
-    texto = texto.lower()
-    texto = unicodedata.normalize('NFKD', texto)
-    texto = texto.encode('ascii', 'ignore').decode('utf-8')
-    return texto.strip()
+    typo_n = normalizar_para_fuzzy(typo)
+    match_ml = re.match(r'^(\d+)ml$', typo_n)
+    if not match_ml:
+        return None
+    typo_num = match_ml.group(1)
+    candidatos = []
+    for var in variantes:
+        var_n = normalizar_para_fuzzy(var)
+        var_match = re.match(r'^(\d+)ml$', var_n)
+        if var_match and typo_num in var_match.group(1):
+            candidatos.append(var)
+    return candidatos[0] if len(candidatos) == 1 else None
 
 
-# ── Pré-processamento ───────────────────────────────────────────────────────
+# ── Pre-processamento ───────────────────────────────────────────────────────
 
 
 def extrair_tokens_significativos(texto: str) -> list[str]:
     """Remove stop words e retorna tokens relevantes.
 
     Args:
-        texto: Texto da mensagem do usuário.
+        texto: Texto da mensagem do usuario.
 
     Returns:
         Lista de tokens significativos.
@@ -121,48 +77,11 @@ def extrair_tokens_significativos(texto: str) -> list[str]:
         ['hamburguer', 'sem', 'cebola']
         ```
     """
-    texto_n = normalizar(texto)
+    texto_n = normalizar_para_fuzzy(texto)
     texto_n = re.sub(r'[^\w\s]', ' ', texto_n)
     tokens = texto_n.split()
-    return [t for t in tokens if t not in STOP_WORDS and len(t) > 1]
-
-
-# ── Matching de variante numérica ──────────────────────────────────────────
-
-
-def match_variante_numerica(typo: str, variantes: list[str]) -> str | None:
-    """Resolve typos em variantes numéricas do tipo NNNml.
-
-    Usa substring matching: se o número do typo é substring do número
-    da variante, é um match. Ex: '50' em '500' → match.
-
-    Args:
-        typo: Texto digitado pelo usuário.
-        variantes: Lista de variantes válidas do cardápio.
-
-    Returns:
-        Variante matchada, ou None se ambíguo ou sem match.
-
-    Example:
-        ```python
-        match_variante_numerica('50ml', ['300ml', '500ml'])
-        '500ml'
-        match_variante_numerica('50ml', ['350ml', '500ml'])
-        None  # ambíguo: 50 está em ambos
-        ```
-    """
-    typo_n = normalizar(typo)
-    match_ml = re.match(r'^(\d+)ml$', typo_n)
-    if not match_ml:
-        return None
-    typo_num = match_ml.group(1)
-    candidatos = []
-    for var in variantes:
-        var_n = normalizar(var)
-        var_match = re.match(r'^(\d+)ml$', var_n)
-        if var_match and typo_num in var_match.group(1):
-            candidatos.append(var)
-    return candidatos[0] if len(candidatos) == 1 else None
+    config = get_extrator_config()
+    return [t for t in tokens if t not in config.stop_words and len(t) > 1]
 
 
 # ── Fuzzy match de item ────────────────────────────────────────────────────
@@ -171,18 +90,21 @@ def match_variante_numerica(typo: str, variantes: list[str]) -> str | None:
 def fuzzy_match_item(
     texto: str,
     alias_para_id: dict[str, str],
-    cutoff: int = FUZZY_ITEM_CUTOFF,
+    cutoff: int | None = None,
 ) -> tuple[str | None, float, str | None]:
-    """Fuzzy match de texto contra aliases do cardápio.
+    """Fuzzy match de texto contra aliases do cardapio.
 
     Args:
-        texto: Texto digitado pelo usuário.
+        texto: Texto digitado pelo usuario.
         alias_para_id: Mapeamento alias → item_id.
-        cutoff: Score mínimo (0-100).
+        cutoff: Score minimo (0-100). Usa config se None.
 
     Returns:
         Tupla (alias_match, score, item_id) ou (None, 0, None).
     """
+    config = get_extrator_config()
+    cutoff = cutoff if cutoff is not None else config.fuzzy_item_cutoff
+
     tokens = extrair_tokens_significativos(texto)
     if not tokens:
         return None, 0, None
@@ -191,7 +113,7 @@ def fuzzy_match_item(
     melhor_alias: str | None = None
     melhor_score = 0.0
 
-    for token in [*tokens, normalizar(texto)]:
+    for token in [*tokens, normalizar_para_fuzzy(texto)]:
         resultado = process.extractOne(
             token, candidatos, scorer=fuzz.ratio, score_cutoff=cutoff
         )
@@ -210,17 +132,17 @@ def fuzzy_match_item(
 def fuzzy_match_variante(
     texto: str,
     variantes: list[str],
-    cutoff: int = FUZZY_VARIANTE_CUTOFF,
+    cutoff: int | None = None,
 ) -> tuple[str | None, float]:
-    """Fuzzy match de texto contra variantes válidas.
+    """Fuzzy match de texto contra variantes validas.
 
     Usa match_variante_numerica primeiro para variantes do tipo NNNml.
-    Depois tenta fuzzy normal com detecção de ambiguidade.
+    Depois tenta fuzzy normal com deteccao de ambiguidade.
 
     Args:
-        texto: Texto digitado pelo usuário.
-        variantes: Lista de variantes válidas do cardápio.
-        cutoff: Score mínimo (0-100).
+        texto: Texto digitado pelo usuario.
+        variantes: Lista de variantes validas do cardapio.
+        cutoff: Score minimo (0-100). Usa config se None.
 
     Returns:
         Tupla (variante_match, score) ou (None, 0).
@@ -228,9 +150,12 @@ def fuzzy_match_variante(
     if not texto or not texto.strip():
         return None, 0
 
-    texto_n = normalizar(texto)
+    config = get_extrator_config()
+    cutoff = cutoff if cutoff is not None else config.fuzzy_variante_cutoff
 
-    # Tentar matching numérico primeiro
+    texto_n = normalizar_para_fuzzy(texto)
+
+    # Tentar matching numerico primeiro
     resultado_num = match_variante_numerica(texto_n, variantes)
     if resultado_num:
         return resultado_num, 95.0
@@ -242,15 +167,15 @@ def fuzzy_match_variante(
     if not resultado:
         return None, 0
 
-    # Verificar ambiguidade: se top-2 estão dentro de AMBIGUIDADE_LIMITE pontos
+    # Verificar ambiguidade: se top-2 estao dentro de AMBIGUIDADE_LIMITE pontos
     todos_matches = process.extract(
         texto_n, variantes, scorer=fuzz.ratio, score_cutoff=cutoff, limit=2
     )
     if len(todos_matches) >= 2:
         _, score1, _ = resultado
         _, score2, _ = todos_matches[1]
-        if score1 - score2 < AMBIGUIDADE_LIMITE:
-            return None, 0  # ambíguo, melhor não arriscar
+        if score1 - score2 < config.ambiguidade_limite:
+            return None, 0  # ambiguo, melhor nao arriscar
 
     return resultado[0], resultado[1]
 
@@ -260,5 +185,8 @@ __all__ = [
     'fuzzy_match_item',
     'fuzzy_match_variante',
     'match_variante_numerica',
-    'normalizar',
+    'normalizar',  # compatibilidade — alias para normalizar_para_fuzzy
 ]
+
+# Compatibilidade com codigo legado que importa normalizar() deste modulo
+from src.extratores.normalizador import normalizar_para_fuzzy as normalizar  # noqa: E402

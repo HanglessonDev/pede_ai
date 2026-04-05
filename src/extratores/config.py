@@ -1,0 +1,140 @@
+"""Configuracao do extrator de itens do cardapio.
+
+Centraliza thresholds, stopwords, numeros escritos e parametros do spaCy.
+
+Example:
+    ```python
+    from src.extratores.config import get_extrator_config
+
+    config = get_extrator_config()
+    config.fuzzy_item_cutoff  # 75
+    ```
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from collections.abc import Mapping
+
+
+@dataclass(frozen=True)
+class ExtratorConfig:
+    """Configuracao imutavel do extrator.
+
+    Attributes:
+        fuzzy_item_cutoff: Score minimo para fuzzy match de itens (0-100).
+        fuzzy_variante_cutoff: Score minimo para fuzzy match de variantes (0-100).
+        ambiguidade_limite: Diferenca maxima entre top-2 scores para considerar ambiguo.
+        palavras_remocao: Palavras que indicam remocao de ingrediente.
+        palavras_parada: Palavras que interrompem captura de remocoes.
+        conectivos: Conectivos que podem separar remocoes.
+        pos_ignoraveis: POS tags do spaCy a ignorar (DET, ADP).
+        numeros_escritos: Mapeamento de numeros por extenso para inteiros.
+        stop_words: Stop words para fuzzy matching.
+        spacy_model: Nome do modelo spaCy a carregar.
+    """
+
+    fuzzy_item_cutoff: int = 75
+    fuzzy_variante_cutoff: int = 75
+    ambiguidade_limite: int = 5
+    palavras_remocao: frozenset[str] = field(
+        default_factory=lambda: frozenset(
+            {'sem', 'tira', 'remove', 'retira', 'nao coloca'}
+        )
+    )
+    palavras_parada: frozenset[str] = field(
+        default_factory=lambda: frozenset({',', '.', 'com'})
+    )
+    conectivos: frozenset[str] = field(default_factory=lambda: frozenset({'e', 'ou'}))
+    pos_ignoraveis: frozenset[str] = field(
+        default_factory=lambda: frozenset({'DET', 'ADP'})
+    )
+    numeros_escritos: Mapping[str, int] = field(
+        default_factory=lambda: {
+            'um': 1,
+            'uma': 1,
+            'dois': 2,
+            'duas': 2,
+            'tres': 3,
+            'quatro': 4,
+            'cinco': 5,
+            'seis': 6,
+            'sete': 7,
+            'oito': 8,
+            'nove': 9,
+            'dez': 10,
+        }
+    )
+    stop_words: frozenset[str] = field(
+        default_factory=lambda: frozenset(
+            {
+                'quero',
+                'quer',
+                'me',
+                'da',
+                'de',
+                'do',
+                'um',
+                'uma',
+                'uns',
+                'umas',
+                'o',
+                'a',
+                'os',
+                'as',
+                'e',
+                'ou',
+                'pra',
+                'para',
+                'por',
+                'pelo',
+                'pela',
+                'no',
+                'na',
+                'nos',
+                'nas',
+                'muda',
+                'mudar',
+                'troca',
+                'trocar',
+                'coloca',
+                'bota',
+                'veja',
+                'ver',
+                'mostra',
+                'mostrar',
+                'pode',
+                'favor',
+                'por favor',
+                'aqui',
+                'ali',
+                'isso',
+                'isto',
+                'esse',
+                'essa',
+            }
+        )
+    )
+    spacy_model: str = 'pt_core_news_sm'
+
+
+class _ExtratorCache:
+    """Cache lazy para configuracao do extrator."""
+
+    _config: ExtratorConfig | None = None
+
+    @classmethod
+    def carregar(cls) -> ExtratorConfig:
+        """Retorna configuracao com cache lazy."""
+        if cls._config is None:
+            cls._config = ExtratorConfig()
+        return cls._config
+
+
+def get_extrator_config() -> ExtratorConfig:
+    """Retorna configuracao do extrator (cached).
+
+    Returns:
+        ExtratorConfig com todos os parametros.
+    """
+    return _ExtratorCache.carregar()
