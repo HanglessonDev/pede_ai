@@ -1,6 +1,5 @@
 """Testes para extracao de quantidade via regex posicional."""
 
-import pytest
 
 from src.extratores.qtd_regex import extrair_qtd_regex
 

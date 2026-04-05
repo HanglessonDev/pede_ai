@@ -2,7 +2,6 @@
 
 from dataclasses import asdict
 
-import pytest
 
 from src.extratores.modelos import ItemExtraido
 

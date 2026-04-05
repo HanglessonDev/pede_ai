@@ -62,11 +62,12 @@ class TestEntityRulerNumPending:
         patterns = gerar_patterns(cardapio, normalizar_para_busca)
 
         # Coletar todas palavra LOWER dos patterns
-        lower_tokens = []
-        for p in patterns:
-            for token in p['pattern']:
-                if 'LOWER' in token:
-                    lower_tokens.append(token['LOWER'])
+        lower_tokens = [
+            token['LOWER']
+            for p in patterns
+            for token in p['pattern']
+            if 'LOWER' in token
+        ]
 
         # 'um' e 'dois' devem aparecer no maximo 1 vez
         assert lower_tokens.count('um') <= 1, f"'um' aparece {lower_tokens.count('um')} vezes nos patterns"
