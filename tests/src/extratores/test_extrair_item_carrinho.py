@@ -6,7 +6,7 @@ Testa a extração de itens do carrinho para remoção.
 
 import pytest
 
-from src.extratores.spacy_extrator import extrair_item_carrinho
+from src.extratores import extrair_item_carrinho
 
 
 # ══════════════════════════════════════════════════════════════════════════════

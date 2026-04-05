@@ -1,5 +1,5 @@
 """
-Testes de alta qualidade para o módulo src/extratores/spacy_extrator.py.
+Testes de alta qualidade para o módulo src/extratores/.
 
 Características:
 - Parametrização para evitar código repetitivo
@@ -11,15 +11,11 @@ Características:
 import pytest
 from unittest.mock import MagicMock, patch
 
-from src.extratores.spacy_extrator import (
-    normalizar,
-    gerar_patterns,
-    capturar_remocoes,
-    extrair,
-    PALAVRAS_REMOCAO,
-    CONECTIVOS,
-    NUMEROS_ESCRITOS,
-)
+from src.extratores import extrair, extrair_variante
+from src.extratores.normalizador import normalizar_para_busca
+from src.extratores.patterns import gerar_patterns
+from src.extratores.remocoes import capturar_remocoes
+from src.extratores.config import get_extrator_config
 from src.config import get_cardapio
 
 
@@ -40,7 +36,7 @@ def cardapio():
 
 
 class TestNormalizar:
-    """Testes para a função normalizar()."""
+    """Testes para a função normalizar_para_busca()."""
 
     @pytest.mark.parametrize(
         'input_text,expected',
@@ -54,29 +50,29 @@ class TestNormalizar:
     )
     def test_minusculas(self, input_text, expected):
         """Deve converter para minusculas."""
-        assert normalizar(input_text) == expected
+        assert normalizar_para_busca(input_text) == expected
 
     def test_remove_acentos(self):
         """Deve remover acentos."""
-        assert normalizar('Hamburguer') == 'hamburguer'
-        assert normalizar('Suco Natural') == 'suco natural'
+        assert normalizar_para_busca('Hamburguer') == 'hamburguer'
+        assert normalizar_para_busca('Suco Natural') == 'suco natural'
 
     def test_remove_pontuacao(self):
         """Deve remover pontuacao."""
-        assert normalizar('X-Tudo!') == 'xtudo'
-        assert normalizar('Hamburguer.') == 'hamburguer'
-        assert normalizar('(teste)') == 'teste'
+        assert normalizar_para_busca('X-Tudo!') == 'xtudo'
+        assert normalizar_para_busca('Hamburguer.') == 'hamburguer'
+        assert normalizar_para_busca('(teste)') == 'teste'
 
     def test_hifen_removido_com_pontuacao(self):
         """Hifen e removido com a pontuacao (ordem: pontuacao primeiro, depois replace)."""
         # A funcao remove pontuacao ANTES de fazer replace('-', ' ')
         # entao x-tudo -> remove pontuacao -> xtudo -> replace(-) -> xtudo
-        assert normalizar('x-tudo') == 'xtudo'
+        assert normalizar_para_busca('x-tudo') == 'xtudo'
 
     def test_espacos_extras_removidos(self):
         """Espaços extras devem ser normalizados."""
-        assert normalizar('x    tudo') == 'x tudo'
-        assert normalizar('  ola  ') == 'ola'
+        assert normalizar_para_busca('x    tudo') == 'x tudo'
+        assert normalizar_para_busca('  ola  ') == 'ola'
 
     @pytest.mark.parametrize(
         'input_text',
@@ -91,7 +87,7 @@ class TestNormalizar:
     )
     def test_entradas_variadas(self, input_text):
         """Deve tratar entradas variadas."""
-        result = normalizar(input_text)
+        result = normalizar_para_busca(input_text)
         assert isinstance(result, str)
         assert result == result.strip() or input_text.strip() == ''
 
@@ -105,16 +101,16 @@ class TestConstantes:
     """Testes para verificar constantes definidas."""
 
     def test_palavras_remocao_contem_esperadas(self):
-        """PALAVRAS_REMOCAO deve conter palavras esperadas."""
+        """get_extrator_config().palavras_remocao deve conter palavras esperadas."""
         esperado = {'sem', 'tira', 'remove', 'retira', 'nao coloca'}
-        assert esperado == PALAVRAS_REMOCAO
+        assert esperado == get_extrator_config().palavras_remocao
 
     def test_conectivos_contem_e_ou(self):
-        """CONECTIVOS deve conter 'e' e 'ou'."""
-        assert {'e', 'ou'} == CONECTIVOS
+        """get_extrator_config().conectivos deve conter 'e' e 'ou'."""
+        assert {'e', 'ou'} == get_extrator_config().conectivos
 
     def test_numeros_escritos_corretos(self):
-        """NUMEROS_ESCRITOS deve mapear corretamente."""
+        """get_extrator_config().numeros_escritos deve mapear corretamente."""
         esperado = {
             'um': 1,
             'uma': 1,
@@ -129,7 +125,7 @@ class TestConstantes:
             'nove': 9,
             'dez': 10,
         }
-        assert esperado == NUMEROS_ESCRITOS
+        assert esperado == get_extrator_config().numeros_escritos
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -142,23 +138,23 @@ class TestGerarPatterns:
 
     def test_retorna_lista(self, cardapio):
         """Deve retornar uma lista."""
-        result = gerar_patterns(cardapio)
+        result = gerar_patterns(cardapio, normalizar_para_busca)
         assert isinstance(result, list)
 
     def test_nao_retorna_vazio(self, cardapio):
         """Deve gerar patterns para o cardápio."""
-        result = gerar_patterns(cardapio)
+        result = gerar_patterns(cardapio, normalizar_para_busca)
         assert len(result) > 0
 
     def test_todos_tem_label(self, cardapio):
         """Todos os patterns devem ter label."""
-        result = gerar_patterns(cardapio)
+        result = gerar_patterns(cardapio, normalizar_para_busca)
         for pattern in result:
             assert 'label' in pattern
 
     def test_items_e_variantes_tem_id(self, cardapio):
         """Patterns de ITEM e VARIANTE devem ter id, QTD nao tem."""
-        result = gerar_patterns(cardapio)
+        result = gerar_patterns(cardapio, normalizar_para_busca)
 
         # ITEM e VARIANTE devem ter id
         for pattern in result:
@@ -171,41 +167,43 @@ class TestGerarPatterns:
 
     def test_labels_sao_validos(self, cardapio):
         """Labels devem ser ITEM, VARIANTE ou QTD."""
-        result = gerar_patterns(cardapio)
+        result = gerar_patterns(cardapio, normalizar_para_busca)
         labels_validos = {'ITEM', 'VARIANTE', 'QTD'}
         for pattern in result:
             assert pattern['label'] in labels_validos
 
     def test_tem_patterns_para_itens(self, cardapio):
         """Deve gerar patterns para itens do cardápio."""
-        result = gerar_patterns(cardapio)
+        result = gerar_patterns(cardapio, normalizar_para_busca)
         labels = [p['label'] for p in result]
         assert 'ITEM' in labels
 
     def test_tem_patterns_para_variantes(self, cardapio):
         """Deve gerar patterns para variantes."""
-        result = gerar_patterns(cardapio)
+        result = gerar_patterns(cardapio, normalizar_para_busca)
         labels = [p['label'] for p in result]
         assert 'VARIANTE' in labels
 
     def test_tem_patterns_para_numeros(self, cardapio):
         """Deve gerar patterns para números escritos."""
-        result = gerar_patterns(cardapio)
+        result = gerar_patterns(cardapio, normalizar_para_busca)
         labels = [p['label'] for p in result]
         assert 'QTD' in labels
 
     def test_quantidade_numeros_escritos(self, cardapio):
         """Deve ter patterns para cada número escrito."""
-        result = gerar_patterns(cardapio)
+        result = gerar_patterns(cardapio, normalizar_para_busca)
         qtd_patterns = [p for p in result if p['label'] == 'QTD']
-        assert len(qtd_patterns) == len(NUMEROS_ESCRITOS)
+        assert len(qtd_patterns) == len(get_extrator_config().numeros_escritos)
 
-    @patch('src.extratores.spacy_extrator.normalizar')
-    def test_chama_normalizar_para_cada_item(self, mock_normalizar, cardapio):
+    def test_chama_normalizar_para_cada_item(self, cardapio):
         """Deve chamar normalizar para cada item."""
-        mock_normalizar.side_effect = lambda x: x.lower()
-        gerar_patterns(cardapio)
-        assert mock_normalizar.call_count > 0
+        chamadas = []
+        def mock_normalizar(texto):
+            chamadas.append(texto)
+            return texto.lower()
+        gerar_patterns(cardapio, mock_normalizar)
+        assert len(chamadas) > 0
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -239,10 +237,10 @@ class TestCapturarRemocoes:
             self._criar_mock_token('x-bacon', 'NOUN'),
         ]
         doc = self._criar_mock_doc(tokens)
-        result = capturar_remocoes(doc)
+        result = capturar_remocoes(doc, get_extrator_config())
         assert result == []
 
-    @pytest.mark.parametrize('palavra', list(PALAVRAS_REMOCAO))
+    @pytest.mark.parametrize('palavra', list(get_extrator_config().palavras_remocao))
     def test_detecta_palavras_de_remocao(self, palavra):
         """Deve detectar palavras de remoção."""
         tokens = [
@@ -250,7 +248,7 @@ class TestCapturarRemocoes:
             self._criar_mock_token('cebola', 'NOUN'),
         ]
         doc = self._criar_mock_doc(tokens)
-        result = capturar_remocoes(doc)
+        result = capturar_remocoes(doc, get_extrator_config())
         assert len(result) > 0
 
     def test_captura_item_apos_sem(self):
@@ -260,7 +258,7 @@ class TestCapturarRemocoes:
             self._criar_mock_token('cebola', 'NOUN', 1),
         ]
         doc = self._criar_mock_doc(tokens)
-        result = capturar_remocoes(doc)
+        result = capturar_remocoes(doc, get_extrator_config())
         assert len(result) == 1
         assert result[0][0] == 'cebola'
 
@@ -272,7 +270,7 @@ class TestCapturarRemocoes:
             self._criar_mock_token('cebola', 'NOUN', 2),
         ]
         doc = self._criar_mock_doc(tokens)
-        result = capturar_remocoes(doc)
+        result = capturar_remocoes(doc, get_extrator_config())
         # Deve capturar 'cebola', não 'a'
         assert any(r[0] == 'cebola' for r in result)
 
@@ -285,7 +283,7 @@ class TestCapturarRemocoes:
             self._criar_mock_token('tomate', 'NOUN', 3),
         ]
         doc = self._criar_mock_doc(tokens)
-        result = capturar_remocoes(doc)
+        result = capturar_remocoes(doc, get_extrator_config())
         assert len(result) == 2
         assert result[0][0] == 'cebola'
         assert result[1][0] == 'tomate'
@@ -300,7 +298,7 @@ class TestCapturarRemocoes:
             self._criar_mock_token('tomate', 'NOUN', 4),
         ]
         doc = self._criar_mock_doc(tokens)
-        result = capturar_remocoes(doc)
+        result = capturar_remocoes(doc, get_extrator_config())
         # Deve capturar só cebola, parar no 'e sem'
         assert len(result) >= 1
 
@@ -424,7 +422,7 @@ class TestIntegridade:
 
         cardapio = get_cardapio()
         for item in cardapio['itens']:
-            nome_normalizado = normalizar(item['nome'])
+            nome_normalizado = normalizar_para_busca(item['nome'])
             assert nome_normalizado
 
     def test_aliases_tambem_normalizados(self):
@@ -435,7 +433,7 @@ class TestIntegridade:
         for item in cardapio['itens']:
             if item.get('aliases'):
                 for alias in item['aliases']:
-                    normalizado = normalizar(alias)
+                    normalizado = normalizar_para_busca(alias)
                     assert normalizado
 
 
@@ -449,11 +447,11 @@ class TestEdgeCases:
 
     def test_normalizar_string_vazia(self):
         """String vazia deve retornar vazio."""
-        assert normalizar('') == ''
+        assert normalizar_para_busca('') == ''
 
     def test_normalizar_somente_espacos(self):
         """Somente espaços deve retornar vazio após strip."""
-        result = normalizar('   ')
+        result = normalizar_para_busca('   ')
         assert result == ''
 
     def test_extrair_mensagem_muito_longa(self):
@@ -478,7 +476,7 @@ class TestEdgeCases:
         doc = MagicMock()
         doc.__iter__ = lambda self: iter([])
         doc.__len__ = lambda self: 0
-        result = capturar_remocoes(doc)
+        result = capturar_remocoes(doc, get_extrator_config())
         assert result == []
 
 
@@ -495,7 +493,7 @@ class TestConsistencia:
         from src.config import get_cardapio
 
         cardapio = get_cardapio()
-        patterns = gerar_patterns(cardapio)
+        patterns = gerar_patterns(cardapio, normalizar_para_busca)
 
         # Verificar que existem patterns para os itens do cardapio
         item_ids = {item['id'] for item in cardapio['itens']}
@@ -524,21 +522,21 @@ class TestExtrairVariante:
 
     def test_variante_valida_retorna_texto(self):
         """Variante válida para o item deve retornar o texto."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('duplo', 'lanche_001')
         assert result == 'duplo'
 
     def test_variante_valida_com_frase_completa(self):
         """Variante válida em frase deve ser extraída."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('eu quero o duplo', 'lanche_001')
         assert result == 'duplo'
 
     def test_variante_de_outro_item_retorna_none(self):
         """Variante que pertence a outro item deve retornar None."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         # 'lata' é variante de bebida_001, não de lanche_001
         result = extrair_variante('lata', 'lanche_001')
@@ -546,77 +544,77 @@ class TestExtrairVariante:
 
     def test_variante_inexistente_retorna_none(self):
         """Variante que não existe deve retornar None."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('quadruplo', 'lanche_001')
         assert result is None
 
     def test_mensagem_irrelevante_retorna_none(self):
         """Mensagem sem variante deve retornar None."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('quero pizza', 'lanche_001')
         assert result is None
 
     def test_mensagem_vazia_retorna_none(self):
         """Mensagem vazia deve retornar None."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('', 'lanche_001')
         assert result is None
 
     def test_mensagem_somente_espacos_retorna_none(self):
         """Mensagem com apenas espaços deve retornar None."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('   ', 'lanche_001')
         assert result is None
 
     def test_variante_simples_valida(self):
         """Variante 'simples' deve ser reconhecida para lanche_001."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('simples', 'lanche_001')
         assert result == 'simples'
 
     def test_variante_triplo_valida(self):
         """Variante 'triplo' deve ser reconhecida para lanche_001."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('triplo', 'lanche_001')
         assert result == 'triplo'
 
     def test_variante_pequena_valida(self):
         """Variante 'pequena' deve ser reconhecida para acomp_001."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('pequena', 'acomp_001')
         assert result == 'pequena'
 
     def test_variante_grande_valida(self):
         """Variante 'grande' deve ser reconhecida para acomp_001."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('grande', 'acomp_001')
         assert result == 'grande'
 
     def test_variante_lata_valida_para_bebida(self):
         """Variante 'lata' deve ser reconhecida para bebida_001."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('lata', 'bebida_001')
         assert result == 'lata'
 
     def test_variante_litro_valida_para_bebida(self):
         """Variante '1 litro' deve ser reconhecida para bebida_001."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('1 litro', 'bebida_001')
         assert result == '1 litro'
 
     def test_item_sem_variantes_retorna_none(self):
         """Item sem variantes deve sempre retornar None."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         # lanche_002 (X-Salada) não tem variantes
         result = extrair_variante('simples', 'lanche_002')
@@ -624,7 +622,7 @@ class TestExtrairVariante:
 
     def test_item_inexistente_retorna_none(self):
         """Item inexistente deve retornar None."""
-        from src.extratores.spacy_extrator import extrair_variante
+        from src.extratores import extrair_variante
 
         result = extrair_variante('duplo', 'item_inexistente')
         assert result is None
