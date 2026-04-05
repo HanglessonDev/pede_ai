@@ -1,6 +1,5 @@
 """Testes para a estrategia de votacao consolidada."""
 
-
 from src.roteador.modelos import ExemploSimilar
 from src.roteador.voting import votar_com_prioridade
 

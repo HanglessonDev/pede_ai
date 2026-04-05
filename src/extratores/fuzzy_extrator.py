@@ -189,4 +189,4 @@ __all__ = [
 ]
 
 # Compatibilidade com codigo legado que importa normalizar() deste modulo
-from src.extratores.normalizador import normalizar_para_fuzzy as normalizar  # noqa: E402
+from src.extratores.normalizador import normalizar_para_fuzzy as normalizar
