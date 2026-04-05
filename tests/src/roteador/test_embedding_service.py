@@ -263,7 +263,8 @@ class TestAtualizarCache:
         with open(cache_path, encoding='utf-8') as f:
             cache_lido = json.load(f)
 
-        assert len(cache_lido) == 3
+        assert cache_lido.get('format') == 2
+        assert len(cache_lido['embeddings']) == 3
 
 
 # ══════════════════════════════════════════════════════════════════════════════

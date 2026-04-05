@@ -15,6 +15,7 @@ Example:
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,24 @@ import numpy as np
 
 from src.roteador.modelos import ExemploClassificacao, ExemploSimilar
 from src.roteador.protocolos import EmbeddingProvider
+
+
+def _hash_texto(texto: str) -> str:
+    """Calcula hash SHA256 de texto normalizado (strip + lowercase).
+
+    Args:
+        texto: Texto original para hash.
+
+    Returns:
+        Hex digest SHA256 do texto normalizado.
+
+    Example:
+        ```python
+        >>> _hash_texto('  Quero Um Lanche  ')
+        'abc123...'  # mesmo hash para 'quero um lanche'
+        ```
+    """
+    return hashlib.sha256(texto.strip().lower().encode()).hexdigest()
 
 
 class EmbeddingService:
@@ -49,13 +68,25 @@ class EmbeddingService:
         self._exemplos_path = exemplos_path
         self._cache_path = cache_path
         self._exemplos: list[ExemploClassificacao] = []
+        self._embeddings_dict: dict[str, list[float]] = {}
         self._embeddings: list[list[float]] = []
         self._carregar()
 
     def _carregar(self) -> None:
-        """Carrega exemplos e embeddings do disco."""
+        """Carrega exemplos e embeddings do disco.
+
+        Monta ``_embeddings`` como lista alinhada aos exemplos via hash.
+        Quando nao ha exemplos mas o cache e legado (lista pura), usa a lista
+        diretamente como fallback.
+        """
         self._exemplos = self._carregar_exemplos()
-        self._embeddings = self._carregar_cache()
+        self._embeddings_dict, raw_fallback = self._carregar_cache()
+
+        if raw_fallback and not self._exemplos:
+            # Cache legado sem exemplos: usa lista diretamente
+            self._embeddings = raw_fallback
+        else:
+            self._embeddings = self._montar_lista_alinhada()
 
     def _carregar_exemplos(self) -> list[ExemploClassificacao]:
         """Le exemplos do JSON.
@@ -74,19 +105,70 @@ class EmbeddingService:
             for d in dados
         ]
 
-    def _carregar_cache(self) -> list[list[float]]:
+    def _carregar_cache(self) -> tuple[dict[str, list[float]], list[list[float]] | None]:
         """Le embeddings do cache JSON.
 
+        Suporta dois formatos:
+        - Formato 1 (antigo): lista posicional ``[[emb1], [emb2], ...]``
+          ou dict ``{"format": 1, "embeddings": [...]}``. Migrado para formato 2.
+        - Formato 2 (novo): ``{"format": 2, "embeddings": {"hash1": [emb], ...}}``.
+
         Returns:
-            Lista de embeddings (listas de floats).
+            Tupla (dict_hash_embedding, raw_fallback).
+            ``raw_fallback`` e a lista crua quando o cache e legado e nao ha
+            exemplos para associar hashes.
         """
         if not self._cache_path.exists():
-            return []
+            return {}, None
 
         with open(self._cache_path, encoding='utf-8') as f:
-            dados: list[list[float]] = json.load(f)
+            dados: Any = json.load(f)
 
-        return dados
+        # Formato 2: dict com hashes
+        if isinstance(dados, dict) and dados.get('format') == 2:
+            return dict(dados['embeddings']), None
+
+        # Formato 1: migrar
+        if isinstance(dados, dict) and dados.get('format') == 1:
+            embeddings_lista: list[list[float]] = dados['embeddings']
+        elif isinstance(dados, list):
+            embeddings_lista = dados
+        else:
+            return {}, None
+
+        # Se nao ha exemplos, retorna lista crua como fallback
+        if not self._exemplos:
+            return {}, embeddings_lista
+
+        # Migrar: associar posicoes aos hashes dos exemplos
+        embeddings_dict: dict[str, list[float]] = {}
+        for i, emb in enumerate(embeddings_lista):
+            if i < len(self._exemplos):
+                h = _hash_texto(self._exemplos[i].texto)
+                embeddings_dict[h] = emb
+
+        # Salvar no formato novo
+        self._cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self._cache_path, 'w', encoding='utf-8') as f:
+            json.dump({'format': 2, 'embeddings': embeddings_dict}, f)
+
+        return embeddings_dict, None
+
+    def _montar_lista_alinhada(self) -> list[list[float]]:
+        """Monta lista de embeddings alinhada aos exemplos via hash.
+
+        Para cada exemplo, busca o embedding no dict pelo hash.
+        Exemplos sem embedding no cache sao pulados.
+
+        Returns:
+            Lista contigua de embeddings para uso com numpy.
+        """
+        resultado: list[list[float]] = []
+        for exemplo in self._exemplos:
+            h = _hash_texto(exemplo.texto)
+            if h in self._embeddings_dict:
+                resultado.append(self._embeddings_dict[h])
+        return resultado
 
     def buscar_similares(
         self,
@@ -141,25 +223,35 @@ class EmbeddingService:
     def atualizar_cache(self) -> None:
         """Regenera embeddings faltando e salva cache.
 
-        Gera embeddings para exemplos que ainda nao tem no cache
-        e salva o arquivo atualizado.
+        Gera embeddings apenas para exemplos cujos hashes nao estao no cache,
+        e salva no formato 2: ``{"format": 2, "embeddings": {hash: emb, ...}}``.
         """
-        existentes = len(self._embeddings)
-        total = len(self._exemplos)
+        # Descobrir quais exemplos nao tem embedding
+        faltantes: list[ExemploClassificacao] = []
+        for ex in self._exemplos:
+            h = _hash_texto(ex.texto)
+            if h not in self._embeddings_dict:
+                faltantes.append(ex)
 
-        if existentes >= total:
+        if not faltantes:
             return
 
-        # Gera embeddings faltando
-        textos_faltando = [ex.texto for ex in self._exemplos[existentes:]]
-        novos = self._provider.embed_batch(textos_faltando)
+        # Gera embeddings faltantes
+        textos_faltantes = [ex.texto for ex in faltantes]
+        novos = self._provider.embed_batch(textos_faltantes)
 
-        self._embeddings.extend(novos)
+        # Adiciona ao dict
+        for ex, emb in zip(faltantes, novos, strict=True):
+            h = _hash_texto(ex.texto)
+            self._embeddings_dict[h] = emb
 
-        # Salva cache
+        # Re-monta lista alinhada
+        self._embeddings = self._montar_lista_alinhada()
+
+        # Salva cache no formato 2
         self._cache_path.parent.mkdir(parents=True, exist_ok=True)
         with open(self._cache_path, 'w', encoding='utf-8') as f:
-            json.dump(self._embeddings, f)
+            json.dump({'format': 2, 'embeddings': self._embeddings_dict}, f)
 
     @property
     def exemplos(self) -> list[ExemploClassificacao]:
