@@ -88,23 +88,50 @@ class ClassificadorIntencoes:
             ```
         """
         mensagem_norm = self._normalizar(mensagem)
+        meta: dict = {}
 
         # Mensagem vazia ou so espacos: LLM fallback
         if not mensagem_norm or not mensagem_norm.strip():
-            return self._llm.classificar(mensagem)
+            resultado = self._llm.classificar(mensagem)
+            meta['llm_raw'] = resultado.metadados.get('llm_raw', '')
+            meta['llm_intent'] = resultado.metadados.get('llm_intent', '')
+            return ResultadoClassificacao(**{
+                'intent': resultado.intent,
+                'confidence': resultado.confidence,
+                'caminho': resultado.caminho,
+                'top1_texto': resultado.top1_texto,
+                'top1_intencao': resultado.top1_intencao,
+                'mensagem_norm': resultado.mensagem_norm,
+                'metadados': meta,
+            })
 
         # 1. Lookup direto
         resultado = self._lookup.classificar(mensagem_norm)
         if resultado is not None:
             return resultado
 
+        meta['lookup'] = None
+
         # 2. RAG
         resultado = self._rag.classificar(mensagem_norm)
         if resultado is not None:
             return resultado
 
+        meta['rag'] = None
+
         # 3. LLM fallback
-        return self._llm.classificar(mensagem_norm)
+        resultado = self._llm.classificar(mensagem_norm)
+        meta['llm_raw'] = resultado.metadados.get('llm_raw', '')
+        meta['llm_intent'] = resultado.metadados.get('llm_intent', '')
+        return ResultadoClassificacao(**{
+            'intent': resultado.intent,
+            'confidence': resultado.confidence,
+            'caminho': resultado.caminho,
+            'top1_texto': resultado.top1_texto,
+            'top1_intencao': resultado.top1_intencao,
+            'mensagem_norm': resultado.mensagem_norm,
+            'metadados': meta,
+        })
 
     def classificar_simples(self, mensagem: str) -> str:
         """API compativel — retorna so a intent.

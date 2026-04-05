@@ -108,6 +108,11 @@ class ClassificadorRAG(ClassificadorBase):
             top1_texto=top1_texto,
             top1_intencao=top1_intencao,
             mensagem_norm=mensagem,
+            metadados={
+                'rag_top1': top1_texto,
+                'rag_sim': round(confidence, 4),
+                'rag_intent': top1_intencao,
+            },
         )
 
     def _validar_com_llm(self, mensagem: str, similares: list) -> str:

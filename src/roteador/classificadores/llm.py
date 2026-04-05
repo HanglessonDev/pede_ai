@@ -73,6 +73,10 @@ class ClassificadorLLM(ClassificadorBase):
             top1_texto='',
             top1_intencao='',
             mensagem_norm=mensagem,
+            metadados={
+                'llm_raw': resposta.strip(),
+                'llm_intent': intencao,
+            },
         )
 
     def _extrair_intencao(self, resposta: str) -> str:

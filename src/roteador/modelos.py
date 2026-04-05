@@ -21,7 +21,7 @@ Example:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 
@@ -36,6 +36,7 @@ class ResultadoClassificacao:
         top1_texto: Texto do exemplo mais similar.
         top1_intencao: Intencao do exemplo mais similar.
         mensagem_norm: Mensagem original normalizada.
+        metadados: Rastro de cada camada para debug (opcional).
     """
 
     intent: str
@@ -44,6 +45,7 @@ class ResultadoClassificacao:
     top1_texto: str
     top1_intencao: str
     mensagem_norm: str
+    metadados: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

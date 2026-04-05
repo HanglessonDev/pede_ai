@@ -46,6 +46,9 @@ _INTENT_TO_NODE: dict[str, str] = {
     'remover': 'handler_remover',
     'trocar': 'handler_trocar',
     'desconhecido': 'handler_desconhecido',
+    # Intents classificadas mas sem handler dedicado ainda
+    'negar': 'handler_desconhecido',
+    'duvida': 'handler_desconhecido',
 }
 
 # Todos os nodes handlers (para edges para END)
@@ -113,10 +116,12 @@ def criar_graph(
     )
 
     # 3. edge condicional por intent (derivado do mapping centralizado)
+    # _decidir_por_intent retorna o nome do handler, que deve estar como chave
+    handler_destinos = {v: v for v in _INTENT_TO_NODE.values()}
     builder.add_conditional_edges(
         'router',
         _decidir_por_intent,
-        _INTENT_TO_NODE,  # type: ignore[arg-type]
+        handler_destinos,  # type: ignore[arg-type]
     )
 
     # 4. edges simples

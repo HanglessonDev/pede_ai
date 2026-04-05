@@ -4,6 +4,7 @@ import os
 import sqlite3
 from pathlib import Path
 
+from dotenv import load_dotenv
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from src.config import get_intencoes_validas, get_prompt, get_roteador_config
@@ -24,6 +25,9 @@ from src.observabilidade.registry import (
 from src.roteador.embedding_service import EmbeddingService
 from src.roteador.service import ClassificadorIntencoes
 
+
+# Carrega variaveis do .env
+load_dotenv()
 
 # Configura loggers de observabilidade
 LOG_DIR = Path('logs')

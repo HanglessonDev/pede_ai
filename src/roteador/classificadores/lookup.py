@@ -24,10 +24,12 @@ TOKENS_UNICOS: dict[str, str] = {
     'sim': 'confirmar',
     'não': 'negar',
     'nao': 'negar',
+    # saudações
     'olá': 'saudacao',
     'ola': 'saudacao',
     'oi': 'saudacao',
     'opa': 'saudacao',
+    'bom dia': 'saudacao',
     'cancela': 'cancelar',
     'esquece': 'cancelar',
     'tira': 'remover',
@@ -83,4 +85,5 @@ class ClassificadorLookup(ClassificadorBase):
             top1_texto=texto,
             top1_intencao=intencao,
             mensagem_norm=texto,
+            metadados={'lookup': intencao},
         )

@@ -24,6 +24,12 @@ HEADERS = [
     'caminho',
     'top1_texto',
     'top1_intencao',
+    'lookup',
+    'rag_top1',
+    'rag_sim',
+    'rag_intent',
+    'llm_raw',
+    'llm_intent',
 ]
 """Cabecalhos do CSV de eventos de classificacao."""
 
@@ -52,6 +58,12 @@ class ObservabilidadeLogger(BaseCsvLogger):
             caminho,
             kwargs.get('top1_texto', ''),
             kwargs.get('top1_intencao', ''),
+            kwargs.get('lookup', ''),
+            kwargs.get('rag_top1', ''),
+            kwargs.get('rag_sim', ''),
+            kwargs.get('rag_intent', ''),
+            kwargs.get('llm_raw', ''),
+            kwargs.get('llm_intent', ''),
         ]
 
     def registrar(
@@ -64,8 +76,22 @@ class ObservabilidadeLogger(BaseCsvLogger):
         caminho: str,
         top1_texto: str,
         top1_intencao: str,
+        lookup: str = '',
+        rag_top1: str = '',
+        rag_sim: str = '',
+        rag_intent: str = '',
+        llm_raw: str = '',
+        llm_intent: str = '',
     ) -> None:
         """Registra um evento de classificacao no CSV.
+
+        Args:
+            lookup: Intencao encontrada por lookup (ou vazio).
+            rag_top1: Texto do top1 do RAG (ou vazio).
+            rag_sim: Similaridade do top1 do RAG (ou vazio).
+            rag_intent: Intencao do top1 do RAG (ou vazio).
+            llm_raw: Resposta crua do LLM (ou vazio).
+            llm_intent: Intencao extraida do LLM (ou vazio).
 
         Raises:
             ValueError: Se ``caminho`` nao estiver em ``CAMINHOS_VALIDOS``.
@@ -79,4 +105,10 @@ class ObservabilidadeLogger(BaseCsvLogger):
             caminho=caminho,
             top1_texto=top1_texto,
             top1_intencao=top1_intencao,
+            lookup=lookup,
+            rag_top1=rag_top1,
+            rag_sim=rag_sim,
+            rag_intent=rag_intent,
+            llm_raw=llm_raw,
+            llm_intent=llm_intent,
         )

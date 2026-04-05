@@ -128,6 +128,7 @@ def _criar_node_router(classificador):
         etapa_anterior = state.get('etapa', 'inicio')
 
         resultado = classificador.classificar(mensagem)
+        meta = resultado.metadados
 
         # Registra evento de observabilidade
         obs_logger = get_obs_logger()
@@ -140,6 +141,12 @@ def _criar_node_router(classificador):
             caminho=resultado.caminho,
             top1_texto=resultado.top1_texto,
             top1_intencao=resultado.top1_intencao,
+            lookup=meta.get('lookup', '') or '',
+            rag_top1=meta.get('rag_top1', '') or '',
+            rag_sim=str(meta.get('rag_sim', '')),
+            rag_intent=meta.get('rag_intent', '') or '',
+            llm_raw=meta.get('llm_raw', '') or '',
+            llm_intent=meta.get('llm_intent', '') or '',
         )
 
         # Log de funil
