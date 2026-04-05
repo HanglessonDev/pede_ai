@@ -36,7 +36,7 @@ class GroqProvider:
         """
         from groq import Groq  # noqa: PLC0415 — lazy loading
 
-        self._client = Groq(api_key=api_key or os.environ['GROQ_API_KEY'])
+        self._client = Groq(api_key=api_key or os.getenv('GROQ_API_KEY', ''))
         self._model = model
 
     def completar(self, prompt: str, max_tokens: int = 10) -> str:
