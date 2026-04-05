@@ -1,7 +1,7 @@
-"""Nós de processamento do grafo de atendimento.
+"""Nos de processamento do grafo de atendimento.
 
-Cada função representa um nó no grafo LangGraph, recebendo e
-retornando atualizações parciais do estado.
+Cada funcao representa um no no grafo LangGraph, recebendo e
+retornando atualizacoes parciais do estado.
 
 Example:
     ```python
@@ -26,13 +26,15 @@ import time
 
 from langgraph.config import get_config
 
-from src.config import get_tenant_nome
 from src.extratores import extrair
+from src.graph.handlers.cancelar_handler import processar_cancelamento
+from src.graph.handlers.carrinho_handler import processar_carrinho
 from src.graph.handlers.clarificacao import clarificar
-from src.graph.handlers.pedir import processar_pedido
-from src.graph.handlers.remover import processar_remocao
-from src.graph.handlers.trocar import processar_troca
-from src.graph.handlers.utils import calcular_total_carrinho, formatar_carrinho
+from src.graph.handlers.confirmar_handler import processar_confirmacao
+from src.graph.handlers.pedido_handler import processar_pedido
+from src.graph.handlers.remocao_handler import processar_remocao
+from src.graph.handlers.saudacao_handler import processar_saudacao
+from src.graph.handlers.troca_handler import processar_troca
 from src.graph.state import RetornoNode, State
 from src.observabilidade.registry import (
     get_extracao_logger,
@@ -41,34 +43,71 @@ from src.observabilidade.registry import (
     get_obs_logger,
 )
 
-# Classificador padrao — sobrescrito pelo builder via _criar_node_router.
-# Usado por testes que mockam _classificar_intencao diretamente.
-_classificador_padrao = None
+
+# ── Helpers ─────────────────────────────────────────────────────────────────
 
 
-def _classificar_intencao(mensagem: str, thread_id: str = '') -> dict:
-    """Wrapper compativel com a API antiga para testes.
+def _get_thread_id() -> str:
+    """Extrai thread_id do contexto LangGraph."""
+    return get_config().get('configurable', {}).get('thread_id', '')
 
-    Usa o classificador injetado se disponivel, senao retorna dict vazio.
+
+def _log_node_event(
+    handler_name: str,
+    mensagem: str,
+    intent: str,
+    input_dados: dict,
+    output_dados: dict,
+    tempo_ms: float,
+) -> None:
+    """Registra evento de observabilidade para um node.
+
+    Args:
+        handler_name: Nome do handler (ex: 'node_router').
+        mensagem: Mensagem original do usuario.
+        intent: Intencao classificada.
+        input_dados: Dados de entrada do handler.
+        output_dados: Dados de saida do handler.
+        tempo_ms: Tempo de execucao em milissegundos.
     """
-    if _classificador_padrao is not None:
-        resultado = _classificador_padrao.classificar(mensagem)
-        return {
-            'intent': resultado.intent,
-            'confidence': resultado.confidence,
-            'caminho': resultado.caminho,
-            'top1_texto': resultado.top1_texto,
-            'top1_intencao': resultado.top1_intencao,
-            'mensagem_norm': resultado.mensagem_norm,
-        }
-    return {
-        'intent': 'desconhecido',
-        'confidence': 0.0,
-        'caminho': 'llm_fixo',
-        'top1_texto': '',
-        'top1_intencao': '',
-        'mensagem_norm': mensagem,
-    }
+    thread_id = _get_thread_id()
+
+    obs_logger = get_obs_logger()
+    if obs_logger:
+        obs_logger.registrar(
+            thread_id=thread_id,
+            mensagem=mensagem,
+            mensagem_norm='',
+            intent=intent,
+            confidence=0.0,
+            caminho='',
+            top1_texto='',
+            top1_intencao='',
+        )
+
+    funil_logger = get_funil_logger()
+    if funil_logger:
+        funil_logger.registrar(
+            thread_id=thread_id,
+            etapa_anterior='',
+            etapa_atual=handler_name,
+            intent=intent,
+            carrinho_size=0,
+        )
+
+    handler_logger = get_handler_logger()
+    if handler_logger:
+        handler_logger.registrar(
+            thread_id=thread_id,
+            handler=handler_name,
+            intent=intent,
+            input_dados=input_dados,
+            output_dados=output_dados,
+            tempo_ms=tempo_ms,
+        )
+
+
+# ── Router ──────────────────────────────────────────────────────────────────
 
 
 def _criar_node_router(classificador):
@@ -80,39 +119,11 @@ def _criar_node_router(classificador):
     Returns:
         Funcao node_router com classificador injetado.
     """
-    global _classificador_padrao  # noqa: PLW0603 — injecao via factory
-    _classificador_padrao = classificador
 
     def node_router(state: State) -> RetornoNode:
-        """Classifica a intenção da mensagem e atualiza o estado.
-
-        Nó de roteamento que envia a mensagem atual para o classificador
-        de intenções e armazena o resultado no estado.
-
-        Args:
-            state: Estado atual do grafo de atendimento.
-
-        Returns:
-            Dicionário com ``intent`` e ``confidence`` atualizados.
-
-        Example:
-            ```python
-            state = {
-                'mensagem_atual': 'oi',
-                'intent': '',
-                'itens_extraidos': [],
-                'carrinho': [],
-                'fila_clarificacao': [],
-                'etapa': 'inicio',
-                'resposta': '',
-            }
-            result = node_router(state)
-            'intent' in result
-            True
-            ```
-        """
+        """Classifica a intencao da mensagem e atualiza o estado."""
         mensagem = state.get('mensagem_atual', '')
-        thread_id = get_config().get('configurable', {}).get('thread_id', '')
+        thread_id = _get_thread_id()
         inicio = time.monotonic()
         etapa_anterior = state.get('etapa', 'inicio')
 
@@ -170,20 +181,45 @@ def _criar_node_router(classificador):
     return node_router
 
 
+# ── Compatibilidade com testes ──────────────────────────────────────────────
+
+# Variavel global que testes podem mockar para injetar classificador
+_classificador_padrao = None
+
+
+def _classificar_intencao(mensagem: str, thread_id: str = '') -> dict:
+    """Wrapper compativel com a API antiga para testes.
+
+    Usa o classificador injetado se disponivel, senao retorna dict vazio.
+    """
+    if _classificador_padrao is not None:
+        resultado = _classificador_padrao.classificar(mensagem)
+        return {
+            'intent': resultado.intent,
+            'confidence': resultado.confidence,
+            'caminho': resultado.caminho,
+            'top1_texto': resultado.top1_texto,
+            'top1_intencao': resultado.top1_intencao,
+            'mensagem_norm': resultado.mensagem_norm,
+        }
+    return {
+        'intent': 'desconhecido',
+        'confidence': 0.0,
+        'caminho': 'llm_fixo',
+        'top1_texto': '',
+        'top1_intencao': '',
+        'mensagem_norm': mensagem,
+    }
+
+
 def node_router(state: State) -> RetornoNode:
-    """Classifica a intenção da mensagem e atualiza o estado.
+    """Classifica a intencao da mensagem e atualiza o estado.
 
     Versao standalone para testes — usa _classificar_intencao
-    que pode ser mockado ou usa o classificador injetado.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário com ``intent`` e ``confidence`` atualizados.
+    que pode ser mockado.
     """
     mensagem = state.get('mensagem_atual', '')
-    thread_id = get_config().get('configurable', {}).get('thread_id', '')
+    thread_id = _get_thread_id()
     inicio = time.monotonic()
     etapa_anterior = state.get('etapa', 'inicio')
 
@@ -230,37 +266,22 @@ def node_router(state: State) -> RetornoNode:
     }
 
 
+# ── Nodes ───────────────────────────────────────────────────────────────────
+
+
 def node_verificar_etapa(state: State) -> RetornoNode:
-    """Nó de verificação de etapa do fluxo.
+    """No de verificacao de etapa do fluxo.
 
-    Apenas passa adiante sem modificar o estado. A decisão
-    de qual caminho seguir é feita pela edge condicional
+    Apenas passa adiante sem modificar o estado. A decisao
+    de qual caminho seguir e feita pela edge condicional
     ``_decidir_entrada`` no builder.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário vazio - apenas passa adiante sem modificar o estado.
     """
-    return {}  # não faz nada, só passa adiante
+    return {}
 
 
 def node_clarificacao(state: State) -> RetornoNode:
-    """Processa resposta do usuário durante clarificação de variante.
-
-    Tenta extrair uma variante válida da mensagem. Se válida,
-    calcula o preço e adiciona ao carrinho. Se inválida, faz
-    re-prompt com limite de tentativas.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário com ``carrinho``, ``fila_clarificacao``,
-        ``resposta`` e ``etapa`` atualizados.
-    """
-    thread_id = get_config().get('configurable', {}).get('thread_id', '')
+    """Processa resposta do usuario durante clarificacao de variante."""
+    thread_id = _get_thread_id()
     resultado = clarificar(
         fila=state.get('fila_clarificacao', []),
         mensagem=state.get('mensagem_atual', ''),
@@ -277,18 +298,7 @@ def node_clarificacao(state: State) -> RetornoNode:
 
 
 def node_extrator(state: State) -> RetornoNode:
-    """Extrai itens do cardápio da mensagem do usuário.
-
-    Nó de extração que processa a mensagem com o extrator spaCy
-    apenas quando a intenção é ``pedir``.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário com a chave ``itens_extraidos`` atualizada.
-        Lista vazia se a intenção não for ``pedir``.
-    """
+    """Extrai itens do cardapio da mensagem do usuario."""
     if state.get('intent') == 'pedir':
         mensagem = state.get('mensagem_atual', '')
         inicio = time.monotonic()
@@ -298,7 +308,7 @@ def node_extrator(state: State) -> RetornoNode:
         ext_logger = get_extracao_logger()
         if ext_logger:
             ext_logger.registrar(
-                thread_id=get_config().get('configurable', {}).get('thread_id', ''),
+                thread_id=_get_thread_id(),
                 mensagem=mensagem,
                 itens_extraidos=itens,
                 tempo_ms=tempo_ms,
@@ -308,169 +318,45 @@ def node_extrator(state: State) -> RetornoNode:
 
 
 def node_handler_pedir(state: State) -> RetornoNode:
-    """Processa itens extraídos e os adiciona ao carrinho.
-
-    Para cada item extraído, verifica se possui preço fixo ou variantes.
-    Itens com variantes inválidas vão para a fila de clarificação.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário com ``carrinho``, ``fila_clarificacao`` e ``resposta``
-        atualizados.
-    """
-    thread_id = get_config().get('configurable', {}).get('thread_id', '')
+    """Processa itens extraidos e os adiciona ao carrinho."""
     itens_extraidos = state.get('itens_extraidos') or []
     carrinho = state.get('carrinho', [])
-    resultado = processar_pedido(itens_extraidos, carrinho, thread_id=thread_id)
+    resultado = processar_pedido(itens_extraidos, carrinho)
     return resultado.to_dict()
 
 
 def node_handler_saudacao(state: State) -> RetornoNode:
-    """Gera resposta de saudação com o nome do restaurante.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário com ``resposta`` e ``etapa`` atualizados.
-    """
-    nome_restaurante = get_tenant_nome()
-    resposta = f'Ola! Seja bem-vindo(a) a {nome_restaurante}!\nComo posso ajudar?'
-    return {'resposta': resposta, 'etapa': 'saudacao'}
+    """Gera resposta de saudacao com o nome do restaurante."""
+    return processar_saudacao()
 
 
 def node_handler_carrinho(state: State) -> RetornoNode:
-    """Gera resposta com o conteúdo atual do carrinho.
-
-    Lista todos os itens no carrinho com quantidades e preços,
-    além do total.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário com ``resposta`` e ``etapa`` atualizados.
-        Retorna mensagem de carrinho vazio se não houver itens.
-    """
+    """Gera resposta com o conteudo atual do carrinho."""
     carrinho = state.get('carrinho', [])
-    if not carrinho:
-        return {'resposta': 'Seu carrinho está vazio!', 'etapa': 'carrinho'}
-    resposta = 'Seu pedido:\n' + formatar_carrinho(carrinho)
-    total = calcular_total_carrinho(carrinho)
-    resposta += f'\nTotal: R$ {total / 100:.2f}'
-    return {'resposta': resposta, 'etapa': 'carrinho'}
+    return processar_carrinho(carrinho)
 
 
 def node_handler_confirmar(state: State) -> RetornoNode:
-    """Processa confirmação do pedido pelo usuário.
-
-    Calcula o total do carrinho, gera mensagem de confirmação
-    e limpa o carrinho após o pedido ser finalizado.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário com ``resposta``, ``etapa`` e ``carrinho`` atualizados.
-        Retorna mensagem de erro se o carrinho estiver vazio.
-
-    Example:
-        ```python
-        state = {
-            'mensagem_atual': 'confirmar',
-            'intent': 'confirmar',
-            'itens_extraidos': [],
-            'carrinho': [
-                {
-                    'item_id': 'lanche_001',
-                    'nome': 'Hambúrguer',
-                    'quantidade': 1,
-                    'preco': 1500,
-                    'variante': 'simples',
-                },
-            ],
-            'fila_clarificacao': [],
-            'etapa': 'inicio',
-            'resposta': '',
-        }
-        result = node_handler_confirmar(state)
-        result['etapa']
-        'finalizado'
-        ```
-    """
+    """Processa confirmacao do pedido pelo usuario."""
     carrinho = state.get('carrinho', [])
-    if not carrinho:
-        return {'resposta': 'Não há pedido para confirmar.'}
-    total = calcular_total_carrinho(carrinho)
-    return {
-        'resposta': f'Pedido confirmado! Total: R$ {total / 100:.2f}',
-        'etapa': 'finalizado',
-        'carrinho': [],
-    }
+    return processar_confirmacao(carrinho)
 
 
 def node_handler_cancelar(state: State) -> RetornoNode:
-    """Processa cancelamento do pedido.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário com ``resposta``, ``etapa`` e ``carrinho`` atualizados.
-        Retorna mensagem de carrinho vazio se não houver itens.
-    """
+    """Processa cancelamento do pedido."""
     carrinho = state.get('carrinho', [])
-    if not carrinho:
-        return {'resposta': 'Não há pedido para cancelar.', 'etapa': 'inicio'}
-
-    total = calcular_total_carrinho(carrinho)
-    return {
-        'resposta': f'Pedido cancelado. Total descartado: R$ {total / 100:.2f}',
-        'etapa': 'inicio',
-        'carrinho': [],
-        'fila_clarificacao': [],
-        'tentativas_clarificacao': 0,
-    }
+    return processar_cancelamento(carrinho)
 
 
 def node_handler_remover(state: State) -> RetornoNode:
-    """Processa remoção de itens do pedido.
-
-    Extrai os itens mencionados na mensagem e remove do carrinho.
-    Suporta remoção por nome do item e por variante específica.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário com ``resposta``, ``etapa`` e ``carrinho`` atualizados.
-        Retorna mensagem de erro se não encontrar itens para remover.
-    """
+    """Processa remocao de itens do pedido."""
     carrinho = state.get('carrinho', [])
     mensagem = state.get('mensagem_atual', '')
     return processar_remocao(carrinho, mensagem).to_dict()
 
 
 def node_handler_trocar(state: State) -> RetornoNode:
-    """Processa troca de variante de item no pedido.
-
-    Extrai informações da mensagem internamente (não usa ``itens_extraidos``
-    do State, pois ``node_extrator`` só roda para ``intent='pedir'``).
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Dicionário com ``carrinho``, ``resposta`` e ``etapa`` atualizados.
-
-    Note:
-        Fase 2: quando clarificador de trocas for implementado,
-        este node passará a setar ``etapa='clarificando_troca'`` em casos
-        de ambiguidade, em vez de apenas retornar resposta direta.
-        A interface de ``processar_troca`` não muda.
-    """
+    """Processa troca de variante de item no pedido."""
     carrinho = state.get('carrinho', [])
     mensagem = state.get('mensagem_atual', '')
     return processar_troca(carrinho, mensagem).to_dict()

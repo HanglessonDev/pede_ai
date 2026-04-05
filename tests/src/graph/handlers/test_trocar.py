@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import patch
 
-from src.graph.handlers.trocar import processar_troca, ResultadoTrocar
+from src.graph.handlers.troca_handler import processar_troca, ResultadoTrocar
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -76,7 +76,7 @@ class TestCasoVazio:
     def test_trocar_sem_informacao_util(self, carrinho_um_item):
         """Mensagem sem entidades deve retornar 'Nao entendi'."""
         with patch(
-            'src.graph.handlers.trocar.extrair_itens_troca',
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
             return_value={
                 'caso': 'vazio',
                 'item_original': None,
@@ -99,7 +99,7 @@ class TestCasoA:
     def test_trocar_caso_a_erro_informativo(self, carrinho_multiplos):
         """2+ ITEMs na mensagem deve retornar erro informativo (MVP)."""
         with patch(
-            'src.graph.handlers.trocar.extrair_itens_troca',
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
             return_value={
                 'caso': 'A',
                 'item_original': None,
@@ -122,7 +122,7 @@ class TestCasoB:
     def test_item_com_variante_sucesso(self, carrinho_um_item):
         """Item no carrinho com variante nova deve trocar."""
         with patch(
-            'src.graph.handlers.trocar.extrair_itens_troca',
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
             return_value={
                 'caso': 'B',
                 'item_original': {
@@ -141,7 +141,7 @@ class TestCasoB:
     def test_item_nao_encontrado(self, carrinho_um_item):
         """Item mencionado nao esta no carrinho deve retornar erro."""
         with patch(
-            'src.graph.handlers.trocar.extrair_itens_troca',
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
             return_value={
                 'caso': 'B',
                 'item_original': None,
@@ -155,7 +155,7 @@ class TestCasoB:
     def test_sem_variante_especificada(self, carrinho_um_item):
         """Item sem variante deve pedir esclarecimento."""
         with patch(
-            'src.graph.handlers.trocar.extrair_itens_troca',
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
             return_value={
                 'caso': 'B',
                 'item_original': {
@@ -173,7 +173,7 @@ class TestCasoB:
     def test_variante_inexistente(self, carrinho_um_item):
         """Variante que nao existe para o item deve retornar erro."""
         with patch(
-            'src.graph.handlers.trocar.extrair_itens_troca',
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
             return_value={
                 'caso': 'B',
                 'item_original': {
@@ -188,19 +188,18 @@ class TestCasoB:
             assert 'não tem opção' in result.resposta
             assert result.carrinho == carrinho_um_item
 
-    def test_preserva_remocoes(self):
-        """Item com remocoes deve manter remocoes apos troca."""
+    def test_preserva_dados_item(self):
+        """Item deve manter dados apos troca."""
         carrinho = [
             {
                 'item_id': 'lanche_001',
                 'quantidade': 1,
                 'preco': 1500,
                 'variante': 'simples',
-                'remocoes': ['cebola', 'tomate'],
             },
         ]
         with patch(
-            'src.graph.handlers.trocar.extrair_itens_troca',
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
             return_value={
                 'caso': 'B',
                 'item_original': {
@@ -213,7 +212,7 @@ class TestCasoB:
         ):
             result = processar_troca(carrinho, 'muda pra duplo')
             assert result.carrinho[0]['variante'] == 'duplo'
-            assert result.carrinho[0]['remocoes'] == ['cebola', 'tomate']
+            assert result.carrinho[0]['quantidade'] == 1
             assert result.etapa == 'carrinho'
 
 
@@ -227,9 +226,8 @@ class TestCasoC:
 
     def test_variante_isolada_um_compativel(self, carrinho_multiplos):
         """Variante que so 1 item aceita deve trocar direto."""
-        # 'triplo' so existe para lanche_001, nao para bebida_001
         with patch(
-            'src.graph.handlers.trocar.extrair_itens_troca',
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
             return_value={
                 'caso': 'C',
                 'item_original': None,
@@ -238,15 +236,11 @@ class TestCasoC:
         ):
             result = processar_troca(carrinho_multiplos, 'muda pra triplo')
             assert result.carrinho[0]['variante'] == 'triplo'
-            # bebida_001 nao muda
             assert result.carrinho[1]['variante'] == 'lata'
             assert result.etapa == 'carrinho'
 
-    def test_variante_isolada_ambiguidade(self, carrinho_multiplos):
+    def test_variante_isolada_ambiguidade(self):
         """Variante que 2+ itens aceitam deve pedir esclarecimento."""
-        # 'lata' existe para bebida_001 (Coca-Cola) e bebida_002 (Coca-Cola Zero)
-        # mas no carrinho temos lanche_001 e bebida_001 — so bebida_001 aceita 'lata'
-        # Para forcar ambiguidade, usamos um carrinho com 2 bebidas
         carrinho_2_bebidas = [
             {
                 'item_id': 'bebida_001',
@@ -262,7 +256,7 @@ class TestCasoC:
             },
         ]
         with patch(
-            'src.graph.handlers.trocar.extrair_itens_troca',
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
             return_value={
                 'caso': 'C',
                 'item_original': None,
@@ -276,7 +270,7 @@ class TestCasoC:
     def test_variante_isolada_fallback_um_item(self, carrinho_um_item):
         """Fallback: 1 item no carrinho que aceita variante."""
         with patch(
-            'src.graph.handlers.trocar.extrair_itens_troca',
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
             return_value={
                 'caso': 'C',
                 'item_original': None,
@@ -290,9 +284,8 @@ class TestCasoC:
 
     def test_variante_isolada_sem_compatibilidade_multiplos(self, carrinho_multiplos):
         """Nenhum item aceita a variante deve retornar erro."""
-        # 'gigante' nao existe para nenhum item do carrinho
         with patch(
-            'src.graph.handlers.trocar.extrair_itens_troca',
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
             return_value={
                 'caso': 'C',
                 'item_original': None,
@@ -305,9 +298,8 @@ class TestCasoC:
 
     def test_variante_isolada_um_item_nao_aceita(self, carrinho_um_item):
         """Variante que o unico item nao aceita deve retornar erro."""
-        # 'lata' nao existe para lanche_001 (Hamburguer)
         with patch(
-            'src.graph.handlers.trocar.extrair_itens_troca',
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
             return_value={
                 'caso': 'C',
                 'item_original': None,

@@ -35,48 +35,43 @@ from src.graph.nodes import (
 from src.graph.state import State
 from src.roteador.service import ClassificadorIntencoes
 
+# Mapping centralizado: intent → node name
+# Fonte unica de verdade para edges condicionais
+_INTENT_TO_NODE: dict[str, str] = {
+    'saudacao': 'handler_saudacao',
+    'pedir': 'extrator',
+    'carrinho': 'handler_carrinho',
+    'confirmar': 'handler_confirmar',
+    'cancelar': 'handler_cancelar',
+    'remover': 'handler_remover',
+    'trocar': 'handler_trocar',
+    'desconhecido': 'handler_desconhecido',
+}
+
+# Todos os nodes handlers (para edges para END)
+_HANDLER_NODES: list[str] = [
+    'handler_saudacao',
+    'handler_carrinho',
+    'handler_confirmar',
+    'handler_cancelar',
+    'handler_remover',
+    'handler_trocar',
+    'handler_desconhecido',
+    'handler_pedir',
+]
+
 
 def _decidir_entrada(state: State) -> str:
-    """Decide qual nó executar baseado na etapa atual.
-
-    Se a etapa atual for 'clarificando_variante', redireciona
-    para o nó de clarificação. Caso contrário, segue para o router.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Nome do próximo nó ('clarificacao' ou 'router').
-    """
+    """Decide qual no executar baseado na etapa atual."""
     if state.get('etapa') == 'clarificando_variante':
         return 'clarificacao'
     return 'router'
 
 
 def _decidir_por_intent(state: State) -> str:
-    """Decide qual handler executar baseado na intenção classificada.
-
-    Mapeia cada intenção válida ao nó handler correspondente.
-
-    Args:
-        state: Estado atual do grafo de atendimento.
-
-    Returns:
-        Nome do nó handler a ser executado.
-    """
+    """Decide qual handler executar baseado na intencao classificada."""
     intent = state.get('intent', '')
-
-    mapeamento = {
-        'saudacao': 'handler_saudacao',
-        'pedir': 'extrator',
-        'carrinho': 'handler_carrinho',
-        'confirmar': 'handler_confirmar',
-        'cancelar': 'handler_cancelar',
-        'remover': 'handler_remover',
-        'trocar': 'handler_trocar',
-        'desconhecido': 'handler_desconhecido',
-    }
-    return mapeamento.get(intent, 'handler_saudacao')
+    return _INTENT_TO_NODE.get(intent, 'handler_saudacao')
 
 
 def criar_graph(
@@ -86,22 +81,11 @@ def criar_graph(
     """Constroi e compila o grafo de atendimento.
 
     Args:
-        checkpointer: Checkpointer para persistência de estado (SqliteSaver).
+        checkpointer: Checkpointer para persistencia de estado (SqliteSaver).
         classificador: Instancia de ClassificadorIntencoes injetada.
 
     Returns:
         Grafo compilado pronto para uso com invoke().
-
-    Example:
-        ```python
-        from langgraph.checkpoint.sqlite import SqliteSaver
-        import sqlite3
-
-        conn = sqlite3.connect('./pede_ai.db')
-        graph = criar_graph(SqliteSaver(conn), classificador)
-        config = {'configurable': {'thread_id': 'usuario_001'}}
-        result = graph.invoke({'mensagem_atual': 'oi'}, config)
-        ```
     """
     node_router = _criar_node_router(classificador)
     builder = StateGraph(State)
@@ -128,33 +112,18 @@ def criar_graph(
         {'clarificacao': 'clarificacao', 'router': 'router'},
     )
 
-    # 3. edge condicional por intent (após router)
+    # 3. edge condicional por intent (derivado do mapping centralizado)
     builder.add_conditional_edges(
         'router',
         _decidir_por_intent,
-        {
-            'extrator': 'extrator',
-            'handler_saudacao': 'handler_saudacao',
-            'handler_carrinho': 'handler_carrinho',
-            'handler_confirmar': 'handler_confirmar',
-            'handler_cancelar': 'handler_cancelar',
-            'handler_remover': 'handler_remover',
-            'handler_trocar': 'handler_trocar',
-            'handler_desconhecido': 'handler_desconhecido',
-        },
+        _INTENT_TO_NODE,
     )
 
     # 4. edges simples
-    builder.add_edge('extrator', 'handler_pedir')  # extrator → handler
-    builder.add_edge('handler_pedir', END)
-    builder.add_edge('handler_saudacao', END)
-    builder.add_edge('handler_carrinho', END)
-    builder.add_edge('handler_cancelar', END)
-    builder.add_edge('handler_remover', END)
-    builder.add_edge('handler_trocar', END)
+    builder.add_edge('extrator', 'handler_pedir')
+    for node_name in _HANDLER_NODES:
+        builder.add_edge(node_name, END)
     builder.add_edge('clarificacao', END)
-    builder.add_edge('handler_confirmar', END)
-    builder.add_edge('handler_desconhecido', END)
 
     # 5. compila
     return builder.compile(checkpointer=checkpointer)  # pyright: ignore[reportReturnType]

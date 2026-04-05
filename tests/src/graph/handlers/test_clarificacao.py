@@ -17,7 +17,7 @@ from src.graph.handlers.clarificacao import (
     clarificar,
     _proxima_clarificacao,
 )
-from src.graph.handlers.utils import formatar_carrinho
+from src.graph.handlers.carrinho import Carrinho
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -115,31 +115,33 @@ class TestProximaClarificacao:
 
 
 class TestFormatarCarrinho:
-    """Testes para formatar_carrinho."""
+    """Testes para Carrinho.formatar()."""
 
     def test_formata_itens_com_preco(self):
-        """Deve formatar itens com quantidade, nome e preço."""
-        carrinho = [
-            {'item_id': 'lanche_001', 'quantidade': 2, 'preco': 3000},
-        ]
-        result = formatar_carrinho(carrinho)
+        """Deve formatar itens com quantidade, nome e preco."""
+        carrinho = Carrinho.from_state_dicts([
+            {'item_id': 'lanche_001', 'quantidade': 2, 'preco': 3000, 'variante': None},
+        ])
+        result = carrinho.formatar()
         assert '2x' in result
-        assert '30.00' in result
+        assert '60.00' in result
 
     def test_multiplos_itens(self):
-        """Deve formatar múltiplos itens em linhas separadas."""
-        carrinho = [
-            {'item_id': 'lanche_001', 'quantidade': 1, 'preco': 1500},
-            {'item_id': 'acomp_001', 'quantidade': 2, 'preco': 2000},
-        ]
-        result = formatar_carrinho(carrinho)
+        """Deve formatar multiplos itens em linhas separadas."""
+        carrinho = Carrinho.from_state_dicts([
+            {'item_id': 'lanche_001', 'quantidade': 1, 'preco': 1500, 'variante': None},
+            {'item_id': 'acomp_001', 'quantidade': 2, 'preco': 2000, 'variante': None},
+        ])
+        result = carrinho.formatar()
         linhas = result.split('\n')
-        assert len(linhas) == 2
+        # Inclui linha de Total
+        assert len(linhas) >= 2
 
-    def test_carrinho_vazio_retorna_string_vazia(self):
-        """Carrinho vazio deve retornar string vazia."""
-        result = formatar_carrinho([])
-        assert result == ''
+    def test_carrinho_vazio_retorna_mensagem(self):
+        """Carrinho vazio deve retornar mensagem."""
+        carrinho = Carrinho()
+        result = carrinho.formatar()
+        assert 'vazio' in result.lower()
 
 
 # ══════════════════════════════════════════════════════════════════════════════

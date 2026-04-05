@@ -1,57 +1,42 @@
 """Handlers de processamento do grafo de atendimento.
 
-Cada handler encapsula a lógica de um tipo específico de
+Cada handler encapsula a logica de um tipo especifico de
 processamento no fluxo de atendimento.
-
-Submódulos:
-    clarificacao: Lógica de clarificação de variantes e campos pendentes.
-    pedir: Processamento de pedidos e cálculo de preços.
 
 Example:
     ```python
-    from src.graph.handlers import ResultadoPedir, ResultadoClarificacao
+    from src.graph.handlers import (
+        processar_pedido,
+        processar_troca,
+        processar_remocao,
+        processar_saudacao,
+        processar_carrinho,
+        processar_confirmacao,
+        processar_cancelamento,
+    )
     ```
 """
 
-from dataclasses import dataclass
-
-from .clarificacao import ResultadoClarificacao
-from .pedir import ResultadoPedir
-
-
-@dataclass
-class ResultadoHandler:
-    """Resultado padronizado de um handler.
-
-    Attributes:
-        tipo: Tipo do resultado ('sucesso', 'invalida', 'erro').
-        resposta: Texto da resposta para o usuário.
-        etapa: Próxima etapa do fluxo.
-        carrinho: Carrinho atualizado.
-        fila: Fila de clarificação atualizada.
-        tentativas: Contador de tentativas atual.
-    """
-
-    tipo: str
-    resposta: str
-    etapa: str
-    carrinho: list
-    fila: list
-    tentativas: int
-
-    def to_dict(self) -> dict:
-        """Converte para dicionário compatível com LangGraph State."""
-        return {
-            'resposta': self.resposta,
-            'etapa': self.etapa,
-            'carrinho': self.carrinho,
-            'fila_clarificacao': self.fila,
-            'tentativas_clarificacao': self.tentativas,
-        }
-
+from src.graph.handlers.cancelar_handler import processar_cancelamento
+from src.graph.handlers.carrinho_handler import processar_carrinho
+from src.graph.handlers.clarificacao import ResultadoClarificacao, clarificar
+from src.graph.handlers.confirmar_handler import processar_confirmacao
+from src.graph.handlers.pedido_handler import ResultadoPedir, processar_pedido
+from src.graph.handlers.remocao_handler import ResultadoRemover, processar_remocao
+from src.graph.handlers.saudacao_handler import processar_saudacao
+from src.graph.handlers.troca_handler import ResultadoTrocar, processar_troca
 
 __all__ = [
     'ResultadoClarificacao',
-    'ResultadoHandler',
     'ResultadoPedir',
+    'ResultadoRemover',
+    'ResultadoTrocar',
+    'clarificar',
+    'processar_cancelamento',
+    'processar_carrinho',
+    'processar_confirmacao',
+    'processar_pedido',
+    'processar_remocao',
+    'processar_saudacao',
+    'processar_troca',
 ]
