@@ -86,6 +86,32 @@ class MatchCarrinho:
 
 
 @dataclass(frozen=True)
+class Segmento:
+    """Fatia do texto para processamento por camada.
+
+    Attributes:
+        texto: Texto completo da mensagem (referencia).
+        start: Indice de token inicial (nao caractere).
+        end: Indice de token final (exclusive).
+    """
+
+    texto: str
+    start: int  # indice de TOKEN
+    end: int    # indice de TOKEN (exclusive)
+
+    def slice_tokens(self, doc) -> str:
+        """Extrai texto do segmento usando indices de token.
+
+        Args:
+            doc: Documento spaCy processado.
+
+        Returns:
+            Texto fatiado do segmento.
+        """
+        return doc[self.start:self.end].text
+
+
+@dataclass(frozen=True)
 class ItemMencionado:
     """Item mencionado na mensagem (uso interno).
 
