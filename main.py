@@ -4,7 +4,6 @@ import os
 import sqlite3
 from pathlib import Path
 
-from dotenv import load_dotenv
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from src.config import get_intencoes_validas, get_prompt, get_roteador_config
@@ -25,7 +24,6 @@ from src.observabilidade.registry import (
 from src.roteador.embedding_service import EmbeddingService
 from src.roteador.service import ClassificadorIntencoes
 
-load_dotenv()
 
 # Configura loggers de observabilidade
 LOG_DIR = Path('logs')
@@ -39,7 +37,7 @@ set_funil_logger(FunilLogger(LOG_DIR / 'funil.csv'))
 def criar_classificador() -> ClassificadorIntencoes:
     """Factory para o classificador de intencoes."""
     config = get_roteador_config()
-    llm = GroqProvider(api_key=os.environ['GROQ_API_KEY'])
+    llm = GroqProvider(api_key=os.getenv('GROQ_API_KEY', ''))
     embeddings = SentenceTransformerEmbeddings()
     embedding_service = EmbeddingService(
         provider=embeddings,
