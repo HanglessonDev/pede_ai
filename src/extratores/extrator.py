@@ -24,6 +24,7 @@ from __future__ import annotations
 from dataclasses import asdict
 
 from src.extratores.config import ExtratorConfig
+from src.extratores.itens_ids import build_itens_ids
 from src.extratores.modelos import ItemExtraido
 from src.extratores.nlp_engine import NlpEngine
 from src.extratores.remocoes import capturar_remocoes
@@ -32,15 +33,22 @@ from src.extratores.remocoes import capturar_remocoes
 class Extrator:
     """Extrator de itens do cardapio via spaCy + fuzzy fallback."""
 
-    def __init__(self, engine: NlpEngine, config: ExtratorConfig) -> None:
+    def __init__(
+        self,
+        engine: NlpEngine,
+        config: ExtratorConfig,
+        cardapio: dict,
+    ) -> None:
         """Inicializa o extrator.
 
         Args:
             engine: NlpEngine com modelo spaCy lazy-loaded.
             config: Configuracao do extrator.
+            cardapio: Dados do cardapio (get_cardapio()).
         """
         self._engine = engine
         self._config = config
+        self._itens_ids = build_itens_ids(cardapio)
 
     def extrair(self, mensagem: str) -> list[ItemExtraido]:
         """Extrai itens do cardapio de uma mensagem.
@@ -209,7 +217,7 @@ def _get_extrator() -> Extrator:
         config = get_extrator_config()
         cardapio = get_cardapio()
         engine = NlpEngine(config, cardapio)
-        _extrator = Extrator(engine, config)
+        _extrator = Extrator(engine, config, cardapio)
     return _extrator
 
 
