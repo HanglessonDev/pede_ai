@@ -71,11 +71,12 @@ class BaseCsvLogger(ABC):
                     writer = csv.writer(f)
                     writer.writerow(self.headers)
 
-    def registrar(self, **kwargs) -> None:
+    def registrar(self, **kwargs: str | float | int | None) -> None:
         """Registra uma linha no CSV de forma thread-safe.
 
         Args:
-            **kwargs: Dados a registrar. Serão convertidos via _to_row().
+            **kwargs: Dados a registrar (str, float, int ou None).
+                Serão convertidos via _to_row().
         """
         row = self._to_row(**kwargs)
         with self._lock, open(self._csv_path, 'a', encoding='utf-8', newline='') as f:

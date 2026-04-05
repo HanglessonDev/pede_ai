@@ -50,6 +50,7 @@ nav:
       - handlers: api/handlers.md
     - Observabilidade: api/observabilidade.md
     - Roteador: api/roteador.md
+    - Infra: api/infra.md
     - Scripts: api/scripts.md
 
 markdown_extensions:
