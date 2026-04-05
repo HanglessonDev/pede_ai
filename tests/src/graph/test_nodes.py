@@ -509,7 +509,9 @@ class TestNodeHandlerTrocar:
         )
         state = {
             'mensagem_atual': 'muda pra duplo',
-            'carrinho': [{'item_id': 'lanche_001', 'variante': 'simples', 'preco': 1500}],
+            'carrinho': [
+                {'item_id': 'lanche_001', 'variante': 'simples', 'preco': 1500}
+            ],
         }
         result = node_handler_trocar(state)  # type: ignore[arg-type]
         assert mock_trocar.called
@@ -528,9 +530,7 @@ class TestLogNodeEvent:
     @patch('src.graph.nodes.get_funil_logger')
     @patch('src.graph.nodes.get_handler_logger')
     @patch('src.graph.nodes._get_thread_id')
-    def test_com_todos_loggers(
-        self, mock_thread, mock_handler, mock_funil, mock_obs
-    ):
+    def test_com_todos_loggers(self, mock_thread, mock_handler, mock_funil, mock_obs):
         """Deve registrar em todos os loggers quando disponiveis."""
         from src.graph.nodes import _log_node_event
 
@@ -589,7 +589,9 @@ class TestCriarNodeRouter:
     @patch('src.graph.nodes.get_funil_logger')
     @patch('src.graph.nodes.get_handler_logger')
     @patch('src.graph.nodes.get_config')
-    def test_factory_retorna_funcao(self, mock_config, mock_handler, mock_funil, mock_obs):
+    def test_factory_retorna_funcao(
+        self, mock_config, mock_handler, mock_funil, mock_obs
+    ):
         """Factory deve retornar funcao callavel."""
         from src.graph.nodes import _criar_node_router
         from src.roteador.modelos import ResultadoClassificacao
@@ -657,6 +659,7 @@ class TestClassificarIntencao:
     def test_sem_classificador_retorna_fallback(self):
         """Sem classificador injetado deve retornar dict vazio."""
         from src.graph import nodes
+
         nodes._classificador_padrao = None
 
         result = nodes._classificar_intencao('quero um hamburguer')
