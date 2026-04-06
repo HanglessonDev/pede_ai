@@ -24,11 +24,13 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import cast
 
+from src.extratores.complementos import detectar_complementos
 from src.extratores.config import ExtratorConfig
 from src.extratores.itens_ids import build_itens_ids
 from src.extratores.modelos import ItemExtraido
 from src.extratores.negacao import detectar_negacao
 from src.extratores.nlp_engine import NlpEngine
+from src.extratores.observacoes import detectar_observacoes
 from src.extratores.remocoes import capturar_remocoes_v2
 
 
@@ -51,6 +53,7 @@ class Extrator:
         self._engine = engine
         self._config = config
         self._itens_ids = build_itens_ids(cardapio)
+        self._cardapio = cardapio
 
     def extrair(self, mensagem: str) -> list[ItemExtraido]:
         """Extrai itens do cardapio de uma mensagem.
@@ -219,7 +222,41 @@ class Extrator:
             _consumir_remocoes_ate(len(doc))
             itens.append(item_atual)
 
+        # Camada 6 + 7: detectar complementos e observacoes por item
+        if itens:
+            itens = self._enriquecer_itens(itens, doc)
+
         return itens
+
+    def _enriquecer_itens(self, itens: list[ItemExtraido], doc) -> list[ItemExtraido]:
+        """Detecta complementos e observacoes para cada item extraido.
+
+        Args:
+            itens: Lista de itens extraidos pelo loop principal.
+            doc: Documento spaCy processado.
+
+        Returns:
+            Lista de itens com complementos e observacoes preenchidos.
+        """
+        itens_enriquecidos: list[ItemExtraido] = []
+        for item in itens:
+            complementos = detectar_complementos(
+                doc, item.item_id, self._cardapio, self._config
+            )
+            observacoes = detectar_observacoes(doc)
+            itens_enriquecidos.append(
+                ItemExtraido(
+                    item_id=item.item_id,
+                    quantidade=item.quantidade,
+                    variante=item.variante,
+                    remocoes=item.remocoes,
+                    complementos=complementos,
+                    observacoes=observacoes,
+                    confianca=item.confianca,
+                    fonte=item.fonte,
+                )
+            )
+        return itens_enriquecidos
 
     def extrair_variante(self, mensagem: str, item_id: str) -> str | None:
         """Extrai e valida uma variante de uma mensagem para um item especifico.

@@ -2,7 +2,7 @@
 
 Testam a API publica ``extrair()`` (de ``src.extratores.extrator``),
 exercitando o pipeline completo: EntityRuler -> desambiguacao NUM_PENDING
--> remocoes -> output.
+-> remocoes -> complementos -> observacoes -> output.
 
 Cada teste usa o extrator real (singleton) com o cardapio de teste.
 """
@@ -165,3 +165,40 @@ class TestIntegracaoAdicional:
         # Segundo: remocoes=[] (hamburguer nao deve estar nas remocoes)
         assert result[1]['item_id'] == 'lanche_001'
         assert result[1]['remocoes'] == []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Testes de integracao Fase 3 — Complementos + Observacoes
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestIntegracaoFase3:
+    """Testes de integracao para complementos e observacoes."""
+
+    def test_integracao_complemento_e_remocao(self):
+        """'hamburguer com bacon sem cebola' -> complementos=['bacon'], remocoes=['cebola']."""
+        result = extrair('hamburguer com bacon sem cebola')
+        assert len(result) == 1
+        item = result[0]
+        assert item['item_id'] == 'lanche_001'
+        assert 'bacon' in item['complementos']
+        assert 'cebola' in item['remocoes']
+
+    def test_integracao_observacao_nao_afeta_item_id(self):
+        """Observacao presente nao muda item_id nem variante.
+
+        'hamburguer caprichado' deve ter o mesmo item_id e variante=None
+        que 'hamburguer' puro, mas com observacoes preenchidas.
+        """
+        result_com_obs = extrair('hamburguer caprichado')
+        result_sem_obs = extrair('hamburguer')
+
+        assert len(result_com_obs) == 1
+        assert len(result_sem_obs) == 1
+
+        # item_id deve ser o mesmo
+        assert result_com_obs[0]['item_id'] == result_sem_obs[0]['item_id']
+        # variante deve ser o mesmo (None)
+        assert result_com_obs[0]['variante'] == result_sem_obs[0]['variante']
+        # mas observacoes deve estar preenchida no primeiro
+        assert len(result_com_obs[0]['observacoes']) > 0
