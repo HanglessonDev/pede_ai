@@ -68,3 +68,39 @@ class TestDetectarObservacoes:
         doc = _processar('coca com bastante gelo')
         result = detectar_observacoes(doc)
         assert result == []
+
+
+class TestDetectarModificadores:
+    """Testes para detectar_modificadores()."""
+
+    def test_modificador_bem_gelada(self):
+        """'bem gelada' deve ser detectado."""
+        doc = _processar('coca bem gelada')
+        from src.extratores.observacoes import detectar_modificadores
+
+        mods = detectar_modificadores(doc)
+        assert any('bem' in m and 'gelada' in m for m in mods)
+
+    def test_modificador_muito_quente(self):
+        """'muito quente' deve ser detectado."""
+        doc = _processar('cafe muito quente')
+        from src.extratores.observacoes import detectar_modificadores
+
+        mods = detectar_modificadores(doc)
+        assert any('muito' in m and 'quente' in m for m in mods)
+
+    def test_modificador_sem_intensificador(self):
+        """Texto sem intensificador nao deve detectar modificadores."""
+        doc = _processar('hamburguer simples')
+        from src.extratores.observacoes import detectar_modificadores
+
+        mods = detectar_modificadores(doc)
+        assert len(mods) == 0
+
+    def test_modificador_mega(self):
+        """'mega gelado' deve ser detectado."""
+        doc = _processar('suco mega gelado')
+        from src.extratores.observacoes import detectar_modificadores
+
+        mods = detectar_modificadores(doc)
+        assert any('mega' in m for m in mods)

@@ -5,7 +5,6 @@ do cardapio. Ex: "sem cebola hamburguer" capturava ['cebola', 'hamburguer']
 quando deveria capturar apenas ['cebola'].
 """
 
-
 from src.extratores.normalizador import normalizar_para_busca
 from src.extratores.remocoes import capturar_remocoes_v2
 from src.extratores.config import get_extrator_config

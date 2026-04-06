@@ -4,7 +4,6 @@ TDD: estes testes foram escritos ANTES da implementacao.
 Cobrem resolver_quantidade e extrair_quantidade_do_texto.
 """
 
-
 from src.extratores.config import ExtratorConfig
 from src.extratores.quantidade import extrair_quantidade_do_texto, resolver_quantidade
 

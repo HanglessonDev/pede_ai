@@ -351,7 +351,6 @@ class TestExtrair:
         result = extrair(mensagem)
         assert result == []
 
-    @pytest.mark.xfail(reason='spaCy QTD pattern inconsistente')
     def test_quantidade_numerica(self):
         """Deve extrair quantidade numérica."""
         result = extrair('2 hamburguer')

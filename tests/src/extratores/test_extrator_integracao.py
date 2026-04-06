@@ -238,6 +238,83 @@ class TestFuzzyFallbackTypo:
         ids = {r.item_id for r in result}
         assert 'lanche_001' in ids
 
+    def test_multi_item_qtd_para_fuzzy(self, engine, config, cardapio):
+        """Regressao: QTD 'tres' nao deve ser consumida pelo item spacy."""
+        from src.extratores.extrator import Extrator
+
+        extrator = Extrator(engine, config, cardapio)
+        result = extrator.extrair(
+            'me ve dois xis com bacon e sem cebola, e tres sucos bem gelados'
+        )
+        xis = next(r for r in result if r.item_id == 'lanche_001')
+        suco = next(r for r in result if r.item_id == 'bebida_003')
+        assert xis.quantidade == 2
+        assert suco.quantidade == 3
+
+    def test_coca_zero_nao_duplica_com_coca(self, engine, config, cardapio):
+        """Regressao: 'coca zero' nao deve gerar bebida_001 tambem."""
+        from src.extratores.extrator import Extrator
+
+        extrator = Extrator(engine, config, cardapio)
+        result = extrator.extrair('me traz uma coca zero pequena, por gentileza')
+        # Apenas coca zero (bebida_002), nao coca normal
+        ids = {r.item_id for r in result}
+        assert 'bebida_002' in ids
+        assert 'bebida_001' not in ids
+
+    def test_qtd_em_parenteses_ignorada(self, engine, config, cardapio):
+        """Regressao: '(com dois 'o')' nao deve gerar qtd=2."""
+        from src.extratores.extrator import Extrator
+
+        extrator = Extrator(engine, config, cardapio)
+        result = extrator.extrair("x-tudoo (com dois 'o') sem cebola, ta?")
+        # Deve ter apenas 1 item com qtd=1 (default)
+        assert len(result) >= 1
+        for r in result:
+            assert r.quantidade != 2  # "dois" no parenteses foi ignorado
+
+    def test_numeros_extensos_funcionam(self, engine, config, cardapio):
+        """Regressao: 'quatro', 'cinco', 'seis' devem funcionar."""
+        from src.extratores.extrator import Extrator
+
+        extrator = Extrator(engine, config, cardapio)
+
+        r = extrator.extrair('quatro sucos')
+        assert len(r) == 1
+        assert r[0].quantidade == 4
+
+        r = extrator.extrair('cinco cocas')
+        assert len(r) == 1
+        assert r[0].quantidade == 5
+
+        r = extrator.extrair('seis batatas')
+        assert len(r) == 1
+        assert r[0].quantidade == 6
+
+    def test_multi_itens_itens_corretos_independente_ordem(
+        self, engine, config, cardapio
+    ):
+        """Regressao: multi-itens retorna todos, independente da ordem."""
+        from src.extratores.extrator import Extrator
+
+        extrator = Extrator(engine, config, cardapio)
+
+        # "vou querer um hamburguer, uma batata frita e uma coca"
+        result = extrator.extrair(
+            'vou querer um hamburguer, uma batata frita e uma coca'
+        )
+        ids = {r.item_id for r in result}
+        assert ids == {'lanche_001', 'acomp_001', 'bebida_001'}
+        assert len(result) == 3
+
+        # "um hamburguer simples, uma batata pequena e um suco de limao"
+        result = extrator.extrair(
+            'um hamburguer simples, uma batata pequena e um suco de limao'
+        )
+        ids = {r.item_id for r in result}
+        assert ids == {'lanche_001', 'acomp_001', 'bebida_003'}
+        assert len(result) == 3
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Fase 4.4 — Janela de Contexto
