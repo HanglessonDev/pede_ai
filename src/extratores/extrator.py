@@ -35,6 +35,21 @@ from src.extratores.quantidade import resolver_quantidade, extrair_quantidade_do
 from src.extratores.remocoes import capturar_remocoes_v2
 
 
+def _entidade_dentro_de_parenteses(doc, ent) -> bool:
+    """Verifica se a entidade está dentro de parenteses.
+
+    Ex: '(com dois 'o')' — 'dois' nao deve ser tratado como QTD.
+    Procura por '(' ou '[' em qualquer token anterior na mesma sentenca.
+    """
+    for i in range(ent.start - 1, -1, -1):
+        t = doc[i]
+        if t.text in ('(', '[', ')', ']'):
+            return t.text in ('(', '[')
+        if t.pos_ == 'PUNCT' and t.text in ('.', '!', '?'):
+            return False  # sentenca diferente
+    return False
+
+
 class Extrator:
     """Extrator de itens do cardapio via spaCy + fuzzy fallback."""
 
@@ -242,6 +257,7 @@ class Extrator:
             qtd
             for ent in doc.ents
             if ent.label_ in ('QTD', 'NUM_PENDING')
+            and not _entidade_dentro_de_parenteses(doc, ent)
             and (qtd := resolver_quantidade(ent.text.lower(), self._config)) is not None
         ]
 
