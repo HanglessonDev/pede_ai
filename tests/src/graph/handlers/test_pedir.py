@@ -234,6 +234,40 @@ class TestEdgeCases:
         result = processar_pedido(itens, [])
         assert len(result.fila) == 1
 
+    def test_variante_com_diferenca_normalizacao(self):
+        """Variante com acentos diferentes deve ser resolvida via fuzzy.
+
+        Bug: extrator retorna 'limao 300ml' (sem tilde) mas cardapio tem
+        'limão 300ml' (com tilde). O match exato falhava e o item ia para
+        a fila de clarificacao desnecessariamente.
+        """
+        itens = [
+            {
+                'item_id': 'bebida_003',
+                'quantidade': 1,
+                'variante': 'limao 300ml',
+                'remocoes': [],
+            },
+        ]
+        result = processar_pedido(itens, [])
+        assert len(result.carrinho) == 1
+        assert len(result.fila) == 0
+        assert result.carrinho[0]['variante'] == 'limao 300ml'
+
+    def test_variante_meio_acento_fuzzy(self):
+        """Variante com acento parcial deve ser resolvida via fuzzy."""
+        itens = [
+            {
+                'item_id': 'bebida_003',
+                'quantidade': 1,
+                'variante': 'laranja 500ml',
+                'remocoes': [],
+            },
+        ]
+        result = processar_pedido(itens, [])
+        assert len(result.carrinho) == 1
+        assert len(result.fila) == 0
+
     def test_quantidade_multiplica_preco_variante(self):
         """Quantidade deve multiplicar preco da variante."""
         itens = [

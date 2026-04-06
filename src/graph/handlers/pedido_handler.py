@@ -21,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from src.config import get_item_por_id, get_variantes
+from src.extratores.fuzzy_extrator import fuzzy_match_variante
 from src.graph.handlers.carrinho import Carrinho, CarrinhoItem
 from src.graph.state import RetornoNode
 
@@ -52,6 +53,9 @@ class ResultadoPedir:
 def _calcular_preco_item(item: dict, item_data: dict) -> int | None:
     """Calcula o preco total de um item considerando quantidade e variantes.
 
+    Usa fuzzy matching como fallback para resolver variantes com
+    diferencas de normalizacao (ex: 'limao' vs 'limao').
+
     Args:
         item: Dicionario do item extraido com ``quantidade`` e opcional ``variante``.
         item_data: Dados completos do item do cardapio.
@@ -67,13 +71,29 @@ def _calcular_preco_item(item: dict, item_data: dict) -> int | None:
         return preco_base * quantidade
 
     variantes_validas = get_variantes(item['item_id'])
-    if variante and variante in variantes_validas:
-        variante_obj = next(
-            (v for v in item_data.get('variantes', []) if v['opcao'] == variante),
-            None,
-        )
-        if variante_obj:
-            return variante_obj['preco'] * quantidade
+    if variante:
+        # Tentar match exato primeiro
+        if variante in variantes_validas:
+            variante_obj = next(
+                (v for v in item_data.get('variantes', []) if v['opcao'] == variante),
+                None,
+            )
+            if variante_obj:
+                return variante_obj['preco'] * quantidade
+
+        # Fallback: fuzzy match para resolver normalizacao (limao vs limão)
+        variante_match, _score = fuzzy_match_variante(variante, variantes_validas)
+        if variante_match:
+            variante_obj = next(
+                (
+                    v
+                    for v in item_data.get('variantes', [])
+                    if v['opcao'] == variante_match
+                ),
+                None,
+            )
+            if variante_obj:
+                return variante_obj['preco'] * quantidade
 
     return None
 
