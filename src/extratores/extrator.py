@@ -22,12 +22,14 @@ Example:
 from __future__ import annotations
 
 from dataclasses import asdict
+from typing import cast
 
 from src.extratores.config import ExtratorConfig
 from src.extratores.itens_ids import build_itens_ids
 from src.extratores.modelos import ItemExtraido
+from src.extratores.negacao import detectar_negacao
 from src.extratores.nlp_engine import NlpEngine
-from src.extratores.remocoes import capturar_remocoes
+from src.extratores.remocoes import capturar_remocoes_v2
 
 
 class Extrator:
@@ -62,6 +64,10 @@ class Extrator:
         Returns:
             Lista de ItemExtraido.
         """
+        # Verifica negacao primeiro — se usuario esta cancelando o pedido
+        if detectar_negacao(mensagem, self._config):
+            return []
+
         doc = self._engine.processar(mensagem)
 
         itens_spacy = self._extrair_spacy(doc)
@@ -115,7 +121,7 @@ class Extrator:
         _extrair_spacy(), onde temos contexto do item_atual.
         """
         qtd_pendente = 1
-        remocoes_fila = capturar_remocoes(doc, self._config)
+        remocoes_fila = capturar_remocoes_v2(doc, self._config, self._itens_ids)
         prox_remocao = 0
         itens: list[ItemExtraido] = []
         item_atual: ItemExtraido | None = None
@@ -147,6 +153,12 @@ class Extrator:
             # Numeros por extenso
             return self._config.numeros_escritos.get(texto, 1)
 
+        def _e_numero_exato(texto: str) -> bool:
+            """Retorna True se o texto e um digito exato (ex: '2', '3')."""
+            return texto.isdigit()
+
+        item_atual_ent_end: int = -1  # posicao final do ITEM atual
+
         for ent in doc.ents:
             if item_atual is not None:
                 _consumir_remocoes_ate(ent.start)
@@ -155,14 +167,23 @@ class Extrator:
                 texto = ent.text.lower()
                 qtd = _resolver_quantidade(texto)
 
-                # Se ja temos um item atual, atualiza a quantidade dele
-                # (caso 'hamburguer 2' — numero depois do item)
-                if item_atual is not None:
+                # Numeros exatos (digitos) imediatamente depois do ITEM
+                # atualizam o item (ex: 'hamburguer 2' — end do ITEM == start do NUM)
+                # Se nao for adjacente, e qtd_pendente para o PROXIMO item
+                eh_pos_item = (
+                    item_atual is not None
+                    and _e_numero_exato(texto)
+                    and ent.start == item_atual_ent_end
+                )
+
+                if eh_pos_item:
+                    # item_atual é garantido não-None aqui (condicao do eh_pos_item)
+                    _atual = cast('ItemExtraido', item_atual)
                     item_atual = ItemExtraido(
-                        item_id=item_atual.item_id,
+                        item_id=_atual.item_id,
                         quantidade=qtd,
-                        variante=item_atual.variante,
-                        remocoes=item_atual.remocoes,
+                        variante=_atual.variante,
+                        remocoes=_atual.remocoes,
                     )
                 else:
                     # Numero antes do item — fica pendente para o proximo
@@ -177,6 +198,7 @@ class Extrator:
                     variante=variante_pendente,  # aplica variante pendente
                     remocoes=[],
                 )
+                item_atual_ent_end = ent.end  # salva posicao final do ITEM
                 variante_pendente = None  # consumida
                 qtd_pendente = 1
 
