@@ -253,13 +253,29 @@ class Extrator:
                     cobertos.add(i)
 
         # Coletar QTDs nao consumidas (entidades QTD/NUM_PENDING sem ITEM correspondente)
-        qtds_pendentes: list[int | float] = [
-            qtd
-            for ent in doc.ents
-            if ent.label_ in ('QTD', 'NUM_PENDING')
-            and not _entidade_dentro_de_parenteses(doc, ent)
-            and (qtd := resolver_quantidade(ent.text.lower(), self._config)) is not None
-        ]
+        # Cada ITEM do EntityRuler consome a QTD mais recente que o precede
+        todas_qtds: list[tuple[int, int | float]] = []  # (pos_token, valor)
+        for ent in doc.ents:
+            if ent.label_ in ('QTD', 'NUM_PENDING'):
+                if _entidade_dentro_de_parenteses(doc, ent):
+                    continue
+                texto = ent.text.lower()
+                qtd = resolver_quantidade(texto, self._config)
+                if qtd is not None:
+                    todas_qtds.append((ent.start, qtd))
+
+        # QTDs consumidas por itens spacy: cada ITEM consome a QTD mais recente antes dele
+        qtds_indices_consumidas: set[int] = set()
+        for item in itens_spacy:
+            # Find the QTD entity that was used for this item
+            # (the one with the highest position before the item's first entity match)
+            for idx, (qtd_pos, qtd_val) in reversed(list(enumerate(todas_qtds))):
+                if idx not in qtds_indices_consumidas and qtd_val == item.quantidade:
+                    qtds_indices_consumidas.add(idx)
+                    break
+
+        # QTDs disponiveis para fuzzy
+        qtds_pendentes = [qtd for idx, qtd in enumerate(todas_qtds) if idx not in qtds_indices_consumidas]
 
         # 2. Tokens livres (nao cobertos, significativos)
         _palavras_baixa_qualidade = self._config.palavras_remocao | {
@@ -289,11 +305,24 @@ class Extrator:
             extrair_tokens_significativos,
         )
 
-        quantidade = int(qtds_pendentes[0]) if qtds_pendentes else 1
+        quantidade = int(qtds_pendentes[0][1]) if qtds_pendentes else 1
         itens = extrair_item_fuzzy(texto_livre, quantidade=quantidade)
 
         # 5. Evitar duplicatas — so' adiciona se item_id nao existe em spacy
+        # E tambem se o token fuzzy nao e substring de item ja extraido
+        # (ex: "coca" quando "coca zero" ja existe)
         ids_spacy = {item.item_id for item in itens_spacy}
+        nomes_spacy = {ent.text.lower() for ent in doc.ents if ent.label_ == 'ITEM'}
+
+        def _tem_substring_repetida(texto: str) -> bool:
+            """Verifica se algum token do texto e substring de item spacy."""
+            tokens = texto.split() if ' ' in texto else [texto]
+            for nome_spacy in nomes_spacy:
+                for token in tokens:
+                    if len(token) >= 3 and token.lower() in nome_spacy:
+                        return True
+            return False
+
         resultados = [
             ItemExtraido(
                 item_id=item.item_id,
@@ -307,6 +336,7 @@ class Extrator:
             )
             for item in itens
             if item.item_id not in ids_spacy
+            and not _tem_substring_repetida(texto_livre)
         ]
 
         # Se nao encontrou nada no texto inteiro, tentar tokens individuais
@@ -318,15 +348,23 @@ class Extrator:
                 for alias in item.get('aliases', []):
                     alias_para_id[alias.lower()] = item['id']
 
+            # Usar QTDs nao consumidas pelos itens spacy
+            qtd_fuzzy = int(qtds_pendentes[0][1]) if qtds_pendentes else 1
+
             tokens_sig = extrair_tokens_significativos(texto_livre)
             cutoff = self._config.fuzzy_item_cutoff
             # Limitar a 1 item por fallback para evitar over-matching
             for token in tokens_sig:
                 alias, score, item_id = fuzzy_match_item(token, alias_para_id)
-                if item_id and item_id not in ids_spacy and score >= cutoff:
+                if (
+                    item_id
+                    and item_id not in ids_spacy
+                    and not _tem_substring_repetida(token)
+                    and score >= cutoff
+                ):
                     resultados.append(ItemExtraido(
                         item_id=item_id,
-                        quantidade=quantidade,
+                        quantidade=qtd_fuzzy,
                         variante=None,
                         remocoes=[],
                         complementos=[],
