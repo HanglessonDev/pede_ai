@@ -239,6 +239,9 @@ class Extrator:
         'hamburguer' com acento nao e' reconhecido mas 'batata' e 'coca' sao),
         esta funcao identifica o texto nao coberto e tenta fuzzy matching nele.
 
+        Tambem preserva quantidades detectadas pelo EntityRuler (QTD/NUM_PENDING)
+        que nao foram consumidas por nenhum ITEM.
+
         Args:
             doc: Documento spaCy processado.
             itens_spacy: Itens ja extraidos pelo EntityRuler.
@@ -253,9 +256,20 @@ class Extrator:
                 for i in range(ent.start, ent.end):
                     cobertos.add(i)
 
+        # Coletar QTDs nao consumidas (entidades QTD/NUM_PENDING sem ITEM correspondente)
+        qtds_pendentes: list[int | float] = []
+        for ent in doc.ents:
+            if ent.label_ in ('QTD', 'NUM_PENDING'):
+                # Verifica se nao foi consumida por algum ITEM
+                texto = ent.text.lower()
+                if texto.isdigit():
+                    qtds_pendentes.append(int(texto))
+                elif texto in self._config.numeros_fracionarios:
+                    qtds_pendentes.append(self._config.numeros_fracionarios[texto])
+                elif texto in self._config.numeros_escritos:
+                    qtds_pendentes.append(self._config.numeros_escritos[texto])
+
         # 2. Tokens livres (nao cobertos, significativos)
-        # Filtra tambem palavras de remocao e ingredientes comuns para evitar
-        # falso positivo fuzzy (ex: "sal" → "x-salada")
         _palavras_baixa_qualidade = self._config.palavras_remocao | {
             'sal', 'gelo', 'agua', 'nada', 'tudo', 'algo',
         }
@@ -276,10 +290,11 @@ class Extrator:
         if len(texto_livre.strip()) < 4:
             return []
 
-        # 4. Fuzzy match
+        # 4. Fuzzy match com quantidade pendente
         from src.extratores.fuzzy_extrator import extrair_item_fuzzy  # noqa: PLC0415
 
-        itens = extrair_item_fuzzy(texto_livre, quantidade=1)
+        quantidade = qtds_pendentes[0] if qtds_pendentes else 1
+        itens = extrair_item_fuzzy(texto_livre, quantidade=quantidade)
 
         # 5. Evitar duplicatas — so' adiciona se item_id nao existe em spacy
         ids_spacy = {item.item_id for item in itens_spacy}

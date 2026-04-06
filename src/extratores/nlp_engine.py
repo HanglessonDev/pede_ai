@@ -66,6 +66,13 @@ class NlpEngine:
             ]
         )
 
+        # Patterns para numeros por extenso → NUM_PENDING
+        patterns_numeros = [
+            {'label': 'NUM_PENDING', 'pattern': [{'LOWER': num}]}
+            for num in self._config.numeros_escritos
+        ]
+        ruler.add_patterns(patterns_numeros)
+
         # Gerar e adicionar patterns do cardapio
         patterns = gerar_patterns(self._cardapio, normalizar_para_busca)
         ruler.add_patterns(patterns)
