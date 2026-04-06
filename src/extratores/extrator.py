@@ -31,6 +31,7 @@ from src.extratores.modelos import ItemExtraido
 from src.extratores.negacao import detectar_negacao
 from src.extratores.nlp_engine import NlpEngine
 from src.extratores.observacoes import detectar_observacoes
+from src.extratores.quantidade import resolver_quantidade, extrair_quantidade_do_texto
 from src.extratores.remocoes import capturar_remocoes_v2
 
 
@@ -84,26 +85,16 @@ class Extrator:
         # Fallback total: fuzzy na mensagem inteira
         from src.extratores.fuzzy_extrator import extrair_item_fuzzy  # noqa: PLC0415
 
-        qtd = self._extrair_qtd_do_doc(doc)
-        return extrair_item_fuzzy(mensagem, qtd)
+        qtd, _ = extrair_quantidade_do_texto(mensagem, self._config)
+        return extrair_item_fuzzy(mensagem, int(qtd) if qtd else 1)
 
     def _extrair_qtd_do_doc(self, doc) -> int:
-        """Extrai quantidade de entidades QTD no doc.
-
-        Args:
-            doc: Documento spaCy processado.
-
-        Returns:
-            Quantidade encontrada ou 1 (default).
-        """
+        """Extrai quantidade de entidades QTD/NUM_PENDING no doc."""
         for ent in doc.ents:
             if ent.label_ in ('QTD', 'NUM_PENDING'):
-                texto = ent.text.lower()
-                return (
-                    int(ent.text)
-                    if ent.text.isdigit()
-                    else self._config.numeros_escritos.get(texto, 1)
-                )
+                qtd = resolver_quantidade(ent.text.lower(), self._config)
+                if qtd is not None:
+                    return int(qtd)
         return 1
 
     def _extrair_spacy(self, doc) -> list[ItemExtraido]:
@@ -148,16 +139,6 @@ class Extrator:
                     )
                 prox_remocao += 1
 
-        def _resolver_quantidade(texto: str) -> int | float:
-            """Resolve texto para quantidade, incluindo fracionarios."""
-            if texto.isdigit():
-                return int(texto)
-            # Fracionarios primeiro (meio, meia, etc.)
-            if texto in self._config.numeros_fracionarios:
-                return self._config.numeros_fracionarios[texto]
-            # Numeros por extenso
-            return self._config.numeros_escritos.get(texto, 1)
-
         def _e_numero_exato(texto: str) -> bool:
             """Retorna True se o texto e um digito exato (ex: '2', '3')."""
             return texto.isdigit()
@@ -170,7 +151,7 @@ class Extrator:
 
             if ent.label_ in ('QTD', 'NUM_PENDING'):
                 texto = ent.text.lower()
-                qtd = _resolver_quantidade(texto)
+                qtd = resolver_quantidade(texto, self._config) or 1
 
                 # Numeros exatos (digitos) imediatamente depois do ITEM
                 # atualizam o item (ex: 'hamburguer 2' — end do ITEM == start do NUM)
@@ -257,17 +238,12 @@ class Extrator:
                     cobertos.add(i)
 
         # Coletar QTDs nao consumidas (entidades QTD/NUM_PENDING sem ITEM correspondente)
-        qtds_pendentes: list[int | float] = []
-        for ent in doc.ents:
-            if ent.label_ in ('QTD', 'NUM_PENDING'):
-                # Verifica se nao foi consumida por algum ITEM
-                texto = ent.text.lower()
-                if texto.isdigit():
-                    qtds_pendentes.append(int(texto))
-                elif texto in self._config.numeros_fracionarios:
-                    qtds_pendentes.append(self._config.numeros_fracionarios[texto])
-                elif texto in self._config.numeros_escritos:
-                    qtds_pendentes.append(self._config.numeros_escritos[texto])
+        qtds_pendentes: list[int | float] = [
+            qtd
+            for ent in doc.ents
+            if ent.label_ in ('QTD', 'NUM_PENDING')
+            and (qtd := resolver_quantidade(ent.text.lower(), self._config)) is not None
+        ]
 
         # 2. Tokens livres (nao cobertos, significativos)
         _palavras_baixa_qualidade = self._config.palavras_remocao | {
@@ -293,7 +269,7 @@ class Extrator:
         # 4. Fuzzy match com quantidade pendente
         from src.extratores.fuzzy_extrator import extrair_item_fuzzy  # noqa: PLC0415
 
-        quantidade = qtds_pendentes[0] if qtds_pendentes else 1
+        quantidade = int(qtds_pendentes[0]) if qtds_pendentes else 1
         itens = extrair_item_fuzzy(texto_livre, quantidade=quantidade)
 
         # 5. Evitar duplicatas — so' adiciona se item_id nao existe em spacy
