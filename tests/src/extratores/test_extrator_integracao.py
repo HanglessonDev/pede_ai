@@ -251,6 +251,23 @@ class TestFuzzyFallbackTypo:
         assert xis.quantidade == 2
         assert suco.quantidade == 3
 
+    def test_fuzzy_extrai_variante_sem_item_spacy(self, engine, config, cardapio):
+        """Regressao: variante solta deve ser extraida pelo fuzzy.
+
+        Bug: 'simples' em 'hamburges simples' era marcado como VARIANTE
+        pelo EntityRuler mas consumido como token coberto. O fuzzy fallback
+        via so 'hamburges' e retornava variante=None.
+        Fix: VARIANTE so e coberta se houver ITEM no doc.
+        """
+        from src.extratores.extrator import Extrator
+
+        extrator = Extrator(engine, config, cardapio)
+        result = extrator.extrair('quero 2 hamburges simples')
+        assert len(result) == 1
+        assert result[0].item_id == 'lanche_001'
+        assert result[0].quantidade == 2
+        assert result[0].variante == 'simples'
+
     def test_coca_zero_nao_duplica_com_coca(self, engine, config, cardapio):
         """Regressao: 'coca zero' nao deve gerar bebida_001 tambem."""
         from src.extratores.extrator import Extrator

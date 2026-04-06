@@ -246,9 +246,18 @@ class Extrator:
             Lista de ItemExtraido encontrados via fuzzy (sem duplicatas).
         """
         # 1. Tokens cobertos por qualquer entidade nossa
+        # IMPORTANTE: so' marcar VARIANTE como coberto se houver ITEM —
+        # caso contrario, variante solta (ex: "simples" em "hamburges simples")
+        # deve ficar disponivel para o fuzzy match extrair.
+        tem_item_spacy = any(
+            ent.label_ == 'ITEM' for ent in doc.ents
+        )
         cobertos: set[int] = set()
         for ent in doc.ents:
-            if ent.label_ in ('ITEM', 'QTD', 'NUM_PENDING', 'VARIANTE'):
+            if ent.label_ in ('ITEM', 'QTD', 'NUM_PENDING'):
+                for i in range(ent.start, ent.end):
+                    cobertos.add(i)
+            elif ent.label_ == 'VARIANTE' and tem_item_spacy:
                 for i in range(ent.start, ent.end):
                     cobertos.add(i)
 
