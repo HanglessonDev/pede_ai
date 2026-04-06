@@ -268,13 +268,17 @@ class Extrator:
 
         # 4. Fuzzy match com quantidade pendente
         from src.extratores.fuzzy_extrator import extrair_item_fuzzy  # noqa: PLC0415
+        from src.extratores.fuzzy_extrator import (  # noqa: PLC0415
+            fuzzy_match_item,
+            extrair_tokens_significativos,
+        )
 
         quantidade = int(qtds_pendentes[0]) if qtds_pendentes else 1
         itens = extrair_item_fuzzy(texto_livre, quantidade=quantidade)
 
         # 5. Evitar duplicatas — so' adiciona se item_id nao existe em spacy
         ids_spacy = {item.item_id for item in itens_spacy}
-        return [
+        resultados = [
             ItemExtraido(
                 item_id=item.item_id,
                 quantidade=item.quantidade,
@@ -288,6 +292,35 @@ class Extrator:
             for item in itens
             if item.item_id not in ids_spacy
         ]
+
+        # Se nao encontrou nada no texto inteiro, tentar tokens individuais
+        # Resolve "cocas e batata" onde fuzzy prefere "batata" no texto completo
+        if not resultados:
+            alias_para_id: dict[str, str] = {}
+            for item in self._cardapio.get('itens', []):
+                alias_para_id[item['nome'].lower()] = item['id']
+                for alias in item.get('aliases', []):
+                    alias_para_id[alias.lower()] = item['id']
+
+            tokens_sig = extrair_tokens_significativos(texto_livre)
+            cutoff = self._config.fuzzy_item_cutoff
+            # Limitar a 1 item por fallback para evitar over-matching
+            for token in tokens_sig:
+                alias, score, item_id = fuzzy_match_item(token, alias_para_id)
+                if item_id and item_id not in ids_spacy and score >= cutoff:
+                    resultados.append(ItemExtraido(
+                        item_id=item_id,
+                        quantidade=quantidade,
+                        variante=None,
+                        remocoes=[],
+                        complementos=[],
+                        observacoes=[],
+                        confianca=score / 100,
+                        fonte='fuzzy',
+                    ))
+                    break  # So' pega o melhor match
+
+        return resultados
 
     def _enriquecer_itens(self, itens: list[ItemExtraido], doc) -> list[ItemExtraido]:
         """Detecta complementos e observacoes para cada item extraido.
