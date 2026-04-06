@@ -68,18 +68,20 @@ class Extrator:
             Lista de ItemExtraido.
         """
         # Verifica negacao primeiro — se usuario esta cancelando o pedido
-        if detectar_negacao(mensagem, self._config):
+        if detectar_negacao(mensagem):
             return []
 
         doc = self._engine.processar(mensagem)
 
         itens_spacy = self._extrair_spacy(doc)
 
-        # EntityRuler encontrou itens — usa direto
-        if itens_spacy:
-            return itens_spacy
+        # Fuzzy para regioes nao cobertas pelo EntityRuler
+        itens_fuzzy = self._extrair_fuzzy_nao_coberto(doc, itens_spacy)
 
-        # Fallback: delega ao modulo fuzzy
+        if itens_spacy or itens_fuzzy:
+            return itens_spacy + itens_fuzzy
+
+        # Fallback total: fuzzy na mensagem inteira
         from src.extratores.fuzzy_extrator import extrair_item_fuzzy  # noqa: PLC0415
 
         qtd = self._extrair_qtd_do_doc(doc)
@@ -227,6 +229,74 @@ class Extrator:
             itens = self._enriquecer_itens(itens, doc)
 
         return itens
+
+    def _extrair_fuzzy_nao_coberto(
+        self, doc, itens_spacy: list[ItemExtraido]
+    ) -> list[ItemExtraido]:
+        """Extrai itens via fuzzy para regioes nao cobertas pelo EntityRuler.
+
+        Quando o EntityRuler encontra alguns items mas nao todos (ex:
+        'hamburguer' com acento nao e' reconhecido mas 'batata' e 'coca' sao),
+        esta funcao identifica o texto nao coberto e tenta fuzzy matching nele.
+
+        Args:
+            doc: Documento spaCy processado.
+            itens_spacy: Itens ja extraidos pelo EntityRuler.
+
+        Returns:
+            Lista de ItemExtraido encontrados via fuzzy (sem duplicatas).
+        """
+        # 1. Tokens cobertos por qualquer entidade nossa
+        cobertos: set[int] = set()
+        for ent in doc.ents:
+            if ent.label_ in ('ITEM', 'QTD', 'NUM_PENDING', 'VARIANTE'):
+                for i in range(ent.start, ent.end):
+                    cobertos.add(i)
+
+        # 2. Tokens livres (nao cobertos, significativos)
+        # Filtra tambem palavras de remocao e ingredientes comuns para evitar
+        # falso positivo fuzzy (ex: "sal" → "x-salada")
+        _palavras_baixa_qualidade = self._config.palavras_remocao | {
+            'sal', 'gelo', 'agua', 'nada', 'tudo', 'algo',
+        }
+        tokens_livres = [
+            t for t in doc
+            if t.i not in cobertos
+            and t.pos_ not in ('PUNCT', 'SPACE', 'SYM')
+            and len(t.text) >= 3
+            and t.text.lower() not in _palavras_baixa_qualidade
+        ]
+        if not tokens_livres:
+            return []
+
+        # 3. Reconstruir texto dos tokens livres
+        texto_livre = doc[tokens_livres[0].i : tokens_livres[-1].i + 1].text
+
+        # Texto muito curto → nao vale fuzzy
+        if len(texto_livre.strip()) < 4:
+            return []
+
+        # 4. Fuzzy match
+        from src.extratores.fuzzy_extrator import extrair_item_fuzzy  # noqa: PLC0415
+
+        itens = extrair_item_fuzzy(texto_livre, quantidade=1)
+
+        # 5. Evitar duplicatas — so' adiciona se item_id nao existe em spacy
+        ids_spacy = {item.item_id for item in itens_spacy}
+        return [
+            ItemExtraido(
+                item_id=item.item_id,
+                quantidade=item.quantidade,
+                variante=item.variante,
+                remocoes=item.remocoes,
+                complementos=item.complementos,
+                observacoes=item.observacoes,
+                confianca=item.confianca,
+                fonte='fuzzy',
+            )
+            for item in itens
+            if item.item_id not in ids_spacy
+        ]
 
     def _enriquecer_itens(self, itens: list[ItemExtraido], doc) -> list[ItemExtraido]:
         """Detecta complementos e observacoes para cada item extraido.

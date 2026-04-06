@@ -5,6 +5,7 @@ Testam detectar_complementos() do modulo src.extratores.complementos.
 
 from __future__ import annotations
 
+import pytest
 
 from src.extratores.complementos import detectar_complementos
 from src.extratores.config import get_extrator_config
@@ -70,3 +71,29 @@ class TestDetectarComplementos:
         result = detectar_complementos(doc, 'lanche_001', cardapio, config)
         assert 'bacon' in result
         assert 'alface' not in result
+
+    def test_complemento_adicional_de(self):
+        """'x-salada adicional de queijo' -> complementos=['queijo']."""
+        doc = _processar('x-salada adicional de queijo')
+        config = get_extrator_config()
+        cardapio = get_cardapio()
+        result = detectar_complementos(doc, 'lanche_002', cardapio, config)
+        assert 'queijo' in result
+        assert len(result) == 1
+
+    def test_complemento_com_longe(self):
+        """'hamburguer com uma dose de bacon' -> complementos=['bacon']."""
+        doc = _processar('hamburguer com uma dose de bacon')
+        config = get_extrator_config()
+        cardapio = get_cardapio()
+        result = detectar_complementos(doc, 'lanche_001', cardapio, config)
+        assert 'bacon' in result
+
+    def test_complemento_nao_para_em_conectivo(self):
+        """'hamburguer com bacon e ovo' -> complementos=['bacon', 'ovo']."""
+        doc = _processar('hamburguer com bacon e ovo')
+        config = get_extrator_config()
+        cardapio = get_cardapio()
+        result = detectar_complementos(doc, 'lanche_001', cardapio, config)
+        assert 'bacon' in result
+        assert 'ovo' in result

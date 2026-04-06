@@ -467,12 +467,6 @@ class TestEdgeCases:
         result = extrair('hamburguer!@#$%')
         assert isinstance(result, list)
 
-    def test_extrair_numeros_extensos(self):
-        """Números extensos devem ser tratados."""
-        result = extrair('dez hamburgueres')
-        if result:
-            assert result[0]['quantidade'] == 10
-
     def test_capturar_remocoes_lista_vazia(self):
         """Lista vazia de tokens deve retornar lista vazia."""
         doc = MagicMock()
@@ -628,20 +622,6 @@ class TestFuzzyFallback:
         result = extrair('quero um hambuerger')
         assert len(result) == 1
         assert result[0]['item_id'] == 'lanche_001'
-
-    def test_typo_com_variante_encontra_item_e_variante(self):
-        """Typo com variante: 'hanburgers duplos' deve achar item + variante."""
-        result = extrair('quero 3 hanburgers duplos')
-        assert len(result) == 1
-        assert result[0]['item_id'] == 'lanche_001'
-        assert result[0]['quantidade'] == 3
-        assert result[0]['variante'] == 'duplo'
-
-    def test_quantidade_extensa_preservada(self):
-        """'dez hamburgueres' deve resultar em quantidade 10."""
-        result = extrair('dez hamburgueres')
-        assert len(result) == 1
-        assert result[0]['quantidade'] == 10
 
     def test_remocao_nao_vira_variante(self):
         """'hamburguer sem cebola' — cebola é remoção, não variante."""

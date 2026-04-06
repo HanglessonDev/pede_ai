@@ -50,7 +50,7 @@ def _deve_parar_no_conectivo(
 
 def _tokens_a_frente(doc: Doc, token) -> list:
     """Retorna tokens apos o token atual."""
-    return list(doc)[token.i + 1 :]
+    return list(doc)[token.i + 1:]
 
 
 def _tem_nova_remocao_a_frente(doc, token_atual, config: ExtratorConfig) -> bool:
@@ -101,6 +101,11 @@ def capturar_remocoes(doc: Doc, config: ExtratorConfig) -> list[tuple[str, int]]
             # Palavras de parada obrigatoria
             if token.text.lower() in config.palavras_parada:
                 break
+
+            # FILTRO: stop words que nunca sao remocoes
+            if token.text.lower() in config.palavras_filtro_remocao:
+                indice += 1
+                continue
 
             # Ignora artigos/preposicoes
             if token.pos_ in config.pos_ignoraveis:
@@ -163,6 +168,11 @@ def capturar_remocoes_v2(
             # Palavras de parada obrigatoria
             if token.text.lower() in config.palavras_parada:
                 break
+
+            # FILTRO: stop words que nunca sao remocoes
+            if token.text.lower() in config.palavras_filtro_remocao:
+                indice += 1
+                continue
 
             # Ignora artigos/preposicoes
             if token.pos_ in config.pos_ignoraveis:

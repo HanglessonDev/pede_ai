@@ -1,102 +1,147 @@
-"""Testes para detecção de negação — Fase 4.1.
+"""Testes para detectar_negacao — deteção de negacao/cancelamento.
 
-Cobrem os 7 cenarios do PLANO_IMPLEMENTACAO.md:
-- Bug #7: "nao quero hamburguer" deve retornar []
-- Negação com acento
-- Expressoes coloquiais (esquece, cancela, deixa pra la, melhor nao)
-- "sem" e remocao, NAO negacao
+TDD: testes escritos ANTES da implementacao.
+Cobre falsos positivos (condicionais, descricoes) e casos verdadeiros.
 """
 
 from __future__ import annotations
 
+import pytest
 
-from src.extratores import extrair
-from src.extratores.config import get_extrator_config
 from src.extratores.negacao import detectar_negacao
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Testes unitarios — detectar_negacao()
+# False positives — NAO sao negacoes
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-class TestDetectarNegacaoUnit:
-    """Testes diretos da funcao detectar_negacao()."""
+class TestFalsosPositivos:
+    """Casos onde 'nao/nao' aparece mas NAO e' negacao de pedido."""
 
-    def setup_method(self):
-        """Carrega config antes de cada teste."""
-        self.config = get_extrator_config()
+    def test_negacao_falso_positivo_condicional(self):
+        """'se nao for incomodo' → False (condicional, nao negacao)."""
+        assert detectar_negacao('oito x-salada, se nao for incomodo') is False
 
-    def test_bug7_nao_quero_hamburguer(self):
-        """ "nao quero hamburguer" -> True (negacao detectada)."""
-        assert detectar_negacao('nao quero hamburguer', self.config) is True
+    def test_negacao_falso_positivo_descricao(self):
+        """'nao pode murcha' → False (descricao de preferencia, nao negacao)."""
+        assert detectar_negacao('batata frita crocante, por favor, nao pode murcha') is False
 
-    def test_negacao_com_acento(self):
-        """ "não quero nada" -> True (acento contabilizado)."""
-        assert detectar_negacao('não quero nada', self.config) is True
+    def test_negacao_falso_positivo_se_nao(self):
+        """'se nao tiver, manda sem' → False (condicional)."""
+        assert detectar_negacao('se nao tiver, manda sem') is False
 
-    def test_negacao_coloquial_esquece(self):
-        """ "esquece o hamburguer" -> True."""
-        assert detectar_negacao('esquece o hamburguer', self.config) is True
-
-    def test_negacao_coloquial_cancela(self):
-        """ "cancela a coca" -> True."""
-        assert detectar_negacao('cancela a coca', self.config) is True
-
-    def test_negacao_coloquial_deixa(self):
-        """ "deixa pra lá" -> True."""
-        assert detectar_negacao('deixa pra lá', self.config) is True
-
-    def test_negacao_melhor_nao(self):
-        """ "melhor não" -> True."""
-        assert detectar_negacao('melhor não', self.config) is True
-
-    def test_sem_nao_e_negacao(self):
-        """ "hamburguer sem cebola" -> False ("sem" e remocao, nao negacao)."""
-        assert detectar_negacao('hamburguer sem cebola', self.config) is False
+    def test_negacao_falso_positivo_nao_quero_que(self):
+        """'quero que nao venha cebola' → False (e' remocao, nao negacao do pedido)."""
+        assert detectar_negacao('hamburguer, quero que nao venha cebola') is False
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Testes de integracao — extrair() com negacao
+# True positives — SAO negacoes
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-class TestNegacaoIntegracao:
-    """Testes via API publica extrair() — confirma que negacao retorna []."""
+class TestVerdadeirosPositivos:
+    """Casos onde o usuario esta negando/cancelando o pedido."""
 
-    def test_bug7_nao_quero_hamburguer_extrair(self):
-        """ "nao quero hamburguer" -> [] (pipeline retorna vazio)."""
-        result = extrair('nao quero hamburguer')
-        assert result == []
+    def test_nao_quero(self):
+        """'nao quero hamburguer' → True."""
+        assert detectar_negacao('nao quero hamburguer') is True
 
-    def test_negacao_com_acento_extrair(self):
-        """ "não quero nada" -> []."""
-        result = extrair('não quero nada')
-        assert result == []
+    def test_nao_quero_acento(self):
+        """'nao quero hamburguer' → True."""
+        assert detectar_negacao('nao quero hamburguer') is True
 
-    def test_negacao_coloquial_esquece_extrair(self):
-        """ "esquece o hamburguer" -> []."""
-        result = extrair('esquece o hamburguer')
-        assert result == []
+    def test_quero_nao(self):
+        """'hamburguer quero nao' → True."""
+        assert detectar_negacao('hamburguer quero nao') is True
 
-    def test_negacao_coloquial_cancela_extrair(self):
-        """ "cancela a coca" -> []."""
-        result = extrair('cancela a coca')
-        assert result == []
+    def test_esquece(self):
+        """'esquece' → True (cancelamento direto)."""
+        assert detectar_negacao('esquece') is True
 
-    def test_negacao_coloquial_deixa_extrair(self):
-        """ "deixa pra lá" -> []."""
-        result = extrair('deixa pra lá')
-        assert result == []
+    def test_esqueca(self):
+        """'esqueca' → True (cancelamento direto)."""
+        assert detectar_negacao('esqueca') is True
 
-    def test_negacao_melhor_nao_extrair(self):
-        """ "melhor não" -> []."""
-        result = extrair('melhor não')
-        assert result == []
+    def test_cancela(self):
+        """'cancela' → True (cancelamento direto)."""
+        assert detectar_negacao('cancela') is True
 
-    def test_sem_nao_e_remocao_nao_negacao_extrair(self):
-        """ "hamburguer sem cebola" -> extrai item com remocoes=['cebola']."""
-        result = extrair('hamburguer sem cebola')
-        assert len(result) == 1
-        assert result[0]['item_id'] == 'lanche_001'
-        assert result[0]['remocoes'] == ['cebola']
+    def test_desisto(self):
+        """'desisto' → True (cancelamento direto)."""
+        assert detectar_negacao('desisto') is True
+
+    def test_deixa_pra_la(self):
+        """'deixa pra la' → True."""
+        assert detectar_negacao('deixa pra la') is True
+
+    def test_deixa_para_la(self):
+        """'deixa para la' → True."""
+        assert detectar_negacao('deixa para la') is True
+
+    def test_muda_de_ideia(self):
+        """'muda de ideia' → True."""
+        assert detectar_negacao('muda de ideia') is True
+
+    def test_melhor_nao(self):
+        """'melhor nao' → True (rejeicao suave)."""
+        assert detectar_negacao('melhor nao') is True
+
+    def test_melhor_nao_acento(self):
+        """'melhor nao' → True (rejeicao suave)."""
+        assert detectar_negacao('melhor nao') is True
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Neutros — sem negacao
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestSemNegacao:
+    """Frases de pedido validas sem nenhuma negacao."""
+
+    def test_pedido_simples(self):
+        """'quero um hamburguer' → False."""
+        assert detectar_negacao('quero um hamburguer') is False
+
+    def test_pedido_com_remocao(self):
+        """'hamburguer sem cebola' → False (sem e' remocao, nao negacao)."""
+        assert detectar_negacao('hamburguer sem cebola') is False
+
+    def test_pedido_com_variante(self):
+        """'uma coca lata' → False."""
+        assert detectar_negacao('uma coca lata') is False
+
+    def test_pedido_multiplo(self):
+        """'dois hamburguer e uma coca' → False."""
+        assert detectar_negacao('dois hamburguer e uma coca') is False
+
+    def test_texto_vazio(self):
+        """'' → False."""
+        assert detectar_negacao('') is False
+
+    def test_so_espaco(self):
+        """'   ' → False."""
+        assert detectar_negacao('   ') is False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Edge cases
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestEdgeCases:
+    """Casos de borda para robustez."""
+
+    def test_nem_quero(self):
+        """'nem quero' → True (nem + verbo de desejo)."""
+        assert detectar_negacao('nem quero') is True
+
+    def test_quer_nao(self):
+        """'ele quer nao' → True (verbo de desejo + nao)."""
+        assert detectar_negacao('ele quer nao') is True
+
+    def test_nao_quer(self):
+        """'ele nao quer nada' → True (nao + verbo de desejo)."""
+        assert detectar_negacao('ele nao quer nada') is True

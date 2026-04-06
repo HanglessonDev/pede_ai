@@ -30,7 +30,7 @@ def _get_item_por_id(cardapio: dict, item_id: str) -> dict:
     return {}
 
 
-def _tokens_a_frente(doc: Doc, token, max_tokens: int = 5):
+def _tokens_a_frente(doc: 'Doc', token, max_tokens: int = 5):
     """Yield tokens apos ``token`` (excluindo o proprio token)."""
     for t in doc[token.i + 1 :]:
         if t.pos_ in ('PUNCT', 'SPACE'):
@@ -41,7 +41,41 @@ def _tokens_a_frente(doc: Doc, token, max_tokens: int = 5):
             break
 
 
-def _token_anterior(doc: Doc, token):
+def _tokens_a_frente_complemento(
+    doc: 'Doc',
+    token,
+    max_tokens: int = 5,
+    skip_words: frozenset[str] | None = None,
+):
+    """Scan forward from ``token``, skipping prepositions/articles.
+
+    Unlike ``_tokens_a_frente``, this does NOT stop at stop words —
+    it skips prepositions (de, do, da) and articles (um, uma, o, a)
+    and keeps looking for valid complemento names up to max_tokens.
+
+    Args:
+        doc: Documento spaCy.
+        token: Token de partida (ex: trigger "com", "adicional").
+        max_tokens: Numero maximo de tokens significativos a examinar.
+        skip_words: Palavras a pular silenciosamente (default: preposicoes + artigos).
+
+    Yields:
+        Tokens que nao sao de pulo, ate max_tokens.
+    """
+    if skip_words is None:
+        skip_words = frozenset({'de', 'do', 'da', 'um', 'uma', 'o', 'a', 'os', 'as', 'e', 'ou'})
+    for t in doc[token.i + 1 :]:
+        if t.pos_ in ('PUNCT', 'SPACE'):
+            continue
+        if t.lower_ in skip_words:
+            continue  # skip but don't count against max_tokens for matches
+        yield t
+        max_tokens -= 1
+        if max_tokens <= 0:
+            break
+
+
+def _token_anterior(doc: 'Doc', token):
     """Retorna o token significativo anterior a ``token``."""
     for t in reversed(doc[: token.i]):
         if t.pos_ not in ('PUNCT', 'SPACE', 'DET', 'ADP'):
@@ -50,7 +84,7 @@ def _token_anterior(doc: Doc, token):
 
 
 def detectar_complementos(
-    doc: Doc, item_id: str, cardapio: dict, config: ExtratorConfig
+    doc: 'Doc', item_id: str, cardapio: dict, config: 'ExtratorConfig'
 ) -> list[str]:
     """Detecta complementos adicionados ao item.
 
@@ -81,25 +115,29 @@ def detectar_complementos(
     complementos: list[str] = []
     texto_lower = doc.text.lower()
 
-    # Strategy 1: "com <complemento>" — look for complemento keyword followed by valid complemento name
+    # Strategy 1: "com <complemento>" and "adicional de <complemento>"
+    # Use _tokens_a_frente_complemento which skips prepositions/articles
+    # and does NOT stop at connectives (they're only stopping points for remocoes).
     for token in doc:
-        if token.lower_ in config.palavras_complemento and token.lower_ in ('com',):
-            for next_t in _tokens_a_frente(doc, token):
+        if token.lower_ in config.palavras_complemento:
+            for next_t in _tokens_a_frente_complemento(doc, token):
                 if next_t.lower_ in complementos_validos:
-                    complementos.append(next_t.text)
-                    break  # break DENTRO do if — sai so quando encontra
-                if next_t.lower_ in config.palavras_parada:
-                    break
+                    if next_t.text not in complementos:
+                        complementos.append(next_t.text)
 
         # Strategy 2: Padrao inverso — "bacon extra" → NOUN + ADJ
         if token.lower_ in ('extra', 'adicional') and token.pos_ == 'ADJ':
             prev_t = _token_anterior(doc, token)
-            if (
-                prev_t
-                and prev_t.text.lower() in complementos_validos
-                and prev_t.text not in complementos
-            ):
-                complementos.append(prev_t.text)
+            if prev_t and prev_t.text.lower() in complementos_validos:
+                if prev_t.text not in complementos:
+                    complementos.append(prev_t.text)
+
+        # Strategy 2b: "adicional" as trigger word (not ADJ) — "adicional de queijo"
+        if token.lower_ == 'adicional' and token.lower_ in config.palavras_complemento:
+            for next_t in _tokens_a_frente_complemento(doc, token):
+                if next_t.lower_ in complementos_validos:
+                    if next_t.text not in complementos:
+                        complementos.append(next_t.text)
 
     # Strategy 3: Also check for complemento names appearing after "com" anywhere in text
     # This handles cases where spaCy might tokenize differently
