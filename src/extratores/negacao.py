@@ -94,14 +94,14 @@ def _match_contextual(texto: str) -> bool:
 
         # Exclui caso "que" aparece entre o verbo de desejo e "nao"
         # ex: "quero que nao venha" — "que" esta' antes de "nao"
-        tem_que_antes = 'que' in tokens[max(0, i - 3):i]
+        tem_que_antes = 'que' in tokens[max(0, i - 3) : i]
         if tem_que_antes:
             continue
 
         # Olha tokens vizinhos (janela de 3 tokens)
         inicio = max(0, i - 3)
         fim = min(len(tokens), i + 4)
-        vizinhos = tokens[inicio:i] + tokens[i + 1:fim]
+        vizinhos = tokens[inicio:i] + tokens[i + 1 : fim]
 
         # Verifica se algum vizinho e' verbo de desejo
         for vizinho in vizinhos:

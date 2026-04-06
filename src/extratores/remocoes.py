@@ -50,7 +50,7 @@ def _deve_parar_no_conectivo(
 
 def _tokens_a_frente(doc: Doc, token) -> list:
     """Retorna tokens apos o token atual."""
-    return list(doc)[token.i + 1:]
+    return list(doc)[token.i + 1 :]
 
 
 def _tem_nova_remocao_a_frente(doc, token_atual, config: ExtratorConfig) -> bool:

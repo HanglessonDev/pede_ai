@@ -269,20 +269,30 @@ class Extrator:
         for item in itens_spacy:
             # Find the QTD entity that was used for this item
             # (the one with the highest position before the item's first entity match)
-            for idx, (qtd_pos, qtd_val) in reversed(list(enumerate(todas_qtds))):
+            for idx, (_qtd_pos, qtd_val) in reversed(list(enumerate(todas_qtds))):
                 if idx not in qtds_indices_consumidas and qtd_val == item.quantidade:
                     qtds_indices_consumidas.add(idx)
                     break
 
         # QTDs disponiveis para fuzzy
-        qtds_pendentes = [qtd for idx, qtd in enumerate(todas_qtds) if idx not in qtds_indices_consumidas]
+        qtds_pendentes = [
+            qtd
+            for idx, qtd in enumerate(todas_qtds)
+            if idx not in qtds_indices_consumidas
+        ]
 
         # 2. Tokens livres (nao cobertos, significativos)
         _palavras_baixa_qualidade = self._config.palavras_remocao | {
-            'sal', 'gelo', 'agua', 'nada', 'tudo', 'algo',
+            'sal',
+            'gelo',
+            'agua',
+            'nada',
+            'tudo',
+            'algo',
         }
         tokens_livres = [
-            t for t in doc
+            t
+            for t in doc
             if t.i not in cobertos
             and t.pos_ not in ('PUNCT', 'SPACE', 'SYM')
             and len(t.text) >= 3
@@ -362,16 +372,18 @@ class Extrator:
                     and not _tem_substring_repetida(token)
                     and score >= cutoff
                 ):
-                    resultados.append(ItemExtraido(
-                        item_id=item_id,
-                        quantidade=qtd_fuzzy,
-                        variante=None,
-                        remocoes=[],
-                        complementos=[],
-                        observacoes=[],
-                        confianca=score / 100,
-                        fonte='fuzzy',
-                    ))
+                    resultados.append(
+                        ItemExtraido(
+                            item_id=item_id,
+                            quantidade=qtd_fuzzy,
+                            variante=None,
+                            remocoes=[],
+                            complementos=[],
+                            observacoes=[],
+                            confianca=score / 100,
+                            fonte='fuzzy',
+                        )
+                    )
                     break  # So' pega o melhor match
 
         return resultados

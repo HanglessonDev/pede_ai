@@ -5,7 +5,6 @@ Testam detectar_observacoes() do modulo src.extratores.observacoes.
 
 from __future__ import annotations
 
-import pytest
 
 from src.extratores.observacoes import detectar_observacoes
 from src.config import get_cardapio
@@ -29,7 +28,10 @@ class TestDetectarObservacoes:
         """'coca bem gelada' -> observacoes=['bem gelada']."""
         doc = _processar('coca bem gelada')
         result = detectar_observacoes(doc)
-        assert 'bem gelada' in ' '.join(result).lower() or 'gelada' in ' '.join(result).lower()
+        assert (
+            'bem gelada' in ' '.join(result).lower()
+            or 'gelada' in ' '.join(result).lower()
+        )
 
     def test_observacao_caprichado(self):
         """'hamburguer caprichado' -> observacoes=['caprichado']."""

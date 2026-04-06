@@ -94,7 +94,7 @@ class TestSegmentoBasico:
         seg = Segmento(texto='teste', start=0, end=1)
         try:
             seg.start = 5  # type: ignore[misc]
-            raise AssertionError("Deveria levantar erro de imutabilidade")
+            raise AssertionError('Deveria levantar erro de imutabilidade')
         except (AttributeError, TypeError):
             pass  # Comportamento esperado para dataclass frozen
 

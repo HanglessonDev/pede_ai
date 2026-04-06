@@ -83,7 +83,7 @@ def extrair_quantidade_do_texto(
         return None, texto
 
     qtd_texto = match.group(0).strip()
-    resto = texto[match.end():]
+    resto = texto[match.end() :]
 
     # Resolver o valor extraido
     qtd = resolver_quantidade(qtd_texto, config)

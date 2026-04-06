@@ -5,7 +5,6 @@ Testam detectar_complementos() do modulo src.extratores.complementos.
 
 from __future__ import annotations
 
-import pytest
 
 from src.extratores.complementos import detectar_complementos
 from src.extratores.config import get_extrator_config

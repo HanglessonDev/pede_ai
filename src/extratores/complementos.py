@@ -30,7 +30,7 @@ def _get_item_por_id(cardapio: dict, item_id: str) -> dict:
     return {}
 
 
-def _tokens_a_frente(doc: 'Doc', token, max_tokens: int = 5):
+def _tokens_a_frente(doc: Doc, token, max_tokens: int = 5):
     """Yield tokens apos ``token`` (excluindo o proprio token)."""
     for t in doc[token.i + 1 :]:
         if t.pos_ in ('PUNCT', 'SPACE'):
@@ -42,7 +42,7 @@ def _tokens_a_frente(doc: 'Doc', token, max_tokens: int = 5):
 
 
 def _tokens_a_frente_complemento(
-    doc: 'Doc',
+    doc: Doc,
     token,
     max_tokens: int = 5,
     skip_words: frozenset[str] | None = None,
@@ -63,7 +63,9 @@ def _tokens_a_frente_complemento(
         Tokens que nao sao de pulo, ate max_tokens.
     """
     if skip_words is None:
-        skip_words = frozenset({'de', 'do', 'da', 'um', 'uma', 'o', 'a', 'os', 'as', 'e', 'ou'})
+        skip_words = frozenset(
+            {'de', 'do', 'da', 'um', 'uma', 'o', 'a', 'os', 'as', 'e', 'ou'}
+        )
     for t in doc[token.i + 1 :]:
         if t.pos_ in ('PUNCT', 'SPACE'):
             continue
@@ -75,7 +77,7 @@ def _tokens_a_frente_complemento(
             break
 
 
-def _token_anterior(doc: 'Doc', token):
+def _token_anterior(doc: Doc, token):
     """Retorna o token significativo anterior a ``token``."""
     for t in reversed(doc[: token.i]):
         if t.pos_ not in ('PUNCT', 'SPACE', 'DET', 'ADP'):
@@ -84,7 +86,7 @@ def _token_anterior(doc: 'Doc', token):
 
 
 def detectar_complementos(
-    doc: 'Doc', item_id: str, cardapio: dict, config: 'ExtratorConfig'
+    doc: Doc, item_id: str, cardapio: dict, config: ExtratorConfig
 ) -> list[str]:
     """Detecta complementos adicionados ao item.
 

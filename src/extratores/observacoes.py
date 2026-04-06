@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from spacy.tokens import Doc
 
 
-def detectar_observacoes(doc: 'Doc') -> list[str]:
+def detectar_observacoes(doc: Doc) -> list[str]:
     """Detecta observacoes genericas (lista fixa + modificadores de intensidade).
 
     Duas estrategias sao usadas:
@@ -82,7 +82,7 @@ def detectar_observacoes(doc: 'Doc') -> list[str]:
     return observacoes
 
 
-def detectar_modificadores(doc: 'Doc') -> list[str]:
+def detectar_modificadores(doc: Doc) -> list[str]:
     """Detecta apenas modificadores de intensidade.
 
     Funcao auxiliar para uso isolado quando necessario.

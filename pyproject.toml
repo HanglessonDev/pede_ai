@@ -73,7 +73,10 @@ ignore = ["E501", "S101", "PLR0913", "RUF001", "PLR2004"]
 "__init__.py" = ["F401", "F403"]
 "**/tests/**" = ["S101", "PLR2004", "S607", "PLC0415"]
 "src/observabilidade/consultas.py" = ["S608"]
-"src/extratores/complementos.py" = ["PLR0912"]
+"src/extratores/complementos.py" = ["PLR0912", "SIM102"]
+"src/extratores/extrator.py" = ["PLR0912"]
+"src/extratores/negacao.py" = ["SIM103"]
+"src/extratores/observacoes.py" = ["SIM102", "PERF401"]
 
 [tool.ruff.lint.isort]
 lines-after-imports = 2

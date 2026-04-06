@@ -5,16 +5,15 @@ do cardapio. Ex: "sem cebola hamburguer" capturava ['cebola', 'hamburguer']
 quando deveria capturar apenas ['cebola'].
 """
 
-import pytest
 
 from src.extratores.normalizador import normalizar_para_busca
-from src.extratores.remocoes import capturar_remocoes, capturar_remocoes_v2
+from src.extratores.remocoes import capturar_remocoes_v2
 from src.extratores.config import get_extrator_config
 
 
 def _build_itens_ids() -> frozenset[str]:
     """Constroi set de nomes + aliases normalizados do cardapio."""
-    from src.config import get_cardapio  # noqa: PLC0415
+    from src.config import get_cardapio
 
     cardapio = get_cardapio()
     ids: set[str] = set()
@@ -51,7 +50,7 @@ class TestRemocoesScopeAware:
     """Testes para bugs de itens sendo capturados como remocoes."""
 
     def test_bug1_item_nao_vira_remocao(self):
-        """"sem cebola hamburguer" → remocoes=["cebola"], hamburguer = item."""
+        """ "sem cebola hamburguer" → remocoes=["cebola"], hamburguer = item."""
         doc = _mock_doc('sem cebola hamburguer')
         config = get_extrator_config()
         remocoes = capturar_remocoes_v2(doc, config, ITENS_IDS)
@@ -60,7 +59,7 @@ class TestRemocoesScopeAware:
         assert 'hamburguer' not in textos
 
     def test_bug5_item_antes_do_sem(self):
-        """"batata sem sal" → remocoes=["sal"] apenas."""
+        """ "batata sem sal" → remocoes=["sal"] apenas."""
         doc = _mock_doc('batata sem sal')
         config = get_extrator_config()
         remocoes = capturar_remocoes_v2(doc, config, ITENS_IDS)
@@ -69,7 +68,7 @@ class TestRemocoesScopeAware:
         assert 'batata' not in textos
 
     def test_multiplas_remocoes_com_e(self):
-        """"sem cebola e tomate" → remocoes=["cebola", "tomate"]."""
+        """ "sem cebola e tomate" → remocoes=["cebola", "tomate"]."""
         doc = _mock_doc('sem cebola e tomate')
         config = get_extrator_config()
         remocoes = capturar_remocoes_v2(doc, config, ITENS_IDS)
@@ -78,7 +77,7 @@ class TestRemocoesScopeAware:
         assert 'tomate' in textos
 
     def test_remocao_para_antes_de_novo_item(self):
-        """"sem cebola hamburguer e coca" → cebola = remocao, coca = item separado."""
+        """ "sem cebola hamburguer e coca" → cebola = remocao, coca = item separado."""
         doc = _mock_doc('sem cebola hamburguer e coca')
         config = get_extrator_config()
         remocoes = capturar_remocoes_v2(doc, config, ITENS_IDS)
@@ -92,7 +91,7 @@ class TestRemocoesFiltroStopWords:
     """Testes para garantir que stop words nao sao capturadas como remocoes."""
 
     def test_remocao_nao_captura_favor(self):
-        """"coca sem gelo por favor" → remocoes=["gelo"] apenas, nao "favor"."""
+        """ "coca sem gelo por favor" → remocoes=["gelo"] apenas, nao "favor"."""
         doc = _mock_doc('coca sem gelo por favor')
         config = get_extrator_config()
         remocoes = capturar_remocoes_v2(doc, config, ITENS_IDS)
@@ -102,7 +101,7 @@ class TestRemocoesFiltroStopWords:
         assert 'por' not in textos
 
     def test_remocao_nao_captura_stop_words(self):
-        """"xis sem nada além do básico" → remocoes=[] (nada, além, básico sao filtro)."""
+        """ "xis sem nada além do básico" → remocoes=[] (nada, além, básico sao filtro)."""
         doc = _mock_doc('xis sem nada além do básico')
         config = get_extrator_config()
         remocoes = capturar_remocoes_v2(doc, config, ITENS_IDS)
@@ -110,7 +109,7 @@ class TestRemocoesFiltroStopWords:
         assert textos == []
 
     def test_remocao_nao_captura_tambem(self):
-        """"x-tudo sem queijo e também sem alface" → remocoes=["queijo", "alface"]."""
+        """ "x-tudo sem queijo e também sem alface" → remocoes=["queijo", "alface"]."""
         doc = _mock_doc('x-tudo sem queijo e também sem alface')
         config = get_extrator_config()
         remocoes = capturar_remocoes_v2(doc, config, ITENS_IDS)

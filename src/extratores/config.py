@@ -125,35 +125,82 @@ class ExtratorConfig:
     )
     numeros_fracionarios: Mapping[str, float] = field(
         default_factory=lambda: {
-            'meio': 0.5, 'meia': 0.5,
-            'um e meio': 1.5, 'uma e meia': 1.5,
+            'meio': 0.5,
+            'meia': 0.5,
+            'um e meio': 1.5,
+            'uma e meia': 1.5,
         }
     )
     palavras_negacao: frozenset[str] = field(
-        default_factory=lambda: frozenset({
-            'nao', 'não', 'nem', 'quero nao', 'quero não',
-            'esquece', 'esqueça', 'cancela', 'cancelar',
-            'deixa pra la', 'deixa para lá', 'deixa',
-            'desisto', 'muda de ideia',
-        })
+        default_factory=lambda: frozenset(
+            {
+                'nao',
+                'não',
+                'nem',
+                'quero nao',
+                'quero não',
+                'esquece',
+                'esqueça',
+                'cancela',
+                'cancelar',
+                'deixa pra la',
+                'deixa para lá',
+                'deixa',
+                'desisto',
+                'muda de ideia',
+            }
+        )
     )
     palavras_filtro_remocao: frozenset[str] = field(
-        default_factory=lambda: frozenset({
-            # Cortesia / polidez
-            'favor', 'gentileza', 'obrigado', 'obrigada',
-            # Intensificadores / restritivos
-            'também', 'tambem', 'ainda', 'mais', 'so', 'só', 'apenas',
-            # Temporais / posicionais
-            'alem', 'além', 'depois', 'antes', 'durante',
-            # Qualificadores genericos
-            'basico', 'básico', 'normal', 'padrao', 'padrão',
-            # Pronomes indefinidos
-            'nada', 'tudo', 'algo', 'coisa',
-            # Verbos auxiliares
-            'pode', 'ser', 'poder', 'será', 'sera',
-            # Preposicoes e artigos que escapam do POS filter
-            'por', 'pra', 'para', 'com', 'sem', 'de', 'do', 'da',
-        })
+        default_factory=lambda: frozenset(
+            {
+                # Cortesia / polidez
+                'favor',
+                'gentileza',
+                'obrigado',
+                'obrigada',
+                # Intensificadores / restritivos
+                'também',
+                'tambem',
+                'ainda',
+                'mais',
+                'so',
+                'só',
+                'apenas',
+                # Temporais / posicionais
+                'alem',
+                'além',
+                'depois',
+                'antes',
+                'durante',
+                # Qualificadores genericos
+                'basico',
+                'básico',
+                'normal',
+                'padrao',
+                'padrão',
+                # Pronomes indefinidos
+                'nada',
+                'tudo',
+                'algo',
+                'coisa',
+                # Verbos auxiliares
+                'pode',
+                'ser',
+                'poder',
+                'será',
+                'sera',
+                # Preposicoes e artigos que escapam do POS filter
+                'por',
+                'pra',
+                'para',
+                'com',
+                'sem',
+                'de',
+                'do',
+                'da',
+            }
+        )
     )
 
 

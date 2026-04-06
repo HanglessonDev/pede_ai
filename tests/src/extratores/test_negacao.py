@@ -6,7 +6,6 @@ Cobre falsos positivos (condicionais, descricoes) e casos verdadeiros.
 
 from __future__ import annotations
 
-import pytest
 
 from src.extratores.negacao import detectar_negacao
 
@@ -25,7 +24,10 @@ class TestFalsosPositivos:
 
     def test_negacao_falso_positivo_descricao(self):
         """'nao pode murcha' → False (descricao de preferencia, nao negacao)."""
-        assert detectar_negacao('batata frita crocante, por favor, nao pode murcha') is False
+        assert (
+            detectar_negacao('batata frita crocante, por favor, nao pode murcha')
+            is False
+        )
 
     def test_negacao_falso_positivo_se_nao(self):
         """'se nao tiver, manda sem' → False (condicional)."""
