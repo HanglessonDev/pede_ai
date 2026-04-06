@@ -112,7 +112,7 @@ def gerar_patterns(
 
     patterns.extend(
         [
-            {'label': 'QTD', 'pattern': [{'LOWER': palavra}]}
+            {'label': 'NUM_PENDING', 'pattern': [{'LOWER': palavra}]}
             for palavra in config.numeros_escritos
         ]
     )

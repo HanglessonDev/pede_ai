@@ -153,7 +153,7 @@ class TestGerarPatterns:
             assert 'label' in pattern
 
     def test_items_e_variantes_tem_id(self, cardapio):
-        """Patterns de ITEM e VARIANTE devem ter id, QTD nao tem."""
+        """Patterns de ITEM e VARIANTE devem ter id, NUM_PENDING nao tem."""
         result = gerar_patterns(cardapio, normalizar_para_busca)
 
         # ITEM e VARIANTE devem ter id
@@ -161,14 +161,14 @@ class TestGerarPatterns:
             if pattern['label'] in ('ITEM', 'VARIANTE'):
                 assert 'id' in pattern, f'Pattern {pattern} nao tem id'
 
-        # QTD pode ou nao ter id (nao e obrigatorio)
-        qtd_patterns = [p for p in result if p['label'] == 'QTD']
-        assert len(qtd_patterns) > 0
+        # NUM_PENDING pode ou nao ter id (nao e obrigatorio)
+        num_pending_patterns = [p for p in result if p['label'] == 'NUM_PENDING']
+        assert len(num_pending_patterns) > 0
 
     def test_labels_sao_validos(self, cardapio):
-        """Labels devem ser ITEM, VARIANTE ou QTD."""
+        """Labels devem ser ITEM, VARIANTE ou NUM_PENDING."""
         result = gerar_patterns(cardapio, normalizar_para_busca)
-        labels_validos = {'ITEM', 'VARIANTE', 'QTD'}
+        labels_validos = {'ITEM', 'VARIANTE', 'NUM_PENDING'}
         for pattern in result:
             assert pattern['label'] in labels_validos
 
@@ -188,13 +188,13 @@ class TestGerarPatterns:
         """Deve gerar patterns para números escritos."""
         result = gerar_patterns(cardapio, normalizar_para_busca)
         labels = [p['label'] for p in result]
-        assert 'QTD' in labels
+        assert 'NUM_PENDING' in labels
 
     def test_quantidade_numeros_escritos(self, cardapio):
         """Deve ter patterns para cada número escrito."""
         result = gerar_patterns(cardapio, normalizar_para_busca)
-        qtd_patterns = [p for p in result if p['label'] == 'QTD']
-        assert len(qtd_patterns) == len(get_extrator_config().numeros_escritos)
+        num_pending_patterns = [p for p in result if p['label'] == 'NUM_PENDING']
+        assert len(num_pending_patterns) == len(get_extrator_config().numeros_escritos)
 
     def test_chama_normalizar_para_cada_item(self, cardapio):
         """Deve chamar normalizar para cada item."""
