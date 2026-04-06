@@ -4,7 +4,6 @@ Cada bug foi identificado no EXTRATOR_DESIGN.md e deve ser testado
 ANTES de qualquer alteracao no _extrair_spacy().
 """
 
-
 from src.extratores import extrair
 
 
@@ -83,3 +82,48 @@ class TestDesambiguacaoQtdVariante:
         result = extrair('tres hamburguer')
         assert len(result) == 1
         assert result[0]['quantidade'] == 3
+
+
+class TestAliasesEJanela:
+    """Testes de aliases novos e janela de contexto."""
+
+    def test_bug6_alias_xis(self, engine, config, cardapio):
+        """'xis sem cebola' deve extrair hamburguer com remocoes=['cebola']."""
+        from src.extratores.extrator import Extrator
+
+        extrator = Extrator(engine, config, cardapio)
+        result = extrator.extrair('xis sem cebola')
+        assert len(result) == 1
+        assert result[0].item_id == 'lanche_001'
+        assert 'cebola' in result[0].remocoes
+
+    def test_bug6_alias_x_td(self, engine, config, cardapio):
+        """'x-td' deve extrair x-tudo."""
+        from src.extratores.extrator import Extrator
+
+        extrator = Extrator(engine, config, cardapio)
+        result = extrator.extrair('x-td')
+        assert len(result) == 1
+        assert result[0].item_id == 'lanche_003'
+
+    def test_alias_coquinha(self, engine, config, cardapio):
+        """'coquinha gelada' deve extrair coca."""
+        from src.extratores.extrator import Extrator
+
+        extrator = Extrator(engine, config, cardapio)
+        result = extrator.extrair('coquinha gelada')
+        assert len(result) == 1
+        assert result[0].item_id == 'bebida_001'
+
+    def test_janela_nao_associa_qtd_errada(self, engine, config, cardapio):
+        "'2 hamburguer e coca dupla' — 'dupla' não vira variante do hamburguer."
+        from src.extratores.extrator import Extrator
+
+        extrator = Extrator(engine, config, cardapio)
+        result = extrator.extrair('2 hamburguer e coca dupla')
+        assert len(result) == 2
+        # hamburguer tem qtd=2, sem variante
+        assert result[0].quantidade == 2
+        assert result[0].variante is None or result[0].variante != 'dupla'
+        # coca pode ter variante='dupla'
+        assert result[1].item_id == 'bebida_001'

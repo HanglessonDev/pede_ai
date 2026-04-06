@@ -202,3 +202,49 @@ class TestIntegracaoFase3:
         assert result_com_obs[0]['variante'] == result_sem_obs[0]['variante']
         # mas observacoes deve estar preenchida no primeiro
         assert len(result_com_obs[0]['observacoes']) > 0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Fase 4.4 — Janela de Contexto
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestJanelaContexto:
+    """Janela de contexto: tokens distantes nao sao associados ao item."""
+
+    def test_janela_nao_associa_qtd_errada(self):
+        """'2 hamburguer e coca dupla' -> 'dupla' nao vira variante do hamburguer."""
+        result = extrair('2 hamburguer e coca dupla')
+        assert len(result) >= 1
+        hamburguer = result[0]
+        assert hamburguer['item_id'] == 'lanche_001'
+        # 'dupla' esta longe demais do hamburguer para ser sua variante
+        assert hamburguer['variante'] is None
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Fase 4.5 — Aliases novos (xis, x-td, coquinha)
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestAliasesNovos:
+    """Novos aliases: xis, x-td, coquinha."""
+
+    def test_bug6_alias_xis(self):
+        """'xis sem cebola' -> item_id do hamburguer, remocoes=['cebola']."""
+        result = extrair('xis sem cebola')
+        assert len(result) == 1
+        assert result[0]['item_id'] == 'lanche_001'
+        assert 'cebola' in result[0]['remocoes']
+
+    def test_bug6_alias_x_td(self):
+        """'x-td' -> item x-tudo reconhecido."""
+        result = extrair('x-td')
+        assert len(result) == 1
+        assert result[0]['item_id'] == 'lanche_003'
+
+    def test_alias_coquinha(self):
+        """'coquinha gelada' -> item coca reconhecido."""
+        result = extrair('coquinha gelada')
+        assert len(result) == 1
+        assert result[0]['item_id'] == 'bebida_001'

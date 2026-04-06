@@ -38,7 +38,7 @@ itens:
   - id: lanche_001
     nome: Hambúrguer
     categoria: lanche
-    aliases: [hamburguer, burger, hambug, hamburger]
+    aliases: [hamburguer, burger, hambug, hamburger, xis]
     preco: null
     variantes:
       - opcao: simples
@@ -82,7 +82,7 @@ itens:
   - id: bebida_001
     nome: Coca-Cola
     categoria: bebida
-    aliases: [coca, coca cola, cocacola]
+    aliases: [coca, coca cola, cocacola, coquinha]
     preco: null
     variantes:
       - opcao: lata
