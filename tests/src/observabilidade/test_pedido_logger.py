@@ -41,7 +41,13 @@ class TestPedidoLogger:
             thread_id='sessao_1',
             turn_id='turn_001',
             itens_adicionados=[
-                {'item_id': 'lanche_001', 'nome': 'Hamburguer', 'quantidade': 1, 'variante': 'simples', 'preco_centavos': 1500},
+                {
+                    'item_id': 'lanche_001',
+                    'nome': 'Hamburguer',
+                    'quantidade': 1,
+                    'variante': 'simples',
+                    'preco_centavos': 1500,
+                },
             ],
             itens_fila=[],
             total_itens=1,
@@ -67,7 +73,12 @@ class TestPedidoLogger:
             turn_id='turn_002',
             itens_adicionados=[],
             itens_fila=[
-                {'item_id': 'lanche_001', 'nome': 'Hamburguer', 'campo': 'variante', 'opcoes': ['simples', 'duplo']},
+                {
+                    'item_id': 'lanche_001',
+                    'nome': 'Hamburguer',
+                    'campo': 'variante',
+                    'opcoes': ['simples', 'duplo'],
+                },
             ],
             total_itens=0,
             preco_total_centavos=0,
@@ -91,8 +102,20 @@ class TestPedidoLogger:
             thread_id='sessao_3',
             turn_id='turn_003',
             itens_adicionados=[
-                {'item_id': 'lanche_001', 'nome': 'Hamburguer', 'quantidade': 2, 'variante': None, 'preco_centavos': 3000},
-                {'item_id': 'bebida_001', 'nome': 'Coca-Cola', 'quantidade': 1, 'variante': None, 'preco_centavos': 500},
+                {
+                    'item_id': 'lanche_001',
+                    'nome': 'Hamburguer',
+                    'quantidade': 2,
+                    'variante': None,
+                    'preco_centavos': 3000,
+                },
+                {
+                    'item_id': 'bebida_001',
+                    'nome': 'Coca-Cola',
+                    'quantidade': 1,
+                    'variante': None,
+                    'preco_centavos': 500,
+                },
             ],
             itens_fila=[],
             total_itens=2,
@@ -115,7 +138,13 @@ class TestPedidoLogger:
         import json
 
         itens = [
-            {'item_id': 'lanche_001', 'nome': 'Hamburguer', 'quantidade': 1, 'variante': 'simples', 'preco_centavos': 1500},
+            {
+                'item_id': 'lanche_001',
+                'nome': 'Hamburguer',
+                'quantidade': 1,
+                'variante': 'simples',
+                'preco_centavos': 1500,
+            },
         ]
         logger.registrar(
             thread_id='sessao_4',

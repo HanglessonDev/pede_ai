@@ -38,7 +38,9 @@ class ExtratorDetailLogger(BaseCsvLogger):
             kwargs.get('extrator', ''),
             kwargs.get('estrategia', ''),
             kwargs.get('itens_encontrados', 0),
-            json.dumps(kwargs.get('detalhes', {}), ensure_ascii=False)[:JSON_TRUNCATE_LIMIT],
+            json.dumps(kwargs.get('detalhes', {}), ensure_ascii=False)[
+                :JSON_TRUNCATE_LIMIT
+            ],
             f'{kwargs.get("tempo_ms", 0.0):.2f}',
         ]
 

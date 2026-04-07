@@ -24,6 +24,7 @@ import csv
 import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any
 
 
 class BaseCsvLogger(ABC):
@@ -99,11 +100,11 @@ class BaseCsvLogger(ABC):
                     writer = csv.writer(f)
                     writer.writerow(self.headers)
 
-    def registrar(self, **kwargs: str | float | int | None) -> None:
+    def registrar(self, **kwargs: Any) -> None:
         """Registra uma linha no CSV de forma thread-safe.
 
         Args:
-            **kwargs: Dados a registrar (str, float, int ou None).
+            **kwargs: Dados a registrar.
                 Serão convertidos via _to_row().
         """
         row = self._to_row(**kwargs)

@@ -28,7 +28,6 @@ from langgraph.config import get_config
 
 from src.extratores import extrair
 from src.graph.handlers.cancelar_handler import processar_cancelamento
-from src.graph.handlers.carrinho import Carrinho
 from src.graph.handlers.carrinho_handler import processar_carrinho
 from src.graph.handlers.clarificacao import clarificar
 from src.graph.handlers.confirmar_handler import processar_confirmacao
@@ -42,7 +41,6 @@ from src.observabilidade.registry import (
     get_dispatcher_logger,
     get_exception_logger,
     get_extracao_logger,
-    get_extrator_detail_logger,
     get_funil_logger,
     get_handler_logger,
     get_negocio_logger,
@@ -64,7 +62,7 @@ def _get_turn_id(state: State) -> str:
     return state.get('turn_id', '')
 
 
-def _log_negocio(state: State, evento: str, resultado: dict) -> None:
+def _log_negocio(state: State, evento: str, resultado: RetornoNode) -> None:
     """Helper para logar eventos de negocio."""
     negocio_logger = get_negocio_logger()
     if not negocio_logger:
@@ -88,7 +86,9 @@ def _log_negocio(state: State, evento: str, resultado: dict) -> None:
     )
 
 
-def _log_debug(state: State, node: str, fase: str, dados_brutos: dict | None = None) -> None:
+def _log_debug(
+    state: State, node: str, fase: str, dados_brutos: dict | None = None
+) -> None:
     """Helper para debug mode — logga estado completo no JSONL da sessão."""
     debug_logger = get_debug_session_logger()
     if debug_logger:
@@ -97,7 +97,9 @@ def _log_debug(state: State, node: str, fase: str, dados_brutos: dict | None = N
             turn_id=_get_turn_id(state),
             node=node,
             fase=fase,
-            estado={k: v for k, v in state.items() if k != 'carrinho'},  # carrinho pode ser grande
+            estado={
+                k: v for k, v in state.items() if k != 'carrinho'
+            },  # carrinho pode ser grande
             dados_brutos=dados_brutos,
         )
 
@@ -435,16 +437,8 @@ def node_handler_pedir(state: State) -> RetornoNode:
 
         pedido_logger = get_pedido_logger()
         if pedido_logger:
-            itens_adicionados_dicts = [
-                {
-                    'item_id': i.item_id,
-                    'quantidade': i.quantidade,
-                    'variante': i.variante,
-                    'preco_centavos': i.preco_centavos,
-                }
-                for i in resultado.carrinho
-            ]
-            preco_total = sum(i.preco_centavos for i in resultado.carrinho)
+            itens_adicionados_dicts = resultado.carrinho
+            preco_total = sum(i.get('preco_centavos', 0) for i in resultado.carrinho)
             pedido_logger.registrar(
                 thread_id=_get_thread_id(),
                 turn_id=_get_turn_id(state),
@@ -478,7 +472,7 @@ def node_handler_pedir(state: State) -> RetornoNode:
         }
 
 
-def _handler_fallback(componente: str, state: State) -> dict:
+def _handler_fallback(componente: str, state: State) -> RetornoNode:
     """Retorno padrao para handlers com excecao."""
     exc_logger = get_exception_logger()
     if exc_logger:
@@ -492,7 +486,7 @@ def _handler_fallback(componente: str, state: State) -> dict:
                 'intent': state.get('intent', ''),
             },
         )
-    return {'resposta': 'Erro interno. Tente novamente.', 'modo': 'ocioso'}
+    return {'resposta': 'Erro interno. Tente novamente.', 'modo': 'ocioso'}  # type: ignore[return-value]
 
 
 def node_handler_saudacao(state: State) -> RetornoNode:
@@ -596,7 +590,7 @@ def _parece_remocao(mensagem: str) -> bool:
     return any(verbo in msg for verbo in _VERBOS_REMOCAO_ITEM)
 
 
-def node_dispatcher_modificar(state: State) -> RetornoNode:  # noqa: PLR0911
+def node_dispatcher_modificar(state: State) -> RetornoNode:
     """Decide qual ação executar para intent modificar_pedido."""
     try:
         return _dispatcher_interno(state)
@@ -619,7 +613,7 @@ def node_dispatcher_modificar(state: State) -> RetornoNode:  # noqa: PLR0911
         }
 
 
-def _dispatcher_interno(state: State) -> RetornoNode:  # noqa: PLR0911
+def _dispatcher_interno(state: State) -> RetornoNode:  # noqa: PLR0911,PLR0915
     """Logica interna do dispatcher — separada para exception handling."""
     inicio = time.monotonic()
     mensagem = state['mensagem_atual']

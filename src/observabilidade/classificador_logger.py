@@ -44,7 +44,9 @@ class ClassificadorLogger(BaseCsvLogger):
             kwargs.get('resultado', ''),
             kwargs.get('intent', ''),
             kwargs.get('confidence', 0.0),
-            json.dumps(kwargs.get('detalhes', {}), ensure_ascii=False)[:JSON_TRUNCATE_LIMIT],
+            json.dumps(kwargs.get('detalhes', {}), ensure_ascii=False)[
+                :JSON_TRUNCATE_LIMIT
+            ],
             f'{kwargs.get("tempo_ms", 0.0):.2f}',
         ]
 

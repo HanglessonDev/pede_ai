@@ -199,5 +199,6 @@ def set_exception_logger(logger: ExceptionLogger | None) -> None:
 
 def get_debug_session_logger() -> DebugSessionLogger | None:
     """Retorna o debug session logger."""
-    from src.observabilidade.debug_logger import get_debug_logger
+    from src.observabilidade.debug_logger import get_debug_logger  # noqa: PLC0415
+
     return get_debug_logger()

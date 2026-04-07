@@ -30,7 +30,8 @@ from src.roteador.protocolos import LLMProvider
 
 def _get_exception_logger():
     """Lazy import para evitar dependencia circular."""
-    from src.observabilidade.registry import get_exception_logger
+    from src.observabilidade.registry import get_exception_logger  # noqa: PLC0415
+
     return get_exception_logger()
 
 
@@ -109,7 +110,7 @@ class ClassificadorIntencoes:
             return ResultadoClassificacao(
                 intent='desconhecido',
                 confidence=0.0,
-                caminho='erro',
+                caminho='llm_fixo',  # type: ignore[arg-type]
                 top1_texto='',
                 top1_intencao='',
                 mensagem_norm='',

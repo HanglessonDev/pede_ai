@@ -21,6 +21,7 @@ Example:
 
 from __future__ import annotations
 
+import time
 from dataclasses import asdict
 from typing import cast
 
@@ -28,6 +29,7 @@ from src.extratores.complementos import detectar_complementos
 from src.extratores.config import ExtratorConfig
 from src.extratores.itens_ids import build_itens_ids
 from src.extratores.modelos import ItemExtraido
+from src.observabilidade.registry import get_extrator_detail_logger
 from src.extratores.negacao import detectar_negacao
 from src.extratores.nlp_engine import NlpEngine
 from src.extratores.observacoes import detectar_observacoes
@@ -495,12 +497,9 @@ def extrair(mensagem: str) -> list[dict]:
         ]
         ```
     """
-    import time as _time
-    from src.observabilidade.registry import get_extrator_detail_logger
-
-    inicio = _time.monotonic()
+    inicio = time.monotonic()
     itens = _get_extrator().extrair(mensagem)
-    tempo_ms = (_time.monotonic() - inicio) * 1000
+    tempo_ms = (time.monotonic() - inicio) * 1000
 
     # Logging interno — qual estratégia funcionou
     ext_logger = get_extrator_detail_logger()
@@ -516,7 +515,6 @@ def extrair(mensagem: str) -> list[dict]:
             detalhes={
                 'spacy_count': spacy_count,
                 'fuzzy_count': fuzzy_count,
-                'negacao': any(i.negado for i in itens),
                 'scores_fuzzy': [
                     round(i.confianca, 2) for i in itens if i.fonte == 'fuzzy'
                 ],

@@ -84,8 +84,8 @@ from src.observabilidade.registry import (
 )
 
 __all__ = [
-    'ClassificadorLogger',
     'ClarificacaoLogger',
+    'ClassificadorLogger',
     'DebugSessionLogger',
     'DispatcherLogger',
     'ExtracaoLogger',
@@ -95,8 +95,8 @@ __all__ = [
     'NegocioLogger',
     'ObservabilidadeLogger',
     'PedidoLogger',
-    'get_classificador_logger',
     'get_clarificacao_logger',
+    'get_classificador_logger',
     'get_debug_session_logger',
     'get_dispatcher_logger',
     'get_extracao_logger',
@@ -107,8 +107,8 @@ __all__ = [
     'get_obs_logger',
     'get_pedido_logger',
     'registry',
-    'set_classificador_logger',
     'set_clarificacao_logger',
+    'set_classificador_logger',
     'set_dispatcher_logger',
     'set_extracao_logger',
     'set_extrator_detail_logger',

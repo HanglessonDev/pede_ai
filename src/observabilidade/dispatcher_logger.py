@@ -34,7 +34,9 @@ class DispatcherLogger(BaseCsvLogger):
             kwargs.get('turn_id', ''),
             kwargs.get('nivel', 'INFO'),
             kwargs.get('acao_final', ''),
-            json.dumps(kwargs.get('passos', {}), ensure_ascii=False)[:JSON_TRUNCATE_LIMIT],
+            json.dumps(kwargs.get('passos', {}), ensure_ascii=False)[
+                :JSON_TRUNCATE_LIMIT
+            ],
             f'{kwargs.get("tempo_ms", 0.0):.2f}',
         ]
 
