@@ -28,6 +28,12 @@ from src.roteador.modelos import ResultadoClassificacao
 from src.roteador.protocolos import LLMProvider
 
 
+def _get_exception_logger():
+    """Lazy import para evitar dependencia circular."""
+    from src.observabilidade.registry import get_exception_logger
+    return get_exception_logger()
+
+
 class ClassificadorIntencoes:
     """Classificador de intencoes com cadeia lookup -> RAG -> LLM.
 
@@ -87,6 +93,31 @@ class ClassificadorIntencoes:
             resultado.caminho  # 'lookup'
             ```
         """
+        try:
+            return self._classificar_interno(mensagem)
+        except Exception as e:
+            exc_logger = _get_exception_logger()
+            if exc_logger:
+                exc_logger.registrar(
+                    thread_id='',
+                    turn_id='',
+                    componente='ClassificadorIntencoes.classificar',
+                    exception=e,
+                    estado={'mensagem': mensagem, 'mensagem_len': len(mensagem)},
+                )
+            # Fallback definitivo — nunca quebrar
+            return ResultadoClassificacao(
+                intent='desconhecido',
+                confidence=0.0,
+                caminho='erro',
+                top1_texto='',
+                top1_intencao='',
+                mensagem_norm='',
+                metadados={'erro': str(e)},
+            )
+
+    def _classificar_interno(self, mensagem: str) -> ResultadoClassificacao:
+        """Logica interna de classificacao — separada para exception handling."""
         mensagem_norm = self._normalizar(mensagem)
         meta: dict = {}
 
