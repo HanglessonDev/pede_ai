@@ -265,7 +265,73 @@ class TestCasoC:
         ):
             result = processar_troca(carrinho_2_bebidas, 'muda pra lata')
             assert 'Qual item' in result.resposta
+            assert result.modo == 'clarificando'
             assert result.carrinho == carrinho_2_bebidas
+
+    def test_caso_c_itens_duplicados_troca_todos(self):
+        """2+ itens com mesmo item_id e mesma variante válida — troca todos."""
+        carrinho_2_iguais = [
+            {
+                'item_id': 'lanche_001',
+                'quantidade': 1,
+                'preco': 1500,
+                'variante': 'simples',
+            },
+            {
+                'item_id': 'lanche_001',
+                'quantidade': 1,
+                'preco': 1500,
+                'variante': 'simples',
+            },
+        ]
+        with patch(
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
+            return_value={
+                'caso': 'C',
+                'item_original': None,
+                'variante_nova': 'duplo',
+            },
+        ):
+            result = processar_troca(carrinho_2_iguais, 'muda pra duplo')
+            # Trocou em ambos
+            assert result.carrinho[0]['variante'] == 'duplo'
+            assert result.carrinho[1]['variante'] == 'duplo'
+            assert result.carrinho[0]['preco'] == 2000
+            assert result.carrinho[1]['preco'] == 2000
+            assert result.modo == 'coletando'
+
+    def test_caso_c_itens_diferentes_mesma_variante_valida(self):
+        """2 itens diferentes que aceitam a variante — deve clarificar."""
+        # acomp_001 (Batata) e acomp_001 repetido com mesmo item_id
+        # Para itens DIFERENTES, preciso 2 item_ids que aceitam a mesma variante
+        # lanche_001 aceita duplo, acomp_001 NÃO aceita duplo
+        # Uso 2 bebidas que aceitam 'lata' — mas são item_ids diferentes
+        carrinho_2_itens_diferentes = [
+            {
+                'item_id': 'bebida_001',
+                'quantidade': 1,
+                'preco': 500,
+                'variante': 'lata',
+            },
+            {
+                'item_id': 'bebida_002',
+                'quantidade': 1,
+                'preco': 350,
+                'variante': 'lata',
+            },
+        ]
+        with patch(
+            'src.graph.handlers.troca_handler.extrair_itens_troca',
+            return_value={
+                'caso': 'C',
+                'item_original': None,
+                'variante_nova': 'lata',
+            },
+        ):
+            result = processar_troca(carrinho_2_itens_diferentes, 'muda pra lata')
+            assert 'Qual item' in result.resposta
+            assert result.modo == 'clarificando'
+            assert result.carrinho == carrinho_2_itens_diferentes
 
     def test_variante_isolada_fallback_um_item(self, carrinho_um_item):
         """Fallback: 1 item no carrinho que aceita variante."""

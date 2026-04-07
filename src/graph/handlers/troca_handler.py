@@ -201,7 +201,7 @@ def _processar_caso_b(
     )
 
 
-def _processar_caso_c(
+def _processar_caso_c(  # noqa: PLR0911
     carrinho_dicts: list[dict],
     variante_nova: str | None,
 ) -> ResultadoTrocar:
@@ -222,12 +222,25 @@ def _processar_caso_c(
             compativeis.append((idx, item_dict))
 
     if len(compativeis) >= 2:
+        # Verifica se são itens diferentes ou o mesmo item repetido
+        item_ids_unicos = {item['item_id'] for _, item in compativeis}
+        if len(item_ids_unicos) == 1:
+            # Mesmo item_id em todas as posições — troca em todas
+            for idx, item_dict in compativeis:
+                resultado = _substituir_no_carrinho(
+                    carrinho_dicts, idx, item_dict, variante_nova
+                )
+                carrinho_dicts = resultado.carrinho
+            return resultado
+
+        # Itens diferentes — precisa clarificar
         nomes = [
             get_nome_item(item['item_id']) or item['item_id'] for _, item in compativeis
         ]
         return ResultadoTrocar(
             carrinho=carrinho_dicts,
             resposta=f'Qual item? {" ou ".join(nomes)}?',
+            modo='clarificando',
         )
 
     if len(compativeis) == 1:
