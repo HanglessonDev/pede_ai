@@ -135,3 +135,42 @@ class TestBaseCsvLogger:
 
         with pytest.raises(TypeError):
             Incompleto(tmp_path / 'test.csv')
+
+
+class TestNivelLog:
+    """Testes para o campo nivel da BaseCsvLogger."""
+
+    @pytest.fixture
+    def csv_path(self, tmp_path: Path) -> Path:
+        return tmp_path / 'test.csv'
+
+    def test_nivel_padrao_info(self, csv_path: Path):
+        """Nivel padrao deve ser INFO."""
+        logger = _TestLogger(csv_path)
+        assert logger.nivel == 'INFO'
+
+    def test_nivel_customizavel(self, csv_path: Path):
+        """Nivel deve ser customizavel no construtor."""
+        logger = _TestLogger(csv_path, nivel='DEBUG')
+        assert logger.nivel == 'DEBUG'
+
+    def test_deve_logar_nivel_igual(self, csv_path: Path):
+        """deve_logar deve retornar True quando nivel == requerido."""
+        logger = _TestLogger(csv_path, nivel='DEBUG')
+        assert logger.deve_logar('DEBUG') is True
+
+    def test_deve_logar_nivel_superior(self, csv_path: Path):
+        """deve_logar deve retornar True quando nivel > requerido."""
+        logger = _TestLogger(csv_path, nivel='TRACE')
+        assert logger.deve_logar('DEBUG') is True
+
+    def test_deve_logar_nivel_inferior(self, csv_path: Path):
+        """deve_logar deve retornar False quando nivel < requerido."""
+        logger = _TestLogger(csv_path, nivel='INFO')
+        assert logger.deve_logar('DEBUG') is False
+
+    def test_niveis_validos(self, csv_path: Path):
+        """Todos os niveis devem ser aceitos."""
+        for nivel in ['INFO', 'DEBUG', 'TRACE']:
+            logger = _TestLogger(csv_path, nivel=nivel)
+            assert logger.nivel == nivel

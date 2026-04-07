@@ -53,34 +53,64 @@ from src.observabilidade.funil_logger import FunilLogger
 from src.observabilidade.handler_logger import HandlerLogger
 from src.observabilidade import registry
 from src.observabilidade.logger import ObservabilidadeLogger
+from src.observabilidade.negocio_logger import NegocioLogger
+from src.observabilidade.pedido_logger import PedidoLogger
+from src.observabilidade.classificador_logger import ClassificadorLogger
+from src.observabilidade.dispatcher_logger import DispatcherLogger
+from src.observabilidade.extrator_detail_logger import ExtratorDetailLogger
 from src.observabilidade.registry import (
+    get_classificador_logger,
     get_clarificacao_logger,
+    get_dispatcher_logger,
     get_extracao_logger,
+    get_extrator_detail_logger,
     get_funil_logger,
     get_handler_logger,
+    get_negocio_logger,
     get_obs_logger,
+    get_pedido_logger,
+    set_classificador_logger,
     set_clarificacao_logger,
+    set_dispatcher_logger,
     set_extracao_logger,
+    set_extrator_detail_logger,
     set_funil_logger,
     set_handler_logger,
+    set_negocio_logger,
     set_obs_logger,
+    set_pedido_logger,
 )
 
 __all__ = [
+    'ClassificadorLogger',
     'ClarificacaoLogger',
+    'DispatcherLogger',
     'ExtracaoLogger',
+    'ExtratorDetailLogger',
     'FunilLogger',
     'HandlerLogger',
+    'NegocioLogger',
     'ObservabilidadeLogger',
+    'PedidoLogger',
+    'get_classificador_logger',
     'get_clarificacao_logger',
+    'get_dispatcher_logger',
     'get_extracao_logger',
+    'get_extrator_detail_logger',
     'get_funil_logger',
     'get_handler_logger',
+    'get_negocio_logger',
     'get_obs_logger',
+    'get_pedido_logger',
     'registry',
+    'set_classificador_logger',
     'set_clarificacao_logger',
+    'set_dispatcher_logger',
     'set_extracao_logger',
+    'set_extrator_detail_logger',
     'set_funil_logger',
     'set_handler_logger',
+    'set_negocio_logger',
     'set_obs_logger',
+    'set_pedido_logger',
 ]

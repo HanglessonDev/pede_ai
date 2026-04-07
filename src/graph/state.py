@@ -63,6 +63,7 @@ class State(TypedDict):
         acao: Decisao do dispatcher (novo).
         origem_intent: Origem da classificacao: 'contexto'|'lookup'|'rag_forte'|'llm_rag'|'llm_fixo' (novo).
         dados_extracao: Output de extrair_itens_troca() ou carrinho matches (novo).
+        turn_id: Identificador do turno para correlacao de eventos de observabilidade.
     """
 
     mensagem_atual: str
@@ -77,6 +78,7 @@ class State(TypedDict):
     acao: ACOES
     origem_intent: str
     dados_extracao: dict
+    turn_id: str
 
 
 class RetornoNode(TypedDict, total=False):
@@ -101,3 +103,4 @@ class RetornoNode(TypedDict, total=False):
     acao: NotRequired[ACOES]
     origem_intent: NotRequired[str]
     dados_extracao: NotRequired[dict]
+    turn_id: NotRequired[str]

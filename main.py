@@ -15,12 +15,24 @@ from src.observabilidade.extracao_logger import ExtracaoLogger
 from src.observabilidade.funil_logger import FunilLogger
 from src.observabilidade.handler_logger import HandlerLogger
 from src.observabilidade.logger import ObservabilidadeLogger
+from src.observabilidade.negocio_logger import NegocioLogger
+from src.observabilidade.pedido_logger import PedidoLogger
+from src.observabilidade.classificador_logger import ClassificadorLogger
+from src.observabilidade.dispatcher_logger import DispatcherLogger
+from src.observabilidade.extrator_detail_logger import ExtratorDetailLogger
+from src.observabilidade.exception_logger import ExceptionLogger
 from src.observabilidade.registry import (
+    set_classificador_logger,
     set_clarificacao_logger,
+    set_dispatcher_logger,
+    set_exception_logger,
     set_extracao_logger,
+    set_extrator_detail_logger,
     set_funil_logger,
     set_handler_logger,
+    set_negocio_logger,
     set_obs_logger,
+    set_pedido_logger,
 )
 from src.roteador.embedding_service import EmbeddingService
 from src.roteador.service import ClassificadorIntencoes
@@ -36,6 +48,12 @@ set_clarificacao_logger(ClarificacaoLogger(LOG_DIR / 'clarificacoes.csv'))
 set_extracao_logger(ExtracaoLogger(LOG_DIR / 'extracoes.csv'))
 set_handler_logger(HandlerLogger(LOG_DIR / 'handlers.csv'))
 set_funil_logger(FunilLogger(LOG_DIR / 'funil.csv'))
+set_pedido_logger(PedidoLogger(LOG_DIR / 'pedidos.csv'))
+set_negocio_logger(NegocioLogger(LOG_DIR / 'negocio.csv'))
+set_classificador_logger(ClassificadorLogger(LOG_DIR / 'classificadores.csv'))
+set_dispatcher_logger(DispatcherLogger(LOG_DIR / 'dispatcher.csv'))
+set_extrator_detail_logger(ExtratorDetailLogger(LOG_DIR / 'extratores.csv'))
+set_exception_logger(ExceptionLogger(LOG_DIR / 'erros.jsonl'))
 
 
 def criar_classificador() -> ClassificadorIntencoes:

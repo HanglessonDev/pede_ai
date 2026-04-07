@@ -34,16 +34,44 @@ class BaseCsvLogger(ABC):
     - ``_to_row(**kwargs)``: metodo que converte kwargs em lista de valores.
     """
 
-    def __init__(self, csv_path: Path | str) -> None:
+    NIVEIS = ('INFO', 'DEBUG', 'TRACE')
+    """Hierarquia de niveis: INFO < DEBUG < TRACE."""
+
+    def __init__(self, csv_path: Path | str, nivel: str = 'INFO') -> None:
         """Inicializa o logger criando o arquivo CSV se necessario.
 
         Args:
             csv_path: Caminho para o arquivo CSV.
+            nivel: Nivel de detalhe — INFO, DEBUG ou TRACE.
         """
         self._csv_path = Path(csv_path).resolve()
         self._csv_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
+        self._nivel = nivel
         self._inicializar_csv()
+
+    @property
+    def nivel(self) -> str:
+        """Retorna o nivel de log atual."""
+        return self._nivel
+
+    def deve_logar(self, nivel_requerido: str) -> bool:
+        """Verifica se deve logar baseado no nivel.
+
+        Hierarquia: INFO (menos detalhe) < DEBUG < TRACE (mais detalhe).
+        Logger em TRACE logga INFO+DEBUG+TRACE.
+        Logger em INFO logga apenas INFO.
+
+        Args:
+            nivel_requerido: Nivel minimo necessario para logar.
+
+        Returns:
+            True se o nivel atual >= nivel requerido em detalhe.
+        """
+        try:
+            return self.NIVEIS.index(self._nivel) >= self.NIVEIS.index(nivel_requerido)
+        except ValueError:
+            return True
 
     @property
     @abstractmethod

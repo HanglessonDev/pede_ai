@@ -132,3 +132,49 @@ class TestRegistry:
 
         set_funil_logger(None)
         assert get_funil_logger() is None
+
+    def test_set_get_pedido_logger(self, tmp_path):
+        """Deve permitir configurar e obter logger de pedido."""
+        from src.observabilidade.pedido_logger import PedidoLogger
+        from src.observabilidade.registry import (
+            get_pedido_logger,
+            set_pedido_logger,
+        )
+
+        csv_path = tmp_path / 'ped.csv'
+        logger = PedidoLogger(csv_path)
+        set_pedido_logger(logger)
+        assert get_pedido_logger() is logger
+
+    def test_set_pedido_logger_none(self):
+        """Deve permitir limpar o logger de pedido."""
+        from src.observabilidade.registry import (
+            get_pedido_logger,
+            set_pedido_logger,
+        )
+
+        set_pedido_logger(None)
+        assert get_pedido_logger() is None
+
+    def test_set_get_negocio_logger(self, tmp_path):
+        """Deve permitir configurar e obter logger de negocio."""
+        from src.observabilidade.negocio_logger import NegocioLogger
+        from src.observabilidade.registry import (
+            get_negocio_logger,
+            set_negocio_logger,
+        )
+
+        csv_path = tmp_path / 'neg.csv'
+        logger = NegocioLogger(csv_path)
+        set_negocio_logger(logger)
+        assert get_negocio_logger() is logger
+
+    def test_set_negocio_logger_none(self):
+        """Deve permitir limpar o logger de negocio."""
+        from src.observabilidade.registry import (
+            get_negocio_logger,
+            set_negocio_logger,
+        )
+
+        set_negocio_logger(None)
+        assert get_negocio_logger() is None

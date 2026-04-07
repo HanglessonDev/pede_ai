@@ -22,6 +22,12 @@ if TYPE_CHECKING:
     from src.observabilidade.funil_logger import FunilLogger
     from src.observabilidade.handler_logger import HandlerLogger
     from src.observabilidade.logger import ObservabilidadeLogger
+    from src.observabilidade.negocio_logger import NegocioLogger
+    from src.observabilidade.pedido_logger import PedidoLogger
+    from src.observabilidade.classificador_logger import ClassificadorLogger
+    from src.observabilidade.dispatcher_logger import DispatcherLogger
+    from src.observabilidade.extrator_detail_logger import ExtratorDetailLogger
+    from src.observabilidade.exception_logger import ExceptionLogger
 
 
 class LoggerRegistry:
@@ -128,3 +134,63 @@ def get_funil_logger() -> FunilLogger | None:
 def set_funil_logger(logger: FunilLogger | None) -> None:
     """Configura o logger de funil."""
     _registry.set('funil', logger)
+
+
+def get_pedido_logger() -> PedidoLogger | None:
+    """Retorna o logger de pedidos configurado."""
+    return _registry.get('pedido')  # type: ignore[return-value]
+
+
+def set_pedido_logger(logger: PedidoLogger | None) -> None:
+    """Configura o logger de pedidos."""
+    _registry.set('pedido', logger)
+
+
+def get_negocio_logger() -> NegocioLogger | None:
+    """Retorna o logger de negocio configurado."""
+    return _registry.get('negocio')  # type: ignore[return-value]
+
+
+def set_negocio_logger(logger: NegocioLogger | None) -> None:
+    """Configura o logger de negocio."""
+    _registry.set('negocio', logger)
+
+
+def get_classificador_logger() -> ClassificadorLogger | None:
+    """Retorna o logger de classificador configurado."""
+    return _registry.get('classificador')  # type: ignore[return-value]
+
+
+def set_classificador_logger(logger: ClassificadorLogger | None) -> None:
+    """Configura o logger de classificador."""
+    _registry.set('classificador', logger)
+
+
+def get_dispatcher_logger() -> DispatcherLogger | None:
+    """Retorna o logger de dispatcher configurado."""
+    return _registry.get('dispatcher')  # type: ignore[return-value]
+
+
+def set_dispatcher_logger(logger: DispatcherLogger | None) -> None:
+    """Configura o logger de dispatcher."""
+    _registry.set('dispatcher', logger)
+
+
+def get_extrator_detail_logger() -> ExtratorDetailLogger | None:
+    """Retorna o logger de extrator detalhado configurado."""
+    return _registry.get('extrator_detail')  # type: ignore[return-value]
+
+
+def set_extrator_detail_logger(logger: ExtratorDetailLogger | None) -> None:
+    """Configura o logger de extrator detalhado."""
+    _registry.set('extrator_detail', logger)
+
+
+def get_exception_logger() -> ExceptionLogger | None:
+    """Retorna o logger de excecoes configurado."""
+    return _registry.get('exception')  # type: ignore[return-value]
+
+
+def set_exception_logger(logger: ExceptionLogger | None) -> None:
+    """Configura o logger de excecoes."""
+    _registry.set('exception', logger)

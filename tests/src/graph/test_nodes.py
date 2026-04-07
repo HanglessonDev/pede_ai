@@ -824,3 +824,26 @@ class TestNodesObservabilidade:
         result = node_extrator(state)  # type: ignore[arg-type]
 
         assert result['itens_extraidos'] == []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TESTES DE TURN_ID
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestGetTurnId:
+    """Testes para helper _get_turn_id."""
+
+    def test_get_turn_id_do_estado(self):
+        """_get_turn_id deve retornar turn_id do state."""
+        from src.graph.nodes import _get_turn_id
+
+        state = {'turn_id': 'turn_0042'}
+        assert _get_turn_id(state) == 'turn_0042'  # type: ignore[arg-type]
+
+    def test_get_turn_id_vazio_retorna_string_vazia(self):
+        """_get_turn_id deve retornar string vazia se ausente."""
+        from src.graph.nodes import _get_turn_id
+
+        state = {}
+        assert _get_turn_id(state) == ''  # type: ignore[arg-type]

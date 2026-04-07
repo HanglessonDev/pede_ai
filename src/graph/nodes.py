@@ -28,6 +28,7 @@ from langgraph.config import get_config
 
 from src.extratores import extrair
 from src.graph.handlers.cancelar_handler import processar_cancelamento
+from src.graph.handlers.carrinho import Carrinho
 from src.graph.handlers.carrinho_handler import processar_carrinho
 from src.graph.handlers.clarificacao import clarificar
 from src.graph.handlers.confirmar_handler import processar_confirmacao
@@ -37,10 +38,15 @@ from src.graph.handlers.saudacao_handler import processar_saudacao
 from src.graph.handlers.troca_handler import processar_troca
 from src.graph.state import RetornoNode, State
 from src.observabilidade.registry import (
+    get_dispatcher_logger,
+    get_exception_logger,
     get_extracao_logger,
+    get_extrator_detail_logger,
     get_funil_logger,
     get_handler_logger,
+    get_negocio_logger,
     get_obs_logger,
+    get_pedido_logger,
 )
 
 
@@ -50,6 +56,53 @@ from src.observabilidade.registry import (
 def _get_thread_id() -> str:
     """Extrai thread_id do contexto LangGraph."""
     return get_config().get('configurable', {}).get('thread_id', '')
+
+
+def _get_turn_id(state: State) -> str:
+    """Extrai turn_id do estado, ou string vazia se ausente."""
+    return state.get('turn_id', '')
+
+
+def _log_negocio(state: State, evento: str, resultado: dict) -> None:
+    """Helper para logar eventos de negocio."""
+    negocio_logger = get_negocio_logger()
+    if not negocio_logger:
+        return
+
+    carrinho = state.get('carrinho', [])
+    carrinho_size = len(resultado.get('carrinho', carrinho))
+    preco_total = 0
+    for item in resultado.get('carrinho', carrinho):
+        preco_total += item.get('preco_centavos', item.get('preco', 0))
+
+    negocio_logger.registrar(
+        thread_id=_get_thread_id(),
+        turn_id=_get_turn_id(state),
+        evento=evento,
+        carrinho_size=carrinho_size,
+        preco_total_centavos=preco_total,
+        intent=state.get('intent', ''),
+        resposta=resultado.get('resposta', ''),
+        tentativas_clarificacao=state.get('tentativas_clarificacao', 0),
+    )
+
+
+def _log_dispatcher(
+    state: State,
+    acao_final: str,
+    passos: dict,
+    tempo_ms: float,
+) -> None:
+    """Helper para logar decisao do dispatcher."""
+    dispatcher_logger = get_dispatcher_logger()
+    if dispatcher_logger:
+        dispatcher_logger.registrar(
+            thread_id=_get_thread_id(),
+            turn_id=_get_turn_id(state),
+            acao_final=acao_final,
+            passos=passos,
+            tempo_ms=tempo_ms,
+        )
 
 
 def _log_node_event(
@@ -288,85 +341,210 @@ def node_verificar_modo(state: State) -> RetornoNode:
 
 def node_clarificacao(state: State) -> RetornoNode:
     """Processa resposta do usuario durante clarificacao de variante."""
-    thread_id = _get_thread_id()
-    resultado = clarificar(
-        fila=state.get('fila_clarificacao', []),
-        mensagem=state.get('mensagem_atual', ''),
-        tentativas=state.get('tentativas_clarificacao', 0),
-        thread_id=thread_id,
-    )
-    carrinho_atualizado = state.get('carrinho', []) + resultado.carrinho
-    return {
-        'carrinho': carrinho_atualizado,
-        'fila_clarificacao': resultado.fila,
-        'resposta': resultado.resposta,
-        'modo': resultado.modo,
-    }
+    try:
+        thread_id = _get_thread_id()
+        resultado = clarificar(
+            fila=state.get('fila_clarificacao', []),
+            mensagem=state.get('mensagem_atual', ''),
+            tentativas=state.get('tentativas_clarificacao', 0),
+            thread_id=thread_id,
+        )
+        carrinho_atualizado = state.get('carrinho', []) + resultado.carrinho
+        return {
+            'carrinho': carrinho_atualizado,
+            'fila_clarificacao': resultado.fila,
+            'resposta': resultado.resposta,
+            'modo': resultado.modo,
+        }
+    except Exception as e:
+        exc_logger = get_exception_logger()
+        if exc_logger:
+            exc_logger.registrar(
+                thread_id=_get_thread_id(),
+                turn_id=_get_turn_id(state),
+                componente='node_clarificacao',
+                exception=e,
+                estado={
+                    'mensagem_atual': state.get('mensagem_atual', ''),
+                    'fila_size': len(state.get('fila_clarificacao', [])),
+                    'tentativas': state.get('tentativas_clarificacao', 0),
+                },
+            )
+        return {
+            'resposta': 'Erro ao processar resposta. Tente novamente.',
+            'modo': 'ocioso',
+        }
 
 
 def node_extrator(state: State) -> RetornoNode:
     """Extrai itens do cardapio da mensagem do usuario."""
-    if state.get('intent') == 'pedir':
-        mensagem = state.get('mensagem_atual', '')
-        inicio = time.monotonic()
-        itens = extrair(mensagem)
-        tempo_ms = (time.monotonic() - inicio) * 1000
+    try:
+        if state.get('intent') == 'pedir':
+            mensagem = state.get('mensagem_atual', '')
+            inicio = time.monotonic()
+            itens = extrair(mensagem)
+            tempo_ms = (time.monotonic() - inicio) * 1000
 
-        ext_logger = get_extracao_logger()
-        if ext_logger:
-            ext_logger.registrar(
+            ext_logger = get_extracao_logger()
+            if ext_logger:
+                ext_logger.registrar(
+                    thread_id=_get_thread_id(),
+                    mensagem=mensagem,
+                    itens_extraidos=itens,
+                    tempo_ms=tempo_ms,
+                )
+            return {'itens_extraidos': itens}
+        return {'itens_extraidos': []}
+    except Exception as e:
+        exc_logger = get_exception_logger()
+        if exc_logger:
+            exc_logger.registrar(
                 thread_id=_get_thread_id(),
-                mensagem=mensagem,
-                itens_extraidos=itens,
-                tempo_ms=tempo_ms,
+                turn_id=_get_turn_id(state),
+                componente='node_extrator',
+                exception=e,
+                estado={
+                    'mensagem_atual': state.get('mensagem_atual', ''),
+                    'intent': state.get('intent', ''),
+                },
             )
-        return {'itens_extraidos': itens}
-    return {'itens_extraidos': []}
+        return {'itens_extraidos': []}
 
 
 def node_handler_pedir(state: State) -> RetornoNode:
     """Processa itens extraidos e os adiciona ao carrinho."""
-    itens_extraidos = state.get('itens_extraidos') or []
-    carrinho = state.get('carrinho', [])
-    resultado = processar_pedido(itens_extraidos, carrinho)
-    return resultado.to_dict()
+    try:
+        itens_extraidos = state.get('itens_extraidos') or []
+        carrinho = state.get('carrinho', [])
+        resultado = processar_pedido(itens_extraidos, carrinho)
+
+        pedido_logger = get_pedido_logger()
+        if pedido_logger:
+            itens_adicionados_dicts = [
+                {
+                    'item_id': i.item_id,
+                    'quantidade': i.quantidade,
+                    'variante': i.variante,
+                    'preco_centavos': i.preco_centavos,
+                }
+                for i in resultado.carrinho
+            ]
+            preco_total = sum(i.preco_centavos for i in resultado.carrinho)
+            pedido_logger.registrar(
+                thread_id=_get_thread_id(),
+                turn_id=_get_turn_id(state),
+                itens_adicionados=itens_adicionados_dicts,
+                itens_fila=resultado.fila,
+                total_itens=len(resultado.carrinho),
+                preco_total_centavos=preco_total,
+                modo_saida=resultado.to_dict().get('modo', 'coletando'),
+                resposta=resultado.resposta,
+            )
+
+        return resultado.to_dict()
+    except Exception as e:
+        exc_logger = get_exception_logger()
+        if exc_logger:
+            exc_logger.registrar(
+                thread_id=_get_thread_id(),
+                turn_id=_get_turn_id(state),
+                componente='node_handler_pedir',
+                exception=e,
+                estado={
+                    'mensagem_atual': state.get('mensagem_atual', ''),
+                    'intent': state.get('intent', ''),
+                    'itens_extraidos_count': len(state.get('itens_extraidos') or []),
+                    'carrinho_size': len(state.get('carrinho', [])),
+                },
+            )
+        return {
+            'resposta': 'Erro ao processar pedido. Tente novamente.',
+            'modo': 'ocioso',
+        }
+
+
+def _handler_fallback(componente: str, state: State) -> dict:
+    """Retorno padrao para handlers com excecao."""
+    exc_logger = get_exception_logger()
+    if exc_logger:
+        exc_logger.registrar(
+            thread_id=_get_thread_id(),
+            turn_id=_get_turn_id(state),
+            componente=componente,
+            exception=None,  # type: ignore[arg-type]
+            estado={
+                'mensagem_atual': state.get('mensagem_atual', ''),
+                'intent': state.get('intent', ''),
+            },
+        )
+    return {'resposta': 'Erro interno. Tente novamente.', 'modo': 'ocioso'}
 
 
 def node_handler_saudacao(state: State) -> RetornoNode:
     """Gera resposta de saudacao com o nome do restaurante."""
-    return processar_saudacao()
+    try:
+        resultado = processar_saudacao()
+        _log_negocio(state, 'saudacao', resultado)
+        return resultado
+    except Exception:
+        return _handler_fallback('node_handler_saudacao', state)
 
 
 def node_handler_carrinho(state: State) -> RetornoNode:
     """Gera resposta com o conteudo atual do carrinho."""
-    carrinho = state.get('carrinho', [])
-    return processar_carrinho(carrinho)
+    try:
+        carrinho = state.get('carrinho', [])
+        resultado = processar_carrinho(carrinho)
+        _log_negocio(state, 'carrinho', resultado)
+        return resultado
+    except Exception:
+        return _handler_fallback('node_handler_carrinho', state)
 
 
 def node_handler_confirmar(state: State) -> RetornoNode:
     """Processa confirmacao do pedido pelo usuario."""
-    carrinho = state.get('carrinho', [])
-    return processar_confirmacao(carrinho)
+    try:
+        carrinho = state.get('carrinho', [])
+        resultado = processar_confirmacao(carrinho)
+        _log_negocio(state, 'confirmar', resultado)
+        return resultado
+    except Exception:
+        return _handler_fallback('node_handler_confirmar', state)
 
 
 def node_handler_cancelar(state: State) -> RetornoNode:
     """Processa cancelamento do pedido."""
-    carrinho = state.get('carrinho', [])
-    return processar_cancelamento(carrinho)
+    try:
+        carrinho = state.get('carrinho', [])
+        resultado = processar_cancelamento(carrinho)
+        _log_negocio(state, 'cancelar', resultado)
+        return resultado
+    except Exception:
+        return _handler_fallback('node_handler_cancelar', state)
 
 
 def node_handler_remover(state: State) -> RetornoNode:
     """Processa remocao de itens do pedido."""
-    carrinho = state.get('carrinho', [])
-    mensagem = state.get('mensagem_atual', '')
-    return processar_remocao(carrinho, mensagem).to_dict()
+    try:
+        carrinho = state.get('carrinho', [])
+        mensagem = state.get('mensagem_atual', '')
+        resultado = processar_remocao(carrinho, mensagem)
+        _log_negocio(state, 'remover', resultado.to_dict())
+        return resultado.to_dict()
+    except Exception:
+        return _handler_fallback('node_handler_remover', state)
 
 
 def node_handler_trocar(state: State) -> RetornoNode:
     """Processa troca de variante de item no pedido."""
-    carrinho = state.get('carrinho', [])
-    mensagem = state.get('mensagem_atual', '')
-    return processar_troca(carrinho, mensagem).to_dict()
+    try:
+        carrinho = state.get('carrinho', [])
+        mensagem = state.get('mensagem_atual', '')
+        resultado = processar_troca(carrinho, mensagem)
+        _log_negocio(state, 'trocar', resultado.to_dict())
+        return resultado.to_dict()
+    except Exception:
+        return _handler_fallback('node_handler_trocar', state)
 
 
 # Alias para compatibilidade com o dispatcher
@@ -404,17 +582,31 @@ def _parece_remocao(mensagem: str) -> bool:
 
 
 def node_dispatcher_modificar(state: State) -> RetornoNode:  # noqa: PLR0911
-    """Decide qual ação executar para intent modificar_pedido.
+    """Decide qual ação executar para intent modificar_pedido."""
+    try:
+        return _dispatcher_interno(state)
+    except Exception as e:
+        exc_logger = get_exception_logger()
+        if exc_logger:
+            exc_logger.registrar(
+                thread_id=_get_thread_id(),
+                turn_id=_get_turn_id(state),
+                componente='node_dispatcher_modificar',
+                exception=e,
+                estado={
+                    'mensagem_atual': state.get('mensagem_atual', ''),
+                    'carrinho_size': len(state.get('carrinho', [])),
+                },
+            )
+        return {
+            'acao': 'sem_entidade',
+            'dados_extracao': {},
+        }
 
-    Chama os extratores na ordem correta e roteia para a ação certa.
-    Ordem de prioridade: troca > remoção > adição > sem_entidade.
 
-    Args:
-        state: Estado atual do grafo.
-
-    Returns:
-        RetornoNode com 'acao' e dados de extração preenchidos.
-    """
+def _dispatcher_interno(state: State) -> RetornoNode:  # noqa: PLR0911
+    """Logica interna do dispatcher — separada para exception handling."""
+    inicio = time.monotonic()
     mensagem = state['mensagem_atual']
     carrinho = state.get('carrinho', [])
 
@@ -424,48 +616,63 @@ def node_dispatcher_modificar(state: State) -> RetornoNode:  # noqa: PLR0911
     item_original = trocas['item_original']
     variante_nova = trocas['variante_nova']
 
+    passos: dict = {
+        'troca_extrator': {
+            'caso': caso,
+            'item_original_id': item_original['item_id'] if item_original else None,
+            'variante_nova': variante_nova,
+        },
+    }
+
     # Caso A: 2+ ITEMs mencionados
-    # Não usa carrinho como critério — decide pelo que extrair() retorna.
-    # "2 xtudo e 1 coca" → adição | "troca isso por aquilo" → sem_entidade
     if caso == 'A':
         itens = extrair(mensagem)
         if itens:
+            passos['acao_final'] = 'adicionar_item'
+            passos['extrair'] = {'itens_count': len(itens)}
+            tempo_ms = (time.monotonic() - inicio) * 1000
+            _log_dispatcher(state, 'adicionar_item', passos, tempo_ms)
             return {'acao': 'adicionar_item', 'itens_extraidos': itens}
-        # Nenhum item reconhecido → sem_entidade
+        passos['acao_final'] = 'sem_entidade'
+        tempo_ms = (time.monotonic() - inicio) * 1000
+        _log_dispatcher(state, 'sem_entidade', passos, tempo_ms)
         return {'acao': 'sem_entidade', 'dados_extracao': trocas}
 
     # Caso B: 1 ITEM mencionado
     elif caso == 'B':
         if item_original is not None and variante_nova is not None:
-            # Item no carrinho + variante destino → troca completa
+            passos['acao_final'] = 'trocar_variante'
+            tempo_ms = (time.monotonic() - inicio) * 1000
+            _log_dispatcher(state, 'trocar_variante', passos, tempo_ms)
             return {'acao': 'trocar_variante', 'dados_extracao': trocas}
 
         if item_original is not None and variante_nova is None:
-            # Item no carrinho mas sem variante destino
             if _parece_remocao(mensagem):
-                # Verbo de remoção → remover item do carrinho
+                passos['acao_final'] = 'remover_item'
+                tempo_ms = (time.monotonic() - inicio) * 1000
+                _log_dispatcher(state, 'remover_item', passos, tempo_ms)
                 return {'acao': 'remover_item', 'dados_extracao': trocas}
             else:
-                # Verbo de troca sem destino → troca incompleta
+                passos['acao_final'] = 'sem_entidade'
+                tempo_ms = (time.monotonic() - inicio) * 1000
+                _log_dispatcher(state, 'sem_entidade', passos, tempo_ms)
                 return {'acao': 'sem_entidade', 'dados_extracao': trocas}
-
-        # item_original is None → item não está no carrinho → adição
-        # Cai para extrair() abaixo
 
     # Caso C: 0 ITEMs + 1 VARIANTE isolada
     elif caso == 'C' and carrinho:
-        # Carrinho tem itens — trocar variante de algum item
+        passos['acao_final'] = 'trocar_variante'
+        tempo_ms = (time.monotonic() - inicio) * 1000
+        _log_dispatcher(state, 'trocar_variante', passos, tempo_ms)
         return {'acao': 'trocar_variante', 'dados_extracao': trocas}
-    # Caso C com carrinho vazio — pode ser item com nome igual a variante
-    # Cai para extrair() abaixo
-
-    # Caso vazio: TrocaExtrator não encontrou nada
-    # Cai para extrair_item_carrinho + extrair() abaixo
 
     # ── Passo 2: Remoção de item do carrinho ────────────────────────────────
     if carrinho and _parece_remocao(mensagem):
         remocoes = extrair_item_carrinho(mensagem, carrinho)
         if remocoes:
+            passos['remocao'] = {'matches_count': len(remocoes)}
+            passos['acao_final'] = 'remover_item'
+            tempo_ms = (time.monotonic() - inicio) * 1000
+            _log_dispatcher(state, 'remover_item', passos, tempo_ms)
             return {
                 'acao': 'remover_item',
                 'dados_extracao': {'matches': remocoes},
@@ -474,7 +681,14 @@ def node_dispatcher_modificar(state: State) -> RetornoNode:  # noqa: PLR0911
     # ── Passo 3: Adição de item novo ────────────────────────────────────────
     itens = extrair(mensagem)
     if itens:
+        passos['extrair'] = {'itens_count': len(itens)}
+        passos['acao_final'] = 'adicionar_item'
+        tempo_ms = (time.monotonic() - inicio) * 1000
+        _log_dispatcher(state, 'adicionar_item', passos, tempo_ms)
         return {'acao': 'adicionar_item', 'itens_extraidos': itens}
 
     # ── Passo 4: Nada encontrado ────────────────────────────────────────────
+    passos['acao_final'] = 'sem_entidade'
+    tempo_ms = (time.monotonic() - inicio) * 1000
+    _log_dispatcher(state, 'sem_entidade', passos, tempo_ms)
     return {'acao': 'sem_entidade', 'dados_extracao': trocas}

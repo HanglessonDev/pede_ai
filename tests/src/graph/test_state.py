@@ -42,6 +42,7 @@ class TestStateTypedDict:
             'acao',
             'origem_intent',
             'dados_extracao',
+            'turn_id',
         }
         assert set(annots.keys()) == campos_esperados
 
@@ -67,6 +68,7 @@ class TestStateTypedDict:
             ('acao', ACOES),
             ('origem_intent', str),
             ('dados_extracao', dict),
+            ('turn_id', str),
         ],
     )
     def test_tipos_campos(self, campo, expected_type):
@@ -95,6 +97,7 @@ class TestStateTypedDict:
             'acao': 'adicionar_item',
             'origem_intent': 'rag_forte',
             'dados_extracao': {},
+            'turn_id': 'turn_0001',
         }
         assert isinstance(state, dict)
         for key in State.__annotations__:
@@ -232,6 +235,7 @@ class TestConsistencia:
             'acao',
             'origem_intent',
             'dados_extracao',
+            'turn_id',
         }
         annotations = set(State.__annotations__.keys())
         assert annotations == obrigatorios
@@ -265,6 +269,7 @@ class TestInstanciacao:
             'acao': 'adicionar_item',
             'origem_intent': '',
             'dados_extracao': {},
+            'turn_id': '',
         }
         assert all(k in state for k in State.__annotations__)
 
