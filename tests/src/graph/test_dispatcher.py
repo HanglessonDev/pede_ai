@@ -53,18 +53,12 @@ _CARRINHO_DOIS_ITENS = _CARRINHO_COM_HAMBURGUER + _CARRINHO_COM_COCA
 
 class TestDispatcherTroca:
     @patch('src.graph.nodes.extrair_itens_troca')
-    def test_caso_a_com_carrinho_vai_para_troca(self, mock_troca):
-        """'troca coca por fanta' — 2 ITEMs, carrinho tem coca → trocar_variante."""
-        mock_troca.return_value = _mock_troca('A')
-        result = node_dispatcher_modificar(
-            _state('troca coca por fanta', _CARRINHO_COM_COCA)
-        )
-        assert result['acao'] == 'trocar_variante'
-
-    @patch('src.graph.nodes.extrair_itens_troca')
     @patch('src.graph.nodes.extrair')
-    def test_caso_a_carrinho_vazio_vai_para_adicao(self, mock_extrair, mock_troca):
-        """'2 xbacon e 1 coca' — carrinho vazio → adicionar_item."""
+    def test_caso_a_com_extrair_itens_vai_para_adicao(self, mock_extrair, mock_troca):
+        """'2 xtudo e 1 coca' — Caso A com itens extraídos → adicionar_item.
+
+        O carrinho NÃO é critério — se extrair() retorna itens, é adição.
+        """
         mock_troca.return_value = _mock_troca('A')
         mock_extrair.return_value = [
             {
@@ -80,9 +74,48 @@ class TestDispatcherTroca:
                 'remocoes': [],
             },
         ]
-        result = node_dispatcher_modificar(_state('2 xbacon e 1 coca', []))
+        # Carrinho tem itens, mas mesmo assim é adição
+        result = node_dispatcher_modificar(
+            _state('2 xtudo e 1 coca', _CARRINHO_COM_COCA)
+        )
         assert result['acao'] == 'adicionar_item'
         assert len(result['itens_extraidos']) == 2
+
+    @patch('src.graph.nodes.extrair_itens_troca')
+    @patch('src.graph.nodes.extrair')
+    def test_caso_a_carrinho_vazio_vai_para_adicao(self, mock_extrair, mock_troca):
+        """'2 xtudo e 1 coca' — carrinho vazio → adicionar_item."""
+        mock_troca.return_value = _mock_troca('A')
+        mock_extrair.return_value = [
+            {
+                'item_id': 'lanche_003',
+                'quantidade': 2,
+                'variante': None,
+                'remocoes': [],
+            },
+            {
+                'item_id': 'bebida_001',
+                'quantidade': 1,
+                'variante': None,
+                'remocoes': [],
+            },
+        ]
+        result = node_dispatcher_modificar(_state('2 xtudo e 1 coca', []))
+        assert result['acao'] == 'adicionar_item'
+        assert len(result['itens_extraidos']) == 2
+
+    @patch('src.graph.nodes.extrair_itens_troca')
+    @patch('src.graph.nodes.extrair')
+    def test_caso_a_sem_itens_extraidos_vai_para_sem_entidade(
+        self, mock_extrair, mock_troca
+    ):
+        """'troca isso por aquilo' — Caso A sem itens reconhecidos → sem_entidade."""
+        mock_troca.return_value = _mock_troca('A')
+        mock_extrair.return_value = []
+        result = node_dispatcher_modificar(
+            _state('troca isso por aquilo', _CARRINHO_COM_COCA)
+        )
+        assert result['acao'] == 'sem_entidade'
 
     @patch('src.graph.nodes.extrair_itens_troca')
     def test_caso_b_item_e_variante_vai_para_troca(self, mock_troca):

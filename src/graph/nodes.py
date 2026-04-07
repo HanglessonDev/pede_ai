@@ -425,12 +425,14 @@ def node_dispatcher_modificar(state: State) -> RetornoNode:  # noqa: PLR0911
     variante_nova = trocas['variante_nova']
 
     # Caso A: 2+ ITEMs mencionados
+    # Não usa carrinho como critério — decide pelo que extrair() retorna.
+    # "2 xtudo e 1 coca" → adição | "troca isso por aquilo" → sem_entidade
     if caso == 'A':
-        if carrinho:
-            # Carrinho tem itens — pode ser troca (handler decide qual)
-            return {'acao': 'trocar_variante', 'dados_extracao': trocas}
-        # Carrinho vazio — é pedido novo com múltiplos itens
-        # Cai para extrair() abaixo
+        itens = extrair(mensagem)
+        if itens:
+            return {'acao': 'adicionar_item', 'itens_extraidos': itens}
+        # Nenhum item reconhecido → sem_entidade
+        return {'acao': 'sem_entidade', 'dados_extracao': trocas}
 
     # Caso B: 1 ITEM mencionado
     elif caso == 'B':
