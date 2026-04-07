@@ -38,6 +38,7 @@ from src.graph.handlers.saudacao_handler import processar_saudacao
 from src.graph.handlers.troca_handler import processar_troca
 from src.graph.state import RetornoNode, State
 from src.observabilidade.registry import (
+    get_debug_session_logger,
     get_dispatcher_logger,
     get_exception_logger,
     get_extracao_logger,
@@ -85,6 +86,20 @@ def _log_negocio(state: State, evento: str, resultado: dict) -> None:
         resposta=resultado.get('resposta', ''),
         tentativas_clarificacao=state.get('tentativas_clarificacao', 0),
     )
+
+
+def _log_debug(state: State, node: str, fase: str, dados_brutos: dict | None = None) -> None:
+    """Helper para debug mode — logga estado completo no JSONL da sessão."""
+    debug_logger = get_debug_session_logger()
+    if debug_logger:
+        debug_logger.registrar(
+            thread_id=_get_thread_id(),
+            turn_id=_get_turn_id(state),
+            node=node,
+            fase=fase,
+            estado={k: v for k, v in state.items() if k != 'carrinho'},  # carrinho pode ser grande
+            dados_brutos=dados_brutos,
+        )
 
 
 def _log_dispatcher(

@@ -58,9 +58,11 @@ from src.observabilidade.pedido_logger import PedidoLogger
 from src.observabilidade.classificador_logger import ClassificadorLogger
 from src.observabilidade.dispatcher_logger import DispatcherLogger
 from src.observabilidade.extrator_detail_logger import ExtratorDetailLogger
+from src.observabilidade.debug_logger import DebugSessionLogger
 from src.observabilidade.registry import (
     get_classificador_logger,
     get_clarificacao_logger,
+    get_debug_session_logger,
     get_dispatcher_logger,
     get_extracao_logger,
     get_extrator_detail_logger,
@@ -84,6 +86,7 @@ from src.observabilidade.registry import (
 __all__ = [
     'ClassificadorLogger',
     'ClarificacaoLogger',
+    'DebugSessionLogger',
     'DispatcherLogger',
     'ExtracaoLogger',
     'ExtratorDetailLogger',
@@ -94,6 +97,7 @@ __all__ = [
     'PedidoLogger',
     'get_classificador_logger',
     'get_clarificacao_logger',
+    'get_debug_session_logger',
     'get_dispatcher_logger',
     'get_extracao_logger',
     'get_extrator_detail_logger',

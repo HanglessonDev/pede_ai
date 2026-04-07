@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from src.observabilidade.dispatcher_logger import DispatcherLogger
     from src.observabilidade.extrator_detail_logger import ExtratorDetailLogger
     from src.observabilidade.exception_logger import ExceptionLogger
+    from src.observabilidade.debug_logger import DebugSessionLogger
 
 
 class LoggerRegistry:
@@ -194,3 +195,9 @@ def get_exception_logger() -> ExceptionLogger | None:
 def set_exception_logger(logger: ExceptionLogger | None) -> None:
     """Configura o logger de excecoes."""
     _registry.set('exception', logger)
+
+
+def get_debug_session_logger() -> DebugSessionLogger | None:
+    """Retorna o debug session logger."""
+    from src.observabilidade.debug_logger import get_debug_logger
+    return get_debug_logger()
