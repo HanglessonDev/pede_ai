@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 
 from src.extratores import extrair_item_carrinho
 from src.graph.handlers.carrinho import Carrinho
-from src.graph.state import ETAPAS, RetornoNode
+from src.graph.state import MODOS, RetornoNode
 
 
 @dataclass
@@ -42,14 +42,14 @@ class ResultadoRemover:
 
     carrinho: list[dict] = field(default_factory=list)
     resposta: str = ''
-    etapa: ETAPAS = 'inicio'
+    modo: MODOS = 'ocioso'
 
     def to_dict(self) -> RetornoNode:
         """Converte para dicionario compativel com LangGraph State."""
         return {
             'carrinho': self.carrinho,
             'resposta': self.resposta,
-            'etapa': self.etapa,
+            'modo': self.modo,
         }
 
 
@@ -61,7 +61,7 @@ def processar_remocao(
     if not carrinho_dicts:
         return ResultadoRemover(
             resposta='Seu carrinho esta vazio! Nao ha nada para remover.',
-            etapa='inicio',
+            modo='ocioso',
         )
 
     itens_para_remover = extrair_item_carrinho(mensagem, carrinho_dicts)
@@ -70,7 +70,7 @@ def processar_remocao(
         return ResultadoRemover(
             carrinho=carrinho_dicts,
             resposta='Não encontrei esse item no seu carrinho.',
-            etapa='carrinho',
+            modo='coletando',
         )
 
     indices_para_remover: set[int] = set()
@@ -84,12 +84,12 @@ def processar_remocao(
         return ResultadoRemover(
             carrinho=[],
             resposta='Todos os itens foram removidos do seu pedido.',
-            etapa='inicio',
+            modo='ocioso',
         )
 
     resposta = 'Itens removidos!\nSeu pedido:\n' + carrinho.formatar()
     return ResultadoRemover(
         carrinho=carrinho.to_state_dicts(),
         resposta=resposta,
-        etapa='carrinho',
+        modo='coletando',
     )

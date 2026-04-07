@@ -172,9 +172,9 @@ class TestClarificarFilaVazia:
     """Testes para clarificar() com fila vazia."""
 
     def test_fila_vazia_retorna_inicio(self, fila_vazia):
-        """Fila vazia deve retornar etapa inicio."""
+        """Fila vazia deve retornar modo ocioso."""
         result = clarificar(fila_vazia, '', 0)
-        assert result.etapa == 'inicio'
+        assert result.modo == 'ocioso'
         assert result.resposta == ''
 
 
@@ -208,13 +208,13 @@ class TestClarificarVarianteValida:
         result = clarificar(fila_multiplos_itens, 'duplo', 0)
         assert len(result.fila) == 1
         assert result.fila[0]['item_id'] == 'acomp_001'
-        assert result.etapa == 'clarificando_variante'
+        assert result.modo == 'clarificando'
         assert 'Batata Frita' in result.resposta
 
     def test_volta_inicio_se_fila_vazia(self, fila_um_item):
         """Se fila fica vazia, deve voltar ao início."""
         result = clarificar(fila_um_item, 'simples', 0)
-        assert result.etapa == 'inicio'
+        assert result.modo == 'ocioso'
 
     def test_resposta_contem_carrinho(self, fila_um_item):
         """Quando fila esvazia, resposta deve conter itens do carrinho."""
@@ -241,10 +241,10 @@ class TestClarificarVarianteInvalida:
         assert len(result.fila) == 1
         assert result.fila[0]['item_id'] == 'lanche_001'
 
-    def test_mantem_etapa_clarificando(self, fila_um_item):
-        """Etapa deve permanecer clarificando_variante."""
+    def test_mantem_modo_clarificando(self, fila_um_item):
+        """Modo deve permanecer clarificando."""
         result = clarificar(fila_um_item, 'quadruplo', 0)
-        assert result.etapa == 'clarificando_variante'
+        assert result.modo == 'clarificando'
 
     def test_re_prompt_com_opcoes(self, fila_um_item):
         """Resposta deve conter re-prompt com opções."""
@@ -280,14 +280,14 @@ class TestClarificarTresTentativasFalhas:
     def test_volta_inicio_se_fila_vazia(self, fila_um_item):
         """Se fila fica vazia, deve voltar ao início."""
         result = clarificar(fila_um_item, 'pizza', 2)
-        assert result.etapa == 'inicio'
+        assert result.modo == 'ocioso'
 
     def test_avanca_para_proximo_item(self, fila_multiplos_itens):
         """Com múltiplos itens, deve avançar para o próximo."""
         result = clarificar(fila_multiplos_itens, 'pizza', 2)
         assert len(result.fila) == 1
         assert result.fila[0]['item_id'] == 'acomp_001'
-        assert result.etapa == 'clarificando_variante'
+        assert result.modo == 'clarificando'
 
     def test_resposta_contem_proximo_item(self, fila_multiplos_itens):
         """Resposta deve conter prompt para próximo item."""
@@ -376,7 +376,7 @@ class TestResultadoClarificacao:
         result = ResultadoClarificacao(
             tipo='sucesso',
             resposta='ok',
-            etapa='inicio',
+            modo='ocioso',
             carrinho=[],
             fila=[],
             tentativas=0,
@@ -388,7 +388,7 @@ class TestResultadoClarificacao:
         result = ResultadoClarificacao(
             tipo='invalida',
             resposta='erro',
-            etapa='clarificando_variante',
+            modo='clarificando',
             carrinho=[],
             fila=[],
             tentativas=1,
@@ -400,7 +400,7 @@ class TestResultadoClarificacao:
         result = ResultadoClarificacao(
             tipo='erro',
             resposta='erro interno',
-            etapa='inicio',
+            modo='ocioso',
             carrinho=[],
             fila=[],
             tentativas=0,

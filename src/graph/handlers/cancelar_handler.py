@@ -19,14 +19,14 @@ def processar_cancelamento(carrinho_dicts: list[dict]) -> RetornoNode:
         Dicionario com ``resposta``, ``etapa`` e ``carrinho`` atualizados.
     """
     if not carrinho_dicts:
-        return {'resposta': 'Não há pedido para cancelar.', 'etapa': 'inicio'}
+        return {'resposta': 'Não há pedido para cancelar.', 'modo': 'ocioso'}
 
     carrinho = Carrinho.from_state_dicts(carrinho_dicts)
     total = carrinho.total_reais()
 
     return {
         'resposta': f'Pedido cancelado. Total descartado: R$ {total:.2f}',
-        'etapa': 'inicio',
+        'modo': 'ocioso',
         'carrinho': [],
         'fila_clarificacao': [],
         'tentativas_clarificacao': 0,

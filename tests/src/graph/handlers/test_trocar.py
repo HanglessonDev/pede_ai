@@ -61,7 +61,7 @@ class TestCarrinhoVazio:
         """Carrinho vazio deve retornar mensagem de erro."""
         result = processar_troca(carrinho_vazio, 'muda pra duplo')
         assert result.resposta == 'Não há pedido para trocar.'
-        assert result.etapa == 'inicio'
+        assert result.modo == 'ocioso'
         assert result.carrinho == []
 
 
@@ -136,7 +136,7 @@ class TestCasoB:
             result = processar_troca(carrinho_um_item, 'muda o hamburguer pra duplo')
             assert result.carrinho[0]['variante'] == 'duplo'
             assert result.carrinho[0]['preco'] > 0
-            assert result.etapa == 'carrinho'
+            assert result.modo == 'coletando'
 
     def test_item_nao_encontrado(self, carrinho_um_item):
         """Item mencionado nao esta no carrinho deve retornar erro."""
@@ -213,7 +213,7 @@ class TestCasoB:
             result = processar_troca(carrinho, 'muda pra duplo')
             assert result.carrinho[0]['variante'] == 'duplo'
             assert result.carrinho[0]['quantidade'] == 1
-            assert result.etapa == 'carrinho'
+            assert result.modo == 'coletando'
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -237,7 +237,7 @@ class TestCasoC:
             result = processar_troca(carrinho_multiplos, 'muda pra triplo')
             assert result.carrinho[0]['variante'] == 'triplo'
             assert result.carrinho[1]['variante'] == 'lata'
-            assert result.etapa == 'carrinho'
+            assert result.modo == 'coletando'
 
     def test_variante_isolada_ambiguidade(self):
         """Variante que 2+ itens aceitam deve pedir esclarecimento."""
@@ -280,7 +280,7 @@ class TestCasoC:
             result = processar_troca(carrinho_um_item, 'muda pra duplo')
             assert result.carrinho[0]['variante'] == 'duplo'
             assert result.carrinho[0]['preco'] == 2000
-            assert result.etapa == 'carrinho'
+            assert result.modo == 'coletando'
 
     def test_variante_isolada_sem_compatibilidade_multiplos(self, carrinho_multiplos):
         """Nenhum item aceita a variante deve retornar erro."""
@@ -324,12 +324,12 @@ class TestResultadoTrocar:
         result = ResultadoTrocar(
             carrinho=[{'item_id': 'lanche_001', 'preco': 1500}],
             resposta='1x Hamburguer — R$ 15.00',
-            etapa='carrinho',
+            modo='coletando',
         )
         d = result.to_dict()
         assert 'carrinho' in d
         assert 'resposta' in d
-        assert 'etapa' in d
+        assert 'modo' in d
 
     def test_to_dict_valores_corretos(self):
         """to_dict deve mapear valores corretamente."""
@@ -337,9 +337,9 @@ class TestResultadoTrocar:
         result = ResultadoTrocar(
             carrinho=carrinho,
             resposta='1x Hamburguer — R$ 15.00',
-            etapa='carrinho',
+            modo='coletando',
         )
         d = result.to_dict()
         assert d['carrinho'] == carrinho
         assert d['resposta'] == '1x Hamburguer — R$ 15.00'
-        assert d['etapa'] == 'carrinho'
+        assert d['modo'] == 'coletando'

@@ -5,7 +5,7 @@ LangGraph para compartilhar informacoes durante o fluxo de atendimento.
 
 Example:
     ```python
-    from src.graph.state import State, ETAPAS, RetornoNode
+    from src.graph.state import State, MODOS, ACOES, RetornoNode
 
     state: State = {
         'mensagem_atual': '',
@@ -13,8 +13,11 @@ Example:
         'itens_extraidos': [],
         'carrinho': [],
         'fila_clarificacao': [],
-        'etapa': 'inicio',
+        'modo': 'ocioso',
         'resposta': '',
+        'acao': 'adicionar_item',
+        'origem_intent': '',
+        'dados_extracao': {},
     }
     ```
 """
@@ -22,17 +25,26 @@ Example:
 from typing import Literal, NotRequired, TypedDict
 
 
-ETAPAS = Literal[
-    'inicio',
-    'clarificando_variante',
-    'confirmando',
-    'pedindo',
-    'carrinho',
-    'saudacao',
-    'finalizado',
+MODOS = Literal[
+    'ocioso',
     'coletando',
+    'clarificando',
+    'confirmando',
+    'finalizado',
 ]
-"""Literal com todas as etapas validas do fluxo de atendimento."""
+"""Literal com todos os modos validos do fluxo de atendimento.
+
+Renomeado de 'ETAPAS' para 'MODOS' no dispatcher.
+'clarificando_variante' → 'clarificando'.
+"""
+
+ACOES = Literal[
+    'adicionar_item',
+    'remover_item',
+    'trocar_variante',
+    'sem_entidade',
+]
+"""Literal com todas as acoes validas do dispatcher."""
 
 
 class State(TypedDict):
@@ -45,9 +57,12 @@ class State(TypedDict):
         itens_extraidos: Lista de dicts de itens extraidos da mensagem.
         carrinho: Lista de dicts de itens adicionados ao pedido.
         fila_clarificacao: Fila de dicts de itens que precisam de clarificacao.
-        etapa: Etapa atual do fluxo de atendimento.
+        modo: Modo atual do fluxo de atendimento (renomeado de 'etapa').
         resposta: Resposta gerada para o usuario.
         tentativas_clarificacao: Contador de tentativas para o item atual.
+        acao: Decisao do dispatcher (novo).
+        origem_intent: Origem da classificacao: 'contexto'|'lookup'|'rag_forte'|'llm_rag'|'llm_fixo' (novo).
+        dados_extracao: Output de extrair_itens_troca() ou carrinho matches (novo).
     """
 
     mensagem_atual: str
@@ -56,9 +71,12 @@ class State(TypedDict):
     itens_extraidos: list
     carrinho: list
     fila_clarificacao: list
-    etapa: ETAPAS
+    modo: MODOS
     resposta: str
     tentativas_clarificacao: int
+    acao: ACOES
+    origem_intent: str
+    dados_extracao: dict
 
 
 class RetornoNode(TypedDict, total=False):
@@ -77,6 +95,9 @@ class RetornoNode(TypedDict, total=False):
     itens_extraidos: NotRequired[list]
     carrinho: NotRequired[list]
     fila_clarificacao: NotRequired[list]
-    etapa: NotRequired[ETAPAS]
+    modo: NotRequired[MODOS]
     resposta: NotRequired[str]
     tentativas_clarificacao: NotRequired[int]
+    acao: NotRequired[ACOES]
+    origem_intent: NotRequired[str]
+    dados_extracao: NotRequired[dict]

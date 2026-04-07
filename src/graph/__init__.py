@@ -5,8 +5,8 @@ para o grafo de atendimento (LangGraph).
 
 Example:
     ```python
-    from src.graph import State
-    from src.graph import node_router, node_handler_saudacao
+    from src.graph import State, MODOS, ACOES
+    from src.graph import node_verificar_modo, node_handler_saudacao
     from src.graph import criar_graph
     ```
 """
@@ -21,12 +21,13 @@ from .nodes import (
     node_handler_pedir,
     node_handler_saudacao,
     node_router,
-    node_verificar_etapa,
+    node_verificar_modo,
 )
-from .state import ETAPAS, State
+from .state import MODOS, ACOES, State
 
 __all__ = [
-    'ETAPAS',
+    'ACOES',
+    'MODOS',
     'State',
     'criar_graph',
     'node_clarificacao',
@@ -37,5 +38,5 @@ __all__ = [
     'node_handler_pedir',
     'node_handler_saudacao',
     'node_router',
-    'node_verificar_etapa',
+    'node_verificar_modo',
 ]

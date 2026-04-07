@@ -356,25 +356,25 @@ class TestResultadoPedir:
         assert 'fila_clarificacao' in d
         assert d['fila_clarificacao'] == [{'item_id': 'lanche_001'}]
 
-    def test_to_dict_etapa_clarificando(self):
-        """to_dict deve retornar etapa 'clarificando_variante' se ha fila."""
+    def test_to_dict_modo_clarificando(self):
+        """to_dict deve retornar modo 'clarificando' se ha fila."""
         result = ResultadoPedir(
             carrinho=[],
             fila=[{'item_id': 'lanche_001'}],
             resposta='',
         )
         d = result.to_dict()
-        assert d['etapa'] == 'clarificando_variante'
+        assert d['modo'] == 'clarificando'
 
-    def test_to_dict_etapa_coletando(self):
-        """to_dict deve retornar etapa 'coletando' se nao ha fila."""
+    def test_to_dict_modo_coletando(self):
+        """to_dict deve retornar modo 'coletando' se nao ha fila."""
         result = ResultadoPedir(
             carrinho=[{'item_id': 'lanche_001', 'preco': 1500}],
             fila=[],
             resposta='',
         )
         d = result.to_dict()
-        assert d['etapa'] == 'coletando'
+        assert d['modo'] == 'coletando'
 
 
 # ══════════════════════════════════════════════════════════════════════════════

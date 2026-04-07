@@ -9,8 +9,8 @@ from src.observabilidade.base_logger import BaseCsvLogger
 HEADERS = [
     'timestamp',
     'thread_id',
-    'etapa_anterior',
-    'etapa_atual',
+    'modo_anterior',
+    'modo_atual',
     'intent',
     'carrinho_size',
 ]
@@ -27,8 +27,8 @@ class FunilLogger(BaseCsvLogger):
         return [
             datetime.now(UTC).isoformat(),
             kwargs.get('thread_id', ''),
-            kwargs.get('etapa_anterior', ''),
-            kwargs.get('etapa_atual', ''),
+            kwargs.get('modo_anterior', ''),
+            kwargs.get('modo_atual', ''),
             kwargs.get('intent', ''),
             kwargs.get('carrinho_size', 0),
         ]
@@ -36,15 +36,15 @@ class FunilLogger(BaseCsvLogger):
     def registrar(
         self,
         thread_id: str,
-        etapa_anterior: str,
-        etapa_atual: str,
+        modo_anterior: str,
+        modo_atual: str,
         intent: str,
         carrinho_size: int = 0,
     ) -> None:
         super().registrar(
             thread_id=thread_id,
-            etapa_anterior=etapa_anterior,
-            etapa_atual=etapa_atual,
+            modo_anterior=modo_anterior,
+            modo_atual=modo_atual,
             intent=intent,
             carrinho_size=carrinho_size,
         )

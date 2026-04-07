@@ -18,7 +18,7 @@ from src.graph.nodes import (
     node_handler_carrinho,
     node_handler_confirmar,
     node_handler_remover,
-    node_verificar_etapa,
+    node_verificar_modo,
     node_clarificacao,
     node_handler_cancelar,
     node_handler_trocar,
@@ -154,7 +154,7 @@ class TestNodeHandlerSaudacao:
         mock_get_nome.return_value = 'Lanchonete do Ze'
         result = node_handler_saudacao({})  # type: ignore
         assert 'Lanchonete do Ze' in result['resposta']
-        assert result['etapa'] == 'saudacao'
+        assert result['modo'] == 'ocioso'
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -237,7 +237,7 @@ class TestNodeHandlerConfirmar:
 
     def test_carrinho_vazio_retorna_mensagem(self):
         """Carrinho vazio deve retornar mensagem adequada."""
-        result = node_handler_confirmar({'carrinho': [], 'etapa': ''})  # type: ignore
+        result = node_handler_confirmar({'carrinho': [], 'modo': ''})  # type: ignore
         assert (
             'nada' in result['resposta'].lower()
             or 'vazio' in result['resposta'].lower()
@@ -252,7 +252,7 @@ class TestNodeHandlerConfirmar:
             'itens_extraidos': [],
             'carrinho': [{'item_id': 'lanche_001', 'preco': 1500}],
             'fila_clarificacao': [],
-            'etapa': 'pedindo',
+            'modo': 'coletando',
             'resposta': '',
             'tentativas_clarificacao': 0,
         }
@@ -277,14 +277,14 @@ class TestNodeHandlerRemover:
             'itens_extraidos': [],
             'carrinho': [],
             'fila_clarificacao': [],
-            'etapa': 'carrinho',
+            'modo': 'coletando',
             'resposta': '',
             'tentativas_clarificacao': 0,
             'confidence': 0.0,
         }
         result = node_handler_remover(state)
         assert 'vazio' in result['resposta'].lower()
-        assert result['etapa'] == 'inicio'
+        assert result['modo'] == 'ocioso'
 
     def test_remover_item_inexistente(self):
         """Remover item que não existe deve retornar mensagem de erro."""
@@ -301,14 +301,14 @@ class TestNodeHandlerRemover:
                 },
             ],
             'fila_clarificacao': [],
-            'etapa': 'carrinho',
+            'modo': 'coletando',
             'resposta': '',
             'tentativas_clarificacao': 0,
             'confidence': 0.0,
         }
         result = node_handler_remover(state)
         assert 'não encontrei' in result['resposta'].lower()
-        assert result['etapa'] == 'carrinho'
+        assert result['modo'] == 'coletando'
 
     def test_remover_item_simples(self):
         """Remover item simples deve funcionar."""
@@ -331,7 +331,7 @@ class TestNodeHandlerRemover:
                 },
             ],
             'fila_clarificacao': [],
-            'etapa': 'carrinho',
+            'modo': 'coletando',
             'resposta': '',
             'tentativas_clarificacao': 0,
             'confidence': 0.0,
@@ -365,7 +365,7 @@ class TestNodeHandlerRemover:
                 },
             ],
             'fila_clarificacao': [],
-            'etapa': 'carrinho',
+            'modo': 'coletando',
             'resposta': '',
             'tentativas_clarificacao': 0,
             'confidence': 0.0,
@@ -379,17 +379,17 @@ class TestNodeHandlerRemover:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TESTES DE NODE_VERIFICAR_ETAPA
+# TESTES DE NODE_VERIFICAR_MODO
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-class TestNodeVerificarEtapa:
-    """Testes para node_verificar_etapa."""
+class TestNodeVerificarModo:
+    """Testes para node_verificar_modo."""
 
     def test_retorna_dict_vazio(self):
         """Deve retornar dict vazio passando adiante."""
-        state = {'etapa': 'pedindo', 'carrinho': []}
-        result = node_verificar_etapa(state)  # type: ignore[arg-type]
+        state = {'modo': 'coletando', 'carrinho': []}
+        result = node_verificar_modo(state)  # type: ignore[arg-type]
         assert result == {}
 
 
@@ -410,7 +410,7 @@ class TestNodeClarificacao:
             carrinho=[{'item_id': 'lanche_001', 'quantidade': 1}],
             fila=[],
             resposta='Item adicionado',
-            etapa='carrinho',
+            modo='coletando',
         )
         state = {
             'mensagem_atual': 'duplo',
@@ -439,7 +439,7 @@ class TestNodeClarificacao:
             carrinho=[{'item_id': 'lanche_002', 'quantidade': 1}],
             fila=[],
             resposta='Ok',
-            etapa='carrinho',
+            modo='coletando',
         )
         state = {
             'mensagem_atual': 'lata',
@@ -473,7 +473,7 @@ class TestNodeHandlerCancelar:
         state = {'carrinho': []}
         result = node_handler_cancelar(state)  # type: ignore[arg-type]
         assert 'cancelar' in result['resposta'].lower()
-        assert result['etapa'] == 'inicio'
+        assert result['modo'] == 'ocioso'
 
     def test_cancela_carrinho_com_itens(self):
         """Cancelar com itens deve limpar o carrinho."""
@@ -505,7 +505,7 @@ class TestNodeHandlerTrocar:
         mock_trocar.return_value = ResultadoTrocar(
             carrinho=[{'item_id': 'lanche_001', 'variante': 'duplo', 'preco': 1800}],
             resposta='Variante alterada para duplo',
-            etapa='carrinho',
+            modo='coletando',
         )
         state = {
             'mensagem_atual': 'muda pra duplo',
@@ -643,7 +643,7 @@ class TestCriarNodeRouter:
                 )
 
         node = _criar_node_router(MockClassificador())
-        result = node({'mensagem_atual': 'oi', 'carrinho': [], 'etapa': 'inicio'})  # type: ignore[arg-type]
+        result = node({'mensagem_atual': 'oi', 'carrinho': [], 'modo': 'ocioso'})  # type: ignore[arg-type]
         assert result['intent'] == 'saudacao'
         assert result['confidence'] == 0.95
 
@@ -748,7 +748,7 @@ class TestNodesObservabilidade:
             'mensagem_norm': '',
         }
 
-        state = {'mensagem_atual': 'oi', 'etapa': 'inicio', 'carrinho': []}
+        state = {'mensagem_atual': 'oi', 'modo': 'ocioso', 'carrinho': []}
         node_router(state)  # type: ignore[arg-type]
 
         assert mock_funil.registrar.called
@@ -781,7 +781,7 @@ class TestNodesObservabilidade:
             'mensagem_norm': 'oi',
         }
 
-        state = {'mensagem_atual': 'oi', 'etapa': 'inicio', 'carrinho': []}
+        state = {'mensagem_atual': 'oi', 'modo': 'ocioso', 'carrinho': []}
         result = node_router(state)  # type: ignore[arg-type]
 
         assert result['intent'] == 'saudacao'

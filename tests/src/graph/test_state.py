@@ -3,7 +3,7 @@ Testes de alta qualidade para o módulo src/graph/state.py.
 
 Características:
 - Testes de tipos do TypedDict
-- Testes do Literal ETAPAS
+- Testes do Literal ETAPAS/MODOS
 - Testes de consistência
 - Testes de edge cases
 """
@@ -11,7 +11,7 @@ Características:
 import pytest
 from typing import get_type_hints, get_origin, get_args
 
-from src.graph.state import State, ETAPAS
+from src.graph.state import State, MODOS, ACOES
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -27,7 +27,7 @@ class TestStateTypedDict:
         assert hasattr(State, '__annotations__')
 
     def test_tem_campos_esperados(self):
-        """State deve ter os campos esperados."""
+        """State deve ter os campos esperados (com renomeacao etapa→modo)."""
         annots = get_type_hints(State)
         campos_esperados = {
             'mensagem_atual',
@@ -36,9 +36,12 @@ class TestStateTypedDict:
             'itens_extraidos',
             'carrinho',
             'fila_clarificacao',
-            'etapa',
+            'modo',
             'resposta',
             'tentativas_clarificacao',
+            'acao',
+            'origem_intent',
+            'dados_extracao',
         }
         assert set(annots.keys()) == campos_esperados
 
@@ -58,9 +61,12 @@ class TestStateTypedDict:
             ('itens_extraidos', list),
             ('carrinho', list),
             ('fila_clarificacao', list),
-            ('etapa', ETAPAS),
+            ('modo', MODOS),
             ('resposta', str),
             ('tentativas_clarificacao', int),
+            ('acao', ACOES),
+            ('origem_intent', str),
+            ('dados_extracao', dict),
         ],
     )
     def test_tipos_campos(self, campo, expected_type):
@@ -83,9 +89,12 @@ class TestStateTypedDict:
             'itens_extraidos': [],
             'carrinho': [],
             'fila_clarificacao': [],
-            'etapa': 'inicio',
+            'modo': 'coletando',
             'resposta': '',
             'tentativas_clarificacao': 0,
+            'acao': 'adicionar_item',
+            'origem_intent': 'rag_forte',
+            'dados_extracao': {},
         }
         assert isinstance(state, dict)
         for key in State.__annotations__:
@@ -93,58 +102,91 @@ class TestStateTypedDict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TESTES DO LITERAL ETAPAS
+# TESTES DO LITERAL MODOS
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-class TestETAPAS:
-    """Testes para o Literal ETAPAS."""
+class TestMODOS:
+    """Testes para o Literal MODOS."""
 
     def test_e_literal(self):
-        """ETAPAS deve ser um Literal."""
+        """MODOS deve ser um Literal."""
         # Verifica que é um tipo Literal
-        origin = get_origin(ETAPAS)
+        origin = get_origin(MODOS)
         assert origin is not None
 
-    def test_tem_todas_etapas(self):
-        """Deve conter todas as etapas esperadas."""
-        args = get_args(ETAPAS)
-        etapas_esperadas = {
-            'inicio',
-            'clarificando_variante',
-            'confirmando',
-            'pedindo',
-            'carrinho',
-            'saudacao',
-            'finalizado',
+    def test_tem_todas_modos(self):
+        """Deve conter todas as modos esperadas."""
+        args = get_args(MODOS)
+        modos_esperadas = {
+            'ocioso',
             'coletando',
+            'clarificando',
+            'confirmando',
+            'finalizado',
         }
-        assert set(args) == etapas_esperadas
+        assert set(args) == modos_esperadas
 
     @pytest.mark.parametrize(
-        'etapa',
+        'modo',
         [
-            'inicio',
-            'clarificando_variante',
-            'confirmando',
-            'pedindo',
-            'carrinho',
-            'saudacao',
-            'finalizado',
+            'ocioso',
             'coletando',
+            'clarificando',
+            'confirmando',
+            'finalizado',
         ],
     )
-    def test_etapas_validas(self, etapa):
-        """Cada etapa deve ser um valor válido do Literal."""
-        args = get_args(ETAPAS)
-        assert etapa in args
+    def test_modos_validas(self, modo):
+        """Cada modo deve ser um valor válido do Literal."""
+        args = get_args(MODOS)
+        assert modo in args
 
-    def test_etapa_invalida_nao_esta(self):
-        """Etapas inválidas não devem estar no Literal."""
-        args = get_args(ETAPAS)
-        etapas_invalidas = {'cancelado', 'erro', 'outro'}
-        for inv in etapas_invalidas:
+    def test_modo_invalida_nao_esta(self):
+        """Modos inválidas não devem estar no Literal."""
+        args = get_args(MODOS)
+        modos_invalidas = {'inicio', 'pedindo', 'carrinho', 'saudacao', 'erro'}
+        for inv in modos_invalidas:
             assert inv not in args
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TESTES DO LITERAL ACOES
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestACOES:
+    """Testes para o Literal ACOES."""
+
+    def test_e_literal(self):
+        """ACOES deve ser um Literal."""
+        origin = get_origin(ACOES)
+        assert origin is not None
+
+    def test_tem_todas_acoes(self):
+        """Deve conter todas as acoes esperadas."""
+        args = get_args(ACOES)
+        acoes_esperadas = {
+            'adicionar_item',
+            'remover_item',
+            'trocar_variante',
+            'sem_entidade',
+        }
+        assert set(args) == acoes_esperadas
+
+    @pytest.mark.parametrize(
+        'acao',
+        [
+            'adicionar_item',
+            'remover_item',
+            'trocar_variante',
+            'sem_entidade',
+        ],
+    )
+    def test_acoes_validas(self, acao):
+        """Cada acao deve ser um valor válido do Literal."""
+        args = get_args(ACOES)
+        assert acao in args
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -153,17 +195,27 @@ class TestETAPAS:
 
 
 class TestConsistencia:
-    """Testes de consistência entre State e ETAPAS."""
+    """Testes de consistência entre State e MODOS/ACOES."""
 
-    def test_etapa_do_state_compatible_com_etapas(self):
-        """O campo 'etapa' do State deve ser ETAPAS."""
-        assert 'etapa' in State.__annotations__
+    def test_modo_do_state_compatible_com_modos(self):
+        """O campo 'modo' do State deve ser MODOS."""
+        assert 'modo' in State.__annotations__
 
-    def test_state_pode_armazenar_qualquer_etapa(self):
-        """State deve poder armazenar qualquer valor de ETAPAS."""
-        for etapa in get_args(ETAPAS):
-            state = {'etapa': etapa}
-            assert state['etapa'] == etapa
+    def test_acao_do_state_compatible_com_acoes(self):
+        """O campo 'acao' do State deve ser ACOES."""
+        assert 'acao' in State.__annotations__
+
+    def test_state_pode_armazenar_qualquer_modo(self):
+        """State deve poder armazenar qualquer valor de MODOS."""
+        for modo in get_args(MODOS):
+            state = {'modo': modo}
+            assert state['modo'] == modo
+
+    def test_state_pode_armazenar_qualquer_acao(self):
+        """State deve poder armazenar qualquer valor de ACOES."""
+        for acao in get_args(ACOES):
+            state = {'acao': acao}
+            assert state['acao'] == acao
 
     def test_campos_obrigatorios_presentes(self):
         """State deve ter todos os campos obrigatórios."""
@@ -174,9 +226,12 @@ class TestConsistencia:
             'itens_extraidos',
             'carrinho',
             'fila_clarificacao',
-            'etapa',
+            'modo',
             'resposta',
             'tentativas_clarificacao',
+            'acao',
+            'origem_intent',
+            'dados_extracao',
         }
         annotations = set(State.__annotations__.keys())
         assert annotations == obrigatorios
@@ -204,9 +259,12 @@ class TestInstanciacao:
             'itens_extraidos': [],
             'carrinho': [],
             'fila_clarificacao': [],
-            'etapa': '',
+            'modo': 'ocioso',
             'resposta': '',
             'tentativas_clarificacao': 0,
+            'acao': 'adicionar_item',
+            'origem_intent': '',
+            'dados_extracao': {},
         }
         assert all(k in state for k in State.__annotations__)
 

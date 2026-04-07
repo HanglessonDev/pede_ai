@@ -34,7 +34,7 @@ from src.config import get_item_por_id
 from src.extratores import extrair_variante
 from src.extratores.fuzzy_extrator import fuzzy_match_variante
 from src.graph.handlers.carrinho import Carrinho
-from src.graph.state import ETAPAS, RetornoNode
+from src.graph.state import MODOS, RetornoNode
 from src.observabilidade.registry import get_clarificacao_logger
 
 
@@ -57,7 +57,7 @@ class ResultadoClarificacao:
 
     tipo: str
     resposta: str
-    etapa: ETAPAS
+    modo: MODOS
     carrinho: list[dict] = field(default_factory=list)
     fila: list[dict] = field(default_factory=list)
     tentativas: int = 0
@@ -66,7 +66,7 @@ class ResultadoClarificacao:
         """Converte para dicionário compatível com LangGraph State."""
         return {
             'resposta': self.resposta,
-            'etapa': self.etapa,
+            'modo': self.modo,
             'carrinho': self.carrinho,
             'fila_clarificacao': self.fila,
             'tentativas_clarificacao': self.tentativas,
@@ -113,7 +113,7 @@ def clarificar(
         return ResultadoClarificacao(
             tipo='sucesso',
             resposta='',
-            etapa='inicio',
+            modo='ocioso',
             fila=[],
             carrinho=[],
             tentativas=0,
@@ -215,7 +215,7 @@ def _processar_variante_valida(
         return ResultadoClarificacao(
             tipo='erro',
             resposta='Erro ao processar item.',
-            etapa='inicio' if not fila else 'clarificando_variante',
+            modo='ocioso' if not fila else 'clarificando',
             fila=list(fila),
             carrinho=[],
             tentativas=0,
@@ -230,7 +230,7 @@ def _processar_variante_valida(
         return ResultadoClarificacao(
             tipo='erro',
             resposta='Erro ao processar variante.',
-            etapa='inicio' if not fila else 'clarificando_variante',
+            modo='ocioso' if not fila else 'clarificando',
             fila=list(fila),
             carrinho=[],
             tentativas=0,
@@ -246,15 +246,15 @@ def _processar_variante_valida(
 
     if fila:
         resposta = _proxima_clarificacao(fila)
-        etapa = 'clarificando_variante'
+        modo = 'clarificando'
     else:
         resposta = Carrinho.from_state_dicts(carrinho).formatar()
-        etapa = 'inicio'
+        modo = 'ocioso'
 
     return ResultadoClarificacao(
         tipo='sucesso',
         resposta=resposta,
-        etapa=etapa,
+        modo=modo,
         carrinho=carrinho,
         fila=fila,
         tentativas=0,
@@ -287,7 +287,7 @@ def _processar_variante_invalida(
             return ResultadoClarificacao(
                 tipo='invalida',
                 resposta=resposta,
-                etapa='clarificando_variante',
+                modo='clarificando',
                 fila=fila,
                 carrinho=[],
                 tentativas=0,
@@ -295,7 +295,7 @@ def _processar_variante_invalida(
         return ResultadoClarificacao(
             tipo='invalida',
             resposta='Não consegui entender a opção. Vamos continuar com o pedido.',
-            etapa='inicio',
+            modo='ocioso',
             fila=[],
             carrinho=[],
             tentativas=0,
@@ -305,7 +305,7 @@ def _processar_variante_invalida(
     return ResultadoClarificacao(
         tipo='invalida',
         resposta=f'Essa opção não está disponível. {nome}: {opcoes_str}?',
-        etapa='clarificando_variante',
+        modo='clarificando',
         fila=list(fila),
         carrinho=[],
         tentativas=tentativas,

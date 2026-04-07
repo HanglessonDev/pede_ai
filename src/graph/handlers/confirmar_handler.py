@@ -27,6 +27,6 @@ def processar_confirmacao(carrinho_dicts: list[dict]) -> RetornoNode:
 
     return {
         'resposta': f'Pedido confirmado! Total: R$ {total:.2f}',
-        'etapa': 'finalizado',
+        'modo': 'finalizado',
         'carrinho': [],
     }

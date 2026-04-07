@@ -17,4 +17,4 @@ def processar_saudacao() -> RetornoNode:
     """
     nome_restaurante = get_tenant_nome()
     resposta = f'Ola! Seja bem-vindo(a) a {nome_restaurante}!\nComo posso ajudar?'
-    return {'resposta': resposta, 'etapa': 'saudacao'}
+    return {'resposta': resposta, 'modo': 'ocioso'}

@@ -13,7 +13,7 @@ Example:
         'itens_extraidos': [],
         'carrinho': [],
         'fila_clarificacao': [],
-        'etapa': 'inicio',
+        'modo': 'ocioso',
         'resposta': '',
     }
     result = node_handler_saudacao(state)
@@ -89,8 +89,8 @@ def _log_node_event(
     if funil_logger:
         funil_logger.registrar(
             thread_id=thread_id,
-            etapa_anterior='',
-            etapa_atual=handler_name,
+            modo_anterior='',
+            modo_atual=handler_name,
             intent=intent,
             carrinho_size=0,
         )
@@ -125,7 +125,7 @@ def _criar_node_router(classificador):
         mensagem = state.get('mensagem_atual', '')
         thread_id = _get_thread_id()
         inicio = time.monotonic()
-        etapa_anterior = state.get('etapa', 'inicio')
+        modo_anterior = state.get('modo', 'ocioso')
 
         resultado = classificador.classificar(mensagem)
         meta = resultado.metadados
@@ -154,8 +154,8 @@ def _criar_node_router(classificador):
         if funil_logger:
             funil_logger.registrar(
                 thread_id=thread_id,
-                etapa_anterior=etapa_anterior,
-                etapa_atual='roteado',
+                modo_anterior=modo_anterior,
+                modo_atual='roteado',
                 intent=resultado.intent,
                 carrinho_size=len(state.get('carrinho', [])),
             )
@@ -228,7 +228,7 @@ def node_router(state: State) -> RetornoNode:
     mensagem = state.get('mensagem_atual', '')
     thread_id = _get_thread_id()
     inicio = time.monotonic()
-    etapa_anterior = state.get('etapa', 'inicio')
+    modo_anterior = state.get('modo', 'ocioso')
 
     resultado = _classificar_intencao(mensagem, thread_id=thread_id)
 
@@ -248,8 +248,8 @@ def node_router(state: State) -> RetornoNode:
     if funil_logger:
         funil_logger.registrar(
             thread_id=thread_id,
-            etapa_anterior=etapa_anterior,
-            etapa_atual='roteado',
+            modo_anterior=modo_anterior,
+            modo_atual='roteado',
             intent=resultado['intent'],
             carrinho_size=len(state.get('carrinho', [])),
         )
@@ -276,8 +276,8 @@ def node_router(state: State) -> RetornoNode:
 # ── Nodes ───────────────────────────────────────────────────────────────────
 
 
-def node_verificar_etapa(state: State) -> RetornoNode:
-    """No de verificacao de etapa do fluxo.
+def node_verificar_modo(state: State) -> RetornoNode:
+    """No de verificacao de modo do fluxo.
 
     Apenas passa adiante sem modificar o estado. A decisao
     de qual caminho seguir e feita pela edge condicional
@@ -300,7 +300,7 @@ def node_clarificacao(state: State) -> RetornoNode:
         'carrinho': carrinho_atualizado,
         'fila_clarificacao': resultado.fila,
         'resposta': resultado.resposta,
-        'etapa': resultado.etapa,
+        'modo': resultado.modo,
     }
 
 
@@ -367,3 +367,112 @@ def node_handler_trocar(state: State) -> RetornoNode:
     carrinho = state.get('carrinho', [])
     mensagem = state.get('mensagem_atual', '')
     return processar_troca(carrinho, mensagem).to_dict()
+
+
+# Alias para compatibilidade com o dispatcher
+node_handler_adicionar = node_handler_pedir
+
+
+# ── Dispatcher de modificação ──────────────────────────────────────────────
+
+from src.extratores import extrair_item_carrinho, extrair_itens_troca
+
+
+_VERBOS_REMOCAO_ITEM: frozenset[str] = frozenset(
+    {
+        'tira',
+        'tirar',
+        'remove',
+        'remover',
+        'retira',
+        'retirar',
+        'tira fora',
+        'tira esse',
+        'some',
+        'apaga',
+        'deleta',
+        'exclui',
+        'não quero mais',
+    }
+)
+
+
+def _parece_remocao(mensagem: str) -> bool:
+    """Verifica se a mensagem usa verbo de remoção de item do carrinho."""
+    msg = mensagem.lower()
+    return any(verbo in msg for verbo in _VERBOS_REMOCAO_ITEM)
+
+
+def node_dispatcher_modificar(state: State) -> RetornoNode:  # noqa: PLR0911
+    """Decide qual ação executar para intent modificar_pedido.
+
+    Chama os extratores na ordem correta e roteia para a ação certa.
+    Ordem de prioridade: troca > remoção > adição > sem_entidade.
+
+    Args:
+        state: Estado atual do grafo.
+
+    Returns:
+        RetornoNode com 'acao' e dados de extração preenchidos.
+    """
+    mensagem = state['mensagem_atual']
+    carrinho = state.get('carrinho', [])
+
+    # ── Passo 1: TrocaExtrator ──────────────────────────────────────────────
+    trocas = extrair_itens_troca(mensagem, carrinho)
+    caso = trocas['caso']
+    item_original = trocas['item_original']
+    variante_nova = trocas['variante_nova']
+
+    # Caso A: 2+ ITEMs mencionados
+    if caso == 'A':
+        if carrinho:
+            # Carrinho tem itens — pode ser troca (handler decide qual)
+            return {'acao': 'trocar_variante', 'dados_extracao': trocas}
+        # Carrinho vazio — é pedido novo com múltiplos itens
+        # Cai para extrair() abaixo
+
+    # Caso B: 1 ITEM mencionado
+    elif caso == 'B':
+        if item_original is not None and variante_nova is not None:
+            # Item no carrinho + variante destino → troca completa
+            return {'acao': 'trocar_variante', 'dados_extracao': trocas}
+
+        if item_original is not None and variante_nova is None:
+            # Item no carrinho mas sem variante destino
+            if _parece_remocao(mensagem):
+                # Verbo de remoção → remover item do carrinho
+                return {'acao': 'remover_item', 'dados_extracao': trocas}
+            else:
+                # Verbo de troca sem destino → troca incompleta
+                return {'acao': 'sem_entidade', 'dados_extracao': trocas}
+
+        # item_original is None → item não está no carrinho → adição
+        # Cai para extrair() abaixo
+
+    # Caso C: 0 ITEMs + 1 VARIANTE isolada
+    elif caso == 'C' and carrinho:
+        # Carrinho tem itens — trocar variante de algum item
+        return {'acao': 'trocar_variante', 'dados_extracao': trocas}
+    # Caso C com carrinho vazio — pode ser item com nome igual a variante
+    # Cai para extrair() abaixo
+
+    # Caso vazio: TrocaExtrator não encontrou nada
+    # Cai para extrair_item_carrinho + extrair() abaixo
+
+    # ── Passo 2: Remoção de item do carrinho ────────────────────────────────
+    if carrinho and _parece_remocao(mensagem):
+        remocoes = extrair_item_carrinho(mensagem, carrinho)
+        if remocoes:
+            return {
+                'acao': 'remover_item',
+                'dados_extracao': {'matches': remocoes},
+            }
+
+    # ── Passo 3: Adição de item novo ────────────────────────────────────────
+    itens = extrair(mensagem)
+    if itens:
+        return {'acao': 'adicionar_item', 'itens_extraidos': itens}
+
+    # ── Passo 4: Nada encontrado ────────────────────────────────────────────
+    return {'acao': 'sem_entidade', 'dados_extracao': trocas}

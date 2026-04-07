@@ -9,8 +9,8 @@ def test_registra_transicao_funil(tmp_path: Path) -> None:
     logger = FunilLogger(csv_path)
     logger.registrar(
         thread_id='sessao_1',
-        etapa_anterior='inicio',
-        etapa_atual='saudacao',
+        modo_anterior='ocioso',
+        modo_atual='saudacao',
         intent='saudacao',
     )
     assert csv_path.exists()
@@ -18,8 +18,8 @@ def test_registra_transicao_funil(tmp_path: Path) -> None:
         reader = csv.DictReader(f)
         rows = list(reader)
     assert len(rows) == 1
-    assert rows[0]['etapa_anterior'] == 'inicio'
-    assert rows[0]['etapa_atual'] == 'saudacao'
+    assert rows[0]['modo_anterior'] == 'ocioso'
+    assert rows[0]['modo_atual'] == 'saudacao'
 
 
 def test_registra_transicao_com_carrinho(tmp_path: Path) -> None:
@@ -27,8 +27,8 @@ def test_registra_transicao_com_carrinho(tmp_path: Path) -> None:
     logger = FunilLogger(csv_path)
     logger.registrar(
         thread_id='sessao_2',
-        etapa_anterior='coletando',
-        etapa_atual='roteado',
+        modo_anterior='coletando',
+        modo_atual='roteado',
         intent='pedir',
         carrinho_size=2,
     )

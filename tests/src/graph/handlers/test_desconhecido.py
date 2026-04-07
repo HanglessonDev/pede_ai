@@ -13,7 +13,7 @@ def test_handler_desconhecido_retorna_mensagem_clarificacao():
         'itens_extraidos': [],
         'carrinho': [],
         'fila_clarificacao': [],
-        'etapa': 'inicio',
+        'modo': 'ocioso',
         'resposta': '',
         'tentativas_clarificacao': 0,
     }
@@ -22,4 +22,4 @@ def test_handler_desconhecido_retorna_mensagem_clarificacao():
 
     assert 'resposta' in result
     assert 'Não entendi' in result['resposta']
-    assert result['etapa'] == 'inicio'
+    assert result['modo'] == 'ocioso'

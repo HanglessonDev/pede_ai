@@ -15,5 +15,5 @@ def node_handler_desconhecido(state: State) -> RetornoNode:
     return {
         'resposta': 'Não entendi. Pode reformular sua mensagem? '
         'Posso ajudar com pedidos, ver o carrinho, confirmar ou cancelar.',
-        'etapa': 'inicio',
+        'modo': 'ocioso',
     }

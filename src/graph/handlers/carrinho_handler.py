@@ -19,8 +19,8 @@ def processar_carrinho(carrinho_dicts: list[dict]) -> RetornoNode:
         Dicionario com ``resposta`` e ``etapa`` atualizados.
     """
     if not carrinho_dicts:
-        return {'resposta': 'Seu carrinho esta vazio!', 'etapa': 'carrinho'}
+        return {'resposta': 'Seu carrinho esta vazio!', 'modo': 'coletando'}
 
     carrinho = Carrinho.from_state_dicts(carrinho_dicts)
     resposta = 'Seu pedido:\n' + carrinho.formatar()
-    return {'resposta': resposta, 'etapa': 'carrinho'}
+    return {'resposta': resposta, 'modo': 'coletando'}

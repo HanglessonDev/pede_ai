@@ -46,7 +46,7 @@ class ResultadoPedir:
             'carrinho': self.carrinho,
             'fila_clarificacao': self.fila,
             'resposta': self.resposta,
-            'etapa': 'clarificando_variante' if self.fila else 'coletando',
+            'modo': 'clarificando' if self.fila else 'coletando',
         }
 
 

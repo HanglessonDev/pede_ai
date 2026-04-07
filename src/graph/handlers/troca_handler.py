@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from src.config import get_item_por_id, get_nome_item
 from src.extratores import extrair, extrair_itens_troca, normalizar
 from src.graph.handlers.carrinho import Carrinho, CarrinhoItem
-from src.graph.state import ETAPAS, RetornoNode
+from src.graph.state import MODOS, RetornoNode
 
 
 @dataclass
@@ -43,14 +43,14 @@ class ResultadoTrocar:
 
     carrinho: list[dict] = field(default_factory=list)
     resposta: str = ''
-    etapa: ETAPAS = 'carrinho'
+    modo: MODOS = 'coletando'
 
     def to_dict(self) -> RetornoNode:
         """Converte para dicionario compativel com LangGraph State."""
         return {
             'carrinho': self.carrinho,
             'resposta': self.resposta,
-            'etapa': self.etapa,
+            'modo': self.modo,
         }
 
 
@@ -100,7 +100,7 @@ def processar_troca(
     if not carrinho_dicts:
         return ResultadoTrocar(
             resposta='Não há pedido para trocar.',
-            etapa='inicio',
+            modo='ocioso',
         )
 
     extracao = extrair_itens_troca(mensagem, carrinho_dicts)

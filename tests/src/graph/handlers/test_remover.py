@@ -61,7 +61,7 @@ class TestCarrinhoVazio:
         """Carrinho vazio deve retornar mensagem de erro."""
         result = processar_remocao(carrinho_vazio, 'tira a coca')
         assert 'vazio' in result.resposta.lower()
-        assert result.etapa == 'inicio'
+        assert result.modo == 'ocioso'
         assert result.carrinho == []
 
 
@@ -80,7 +80,7 @@ class TestItemNaoEncontrado:
         ):
             result = processar_remocao(carrinho_um_item, 'tira a pizza')
             assert 'não encontrei' in result.resposta.lower()
-            assert result.etapa == 'carrinho'
+            assert result.modo == 'coletando'
             assert len(result.carrinho) == 1
 
 
@@ -100,7 +100,7 @@ class TestRemocaoSucesso:
         ):
             result = processar_remocao(carrinho_um_item, 'tira o hamburguer')
             assert result.carrinho == []
-            assert result.etapa == 'inicio'
+            assert result.modo == 'ocioso'
             assert 'Todos os itens foram removidos' in result.resposta
 
     def test_remove_um_de_multiplos(self, carrinho_multiplo):
@@ -112,7 +112,7 @@ class TestRemocaoSucesso:
             result = processar_remocao(carrinho_multiplo, 'tira a coca')
             assert len(result.carrinho) == 1
             assert result.carrinho[0]['item_id'] == 'lanche_001'
-            assert result.etapa == 'carrinho'
+            assert result.modo == 'coletando'
 
     def test_remove_multiplos_itens(self, carrinho_multiplo):
         """Remover multiplos itens deve limpar o carrinho."""
@@ -125,7 +125,7 @@ class TestRemocaoSucesso:
         ):
             result = processar_remocao(carrinho_multiplo, 'tira tudo')
             assert result.carrinho == []
-            assert result.etapa == 'inicio'
+            assert result.modo == 'ocioso'
 
     def test_resposta_mostra_carrinho_atualizado(self, carrinho_multiplo):
         """Resposta deve mostrar carrinho atualizado apos remocao."""
@@ -151,12 +151,12 @@ class TestResultadoRemover:
         result = ResultadoRemover(
             carrinho=[{'item_id': 'lanche_001', 'preco': 1500}],
             resposta='Itens removidos!',
-            etapa='carrinho',
+            modo='coletando',
         )
         d = result.to_dict()
         assert 'carrinho' in d
         assert 'resposta' in d
-        assert 'etapa' in d
+        assert 'modo' in d
 
     def test_to_dict_valores_corretos(self):
         """to_dict deve mapear valores corretamente."""
@@ -164,9 +164,9 @@ class TestResultadoRemover:
         result = ResultadoRemover(
             carrinho=carrinho,
             resposta='Itens removidos!',
-            etapa='carrinho',
+            modo='coletando',
         )
         d = result.to_dict()
         assert d['carrinho'] == carrinho
         assert d['resposta'] == 'Itens removidos!'
-        assert d['etapa'] == 'carrinho'
+        assert d['modo'] == 'coletando'
