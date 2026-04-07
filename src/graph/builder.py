@@ -137,7 +137,10 @@ def criar_graph(
     builder.add_conditional_edges(
         'verificar_modo',
         _decidir_entrada,
-        {'clarificacao': 'clarificacao', 'resolver_contexto': 'resolver_contexto'},
+        {
+            'clarificacao': 'clarificacao',
+            'router': 'resolver_contexto',
+        },
     )
 
     # 3. resolver_contexto → handler direto ou router
