@@ -495,7 +495,35 @@ def extrair(mensagem: str) -> list[dict]:
         ]
         ```
     """
+    import time as _time
+    from src.observabilidade.registry import get_extrator_detail_logger
+
+    inicio = _time.monotonic()
     itens = _get_extrator().extrair(mensagem)
+    tempo_ms = (_time.monotonic() - inicio) * 1000
+
+    # Logging interno — qual estratégia funcionou
+    ext_logger = get_extrator_detail_logger()
+    if ext_logger:
+        spacy_count = sum(1 for i in itens if i.fonte == 'spacy')
+        fuzzy_count = sum(1 for i in itens if i.fonte == 'fuzzy')
+        ext_logger.registrar(
+            thread_id='',
+            turn_id='',
+            extrator='extrator',
+            estrategia='spacy+fuzzy',
+            itens_encontrados=len(itens),
+            detalhes={
+                'spacy_count': spacy_count,
+                'fuzzy_count': fuzzy_count,
+                'negacao': any(i.negado for i in itens),
+                'scores_fuzzy': [
+                    round(i.confianca, 2) for i in itens if i.fonte == 'fuzzy'
+                ],
+            },
+            tempo_ms=tempo_ms,
+        )
+
     return [asdict(item) for item in itens]
 
 
