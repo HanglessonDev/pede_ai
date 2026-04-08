@@ -2,6 +2,7 @@
 
 import os
 import sqlite3
+import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -68,7 +69,10 @@ while True:
     if not mensagem:
         continue
 
-    resultado = graph.invoke({'mensagem_atual': mensagem}, config)  # type: ignore
+    resultado = graph.invoke(
+        {'mensagem_atual': mensagem, 'turn_id': uuid.uuid4().hex[:8]},
+        config,
+    )  # type: ignore
 
     print(f'Bot: {resultado.get("resposta", "???")}')
     print(

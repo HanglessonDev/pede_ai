@@ -170,10 +170,11 @@ def _criar_node_router(classificador):
         loggers = get_global_loggers()
         mensagem = state.get('mensagem_atual', '')
         thread_id = _get_thread_id()
+        turn_id = state.get('turn_id', '')
         inicio = time.monotonic()
         modo_anterior = state.get('modo', 'ocioso')
 
-        resultado = classificador.classificar(mensagem)
+        resultado = classificador.classificar(mensagem, thread_id, turn_id)
         meta = resultado.metadados
 
         # Registra evento de decision tracing
@@ -230,7 +231,7 @@ def _classificar_intencao(mensagem: str, thread_id: str = '') -> dict:
     Usa o classificador injetado se disponivel, senao retorna dict vazio.
     """
     if _classificador_padrao is not None:
-        resultado = _classificador_padrao.classificar(mensagem)
+        resultado = _classificador_padrao.classificar(mensagem, thread_id)
         return {
             'intent': resultado.intent,
             'confidence': resultado.confidence,

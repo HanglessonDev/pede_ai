@@ -7,21 +7,22 @@ Características:
 - Parametrização para cobrir casos diversos
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from src.graph.nodes import (
-    node_router,
+    node_clarificacao,
     node_extrator,
-    node_handler_pedir,
-    node_handler_saudacao,
+    node_handler_cancelar,
     node_handler_carrinho,
     node_handler_confirmar,
+    node_handler_pedir,
     node_handler_remover,
-    node_verificar_modo,
-    node_clarificacao,
-    node_handler_cancelar,
+    node_handler_saudacao,
     node_handler_trocar,
+    node_router,
+    node_verificar_modo,
 )
 from src.graph.state import State
 from src.observabilidade.loggers import set_global_loggers
@@ -610,7 +611,7 @@ class TestCriarNodeRouter:
         mock_config.return_value = {'configurable': {'thread_id': 't1'}}
 
         class MockClassificador:
-            def classificar(self, msg):
+            def classificar(self, msg, thread_id='', turn_id=''):
                 return ResultadoClassificacao(
                     intent='saudacao',
                     confidence=0.95,
@@ -651,7 +652,7 @@ class TestClassificarIntencao:
         from src.roteador.modelos import ResultadoClassificacao
 
         class MockClassificador:
-            def classificar(self, msg):
+            def classificar(self, msg, thread_id=''):
                 return ResultadoClassificacao(
                     intent='pedir',
                     confidence=0.88,
