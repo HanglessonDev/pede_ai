@@ -418,34 +418,40 @@ class TestObservabilidadeClarificacao:
 
     def test_log_sucesso(self, fila_hamburguer, tmp_path):
         """Deve logar clarificação com sucesso."""
-        from src.observabilidade.clarificacao_logger import ClarificacaoLogger
-        from src.observabilidade.registry import set_clarificacao_logger
+        from src.observabilidade.decisor_logger import DecisorLogger
+        from src.observabilidade.loggers import (
+            ObservabilidadeLoggers,
+            set_global_loggers,
+        )
 
-        csv_path = tmp_path / 'clarificacoes.csv'
-        set_clarificacao_logger(ClarificacaoLogger(csv_path))
+        loggers = ObservabilidadeLoggers(
+            decisor=DecisorLogger(tmp_path / 'decisoes.csv')
+        )
+        set_global_loggers(loggers)
 
         from src.graph.handlers.clarificacao import clarificar
 
         result = clarificar(fila_hamburguer, 'duplo', 0, thread_id='sessao-1')
 
         assert result.tipo == 'sucesso'
-        with open(csv_path, encoding='utf-8') as f:
+
+        with open(tmp_path / 'decisoes.csv', encoding='utf-8') as f:
             import csv
 
             reader = csv.DictReader(f)
             rows = list(reader)
             assert len(rows) == 1
             assert rows[0]['thread_id'] == 'sessao-1'
-            assert rows[0]['resultado'] == 'sucesso'
-            assert rows[0]['variante_escolhida'] == 'duplo'
+            assert rows[0]['componente'] == 'clarificacao'
+            assert rows[0]['decisao'] == 'sucesso'
 
-        set_clarificacao_logger(None)
+        set_global_loggers(ObservabilidadeLoggers())
 
     def test_sem_logger_nao_falha(self, fila_hamburguer):
         """Se logger não está configurado, não deve falhar."""
-        from src.observabilidade.registry import set_clarificacao_logger
+        from src.observabilidade.loggers import set_global_loggers
 
-        set_clarificacao_logger(None)
+        set_global_loggers(None)
 
         from src.graph.handlers.clarificacao import clarificar
 

@@ -234,7 +234,7 @@ def extrair_item_fuzzy(
                 componente='extracao_fuzzy',
                 decisao='sem_match_ou_ambiguo',
                 alternativas=['match_encontrado', 'sem_match_ou_ambiguo'],
-                criterio=f'fuzzy_match_item nao encontrou match com cutoff',
+                criterio='fuzzy_match_item nao encontrou match com cutoff',
                 threshold='score>=cutoff',
                 resultado='sem_match_ou_ambiguo',
                 contexto=extrair_contexto_extracao(mensagem, []),

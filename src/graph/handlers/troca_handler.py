@@ -160,7 +160,9 @@ def _log_troca(
     """Registra evento de negocio se loggers disponiveis."""
     if loggers and loggers.negocio is not None:
         carrinho_resultado = resultado.carrinho
-        preco_total = sum(i.get('preco_centavos', i.get('preco', 0)) for i in carrinho_resultado)
+        preco_total = sum(
+            i.get('preco_centavos', i.get('preco', 0)) for i in carrinho_resultado
+        )
         loggers.negocio.registrar(
             thread_id=thread_id,
             turn_id=turn_id,

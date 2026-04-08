@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+
 if TYPE_CHECKING:
     from src.observabilidade.decisor_logger import DecisorLogger
     from src.observabilidade.exception_logger import ExceptionLogger
@@ -93,3 +94,19 @@ class ObservabilidadeLoggers:
             self.decisor = novo.decisor
             self.fluxo = novo.fluxo
             self.excecoes = novo.excecoes
+
+
+# ── Global singleton para acesso em nodes funcoes (sem registry boilerplate) ──
+
+_global_loggers: ObservabilidadeLoggers | None = None
+
+
+def set_global_loggers(loggers: ObservabilidadeLoggers) -> None:
+    """Define os loggers globais — chamar uma vez no main.py."""
+    global _global_loggers  # noqa: PLW0603
+    _global_loggers = loggers
+
+
+def get_global_loggers() -> ObservabilidadeLoggers | None:
+    """Retorna os loggers globais — usado por nodes e handlers."""
+    return _global_loggers

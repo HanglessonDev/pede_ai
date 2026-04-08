@@ -10,7 +10,10 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from src.config import get_intencoes_validas, get_prompt, get_roteador_config
 from src.graph.builder import criar_graph
 from src.infra import GroqProvider, SentenceTransformerEmbeddings
-from src.observabilidade.loggers import ObservabilidadeLoggers
+from src.observabilidade.loggers import (
+    ObservabilidadeLoggers,
+    set_global_loggers,
+)
 from src.roteador.embedding_service import EmbeddingService
 from src.roteador.service import ClassificadorIntencoes
 
@@ -18,18 +21,11 @@ from src.roteador.service import ClassificadorIntencoes
 # Carrega variaveis do .env
 load_dotenv()
 
-# Configura loggers de observabilidade (novo sistema unificado)
+# Configura loggers de observabilidade (sistema unificado)
 LOG_DIR = Path('logs')
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 loggers = ObservabilidadeLoggers.criar_padrao(LOG_DIR)
-
-# Manter compatibilidade com registry legado (para codigo nao migrado)
-try:
-    from src.observabilidade.registry import set_exception_logger
-
-    set_exception_logger(loggers.excecoes)
-except ImportError:
-    pass
+set_global_loggers(loggers)
 
 
 def criar_classificador() -> ClassificadorIntencoes:

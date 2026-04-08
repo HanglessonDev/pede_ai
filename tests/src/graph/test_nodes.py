@@ -24,11 +24,20 @@ from src.graph.nodes import (
     node_handler_trocar,
 )
 from src.graph.state import State
+from src.observabilidade.loggers import set_global_loggers
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FIXTURES
 # ══════════════════════════════════════════════════════════════════════════════
+
+
+@pytest.fixture(autouse=True)
+def setup_loggers():
+    """Ensure loggers are None before and after each test."""
+    set_global_loggers(None)
+    yield
+    set_global_loggers(None)
 
 
 @pytest.fixture
@@ -63,9 +72,8 @@ class TestNodeRouter:
     """Testes para node_router."""
 
     @patch('src.graph.nodes.get_config')
-    @patch('src.graph.nodes.get_obs_logger')
     @patch('src.graph.nodes._classificar_intencao')
-    def test_retorna_intent(self, mock_classificar, mock_get_logger, mock_get_config):
+    def test_retorna_intent(self, mock_classificar, mock_get_config):
         """Deve retornar a intent classificada."""
         mock_get_config.return_value = {'configurable': {'thread_id': ''}}
         mock_classificar.return_value = {
@@ -81,11 +89,8 @@ class TestNodeRouter:
         assert result['confidence'] == 0.85
 
     @patch('src.graph.nodes.get_config')
-    @patch('src.graph.nodes.get_obs_logger')
     @patch('src.graph.nodes._classificar_intencao')
-    def test_chama_classificar_com_mensagem(
-        self, mock_classificar, mock_get_logger, mock_get_config
-    ):
+    def test_chama_classificar_com_mensagem(self, mock_classificar, mock_get_config):
         """Deve chamar classificar com a mensagem."""
         mock_get_config.return_value = {'configurable': {'thread_id': ''}}
         mock_classificar.return_value = {
@@ -100,9 +105,8 @@ class TestNodeRouter:
         mock_classificar.assert_called_with('oi', thread_id='')
 
     @patch('src.graph.nodes.get_config')
-    @patch('src.graph.nodes.get_obs_logger')
     @patch('src.graph.nodes._classificar_intencao')
-    def test_mensagem_vazia(self, mock_classificar, mock_get_logger, mock_get_config):
+    def test_mensagem_vazia(self, mock_classificar, mock_get_config):
         """Deve tratar mensagem vazia."""
         mock_get_config.return_value = {'configurable': {'thread_id': ''}}
         mock_classificar.return_value = {
@@ -527,18 +531,15 @@ class TestNodeHandlerTrocar:
 class TestLogNodeEvent:
     """Testes para _log_node_event."""
 
-    @patch('src.graph.nodes.get_obs_logger')
-    @patch('src.graph.nodes.get_funil_logger')
-    @patch('src.graph.nodes.get_handler_logger')
     @patch('src.graph.nodes._get_thread_id')
-    def test_com_todos_loggers(self, mock_thread, mock_handler, mock_funil, mock_obs):
+    def test_com_todos_loggers(self, mock_thread):
         """Deve registrar em todos os loggers quando disponiveis."""
         from src.graph.nodes import _log_node_event
+        from src.observabilidade.loggers import ObservabilidadeLoggers
 
         mock_thread.return_value = 'thread_1'
-        mock_obs.return_value = MagicMock()
-        mock_funil.return_value = MagicMock()
-        mock_handler.return_value = MagicMock()
+        mock_loggers = MagicMock(spec=ObservabilidadeLoggers)
+        set_global_loggers(mock_loggers)
 
         _log_node_event(
             handler_name='node_router',
@@ -549,24 +550,16 @@ class TestLogNodeEvent:
             tempo_ms=10.5,
         )
 
-        mock_obs.return_value.registrar.assert_called_once()
-        mock_funil.return_value.registrar.assert_called_once()
-        mock_handler.return_value.registrar.assert_called_once()
+        mock_loggers.decisor.registrar.assert_called_once()
+        mock_loggers.fluxo.registrar.assert_called_once()
 
-    @patch('src.graph.nodes.get_obs_logger')
-    @patch('src.graph.nodes.get_funil_logger')
-    @patch('src.graph.nodes.get_handler_logger')
     @patch('src.graph.nodes._get_thread_id')
-    def test_com_loggers_none_nao_quebra(
-        self, mock_thread, mock_handler, mock_funil, mock_obs
-    ):
+    def test_com_loggers_none_nao_quebra(self, mock_thread):
         """Loggers None nao devem quebrar a funcao."""
         from src.graph.nodes import _log_node_event
 
         mock_thread.return_value = 'thread_1'
-        mock_obs.return_value = None
-        mock_funil.return_value = None
-        mock_handler.return_value = None
+        set_global_loggers(None)
 
         _log_node_event(
             handler_name='node_router',
@@ -586,21 +579,13 @@ class TestLogNodeEvent:
 class TestCriarNodeRouter:
     """Testes para _criar_node_router (factory)."""
 
-    @patch('src.graph.nodes.get_obs_logger')
-    @patch('src.graph.nodes.get_funil_logger')
-    @patch('src.graph.nodes.get_handler_logger')
     @patch('src.graph.nodes.get_config')
-    def test_factory_retorna_funcao(
-        self, mock_config, mock_handler, mock_funil, mock_obs
-    ):
+    def test_factory_retorna_funcao(self, mock_config):
         """Factory deve retornar funcao callavel."""
         from src.graph.nodes import _criar_node_router
         from src.roteador.modelos import ResultadoClassificacao
 
         mock_config.return_value = {'configurable': {'thread_id': 't1'}}
-        mock_obs.return_value = MagicMock()
-        mock_funil.return_value = None
-        mock_handler.return_value = None
 
         class MockClassificador:
             def classificar(self, msg):
@@ -616,21 +601,13 @@ class TestCriarNodeRouter:
         node = _criar_node_router(MockClassificador())
         assert callable(node)
 
-    @patch('src.graph.nodes.get_obs_logger')
-    @patch('src.graph.nodes.get_funil_logger')
-    @patch('src.graph.nodes.get_handler_logger')
     @patch('src.graph.nodes.get_config')
-    def test_factory_classifica_corretamente(
-        self, mock_config, mock_handler, mock_funil, mock_obs
-    ):
+    def test_factory_classifica_corretamente(self, mock_config):
         """Funcao retornada deve classificar corretamente."""
         from src.graph.nodes import _criar_node_router
         from src.roteador.modelos import ResultadoClassificacao
 
         mock_config.return_value = {'configurable': {'thread_id': 't1'}}
-        mock_obs.return_value = MagicMock()
-        mock_funil.return_value = None
-        mock_handler.return_value = None
 
         class MockClassificador:
             def classificar(self, msg):
@@ -720,26 +697,18 @@ class TestNodesObservabilidade:
     """Testes de instrumentacao de observabilidade nos nodes."""
 
     @patch('src.graph.nodes.get_config')
-    @patch('src.graph.nodes.get_funil_logger')
-    @patch('src.graph.nodes.get_handler_logger')
-    @patch('src.graph.nodes.get_obs_logger')
     @patch('src.graph.nodes._classificar_intencao')
     def test_node_router_registra_funil(
         self,
         mock_classificar,
-        mock_get_obs,
-        mock_get_handler,
-        mock_get_funil,
         mock_get_config,
     ):
         """Node router deve registrar logs de funil e handler."""
+        from src.observabilidade.loggers import ObservabilidadeLoggers
+
         mock_get_config.return_value = {'configurable': {'thread_id': 't1'}}
-        mock_funil = MagicMock()
-        mock_handler = MagicMock()
-        mock_obs = MagicMock()
-        mock_get_funil.return_value = mock_funil
-        mock_get_handler.return_value = mock_handler
-        mock_get_obs.return_value = mock_obs
+        mock_loggers = MagicMock(spec=ObservabilidadeLoggers)
+        set_global_loggers(mock_loggers)
         mock_classificar.return_value = {
             'intent': 'pedir',
             'confidence': 0.85,
@@ -752,27 +721,19 @@ class TestNodesObservabilidade:
         state = {'mensagem_atual': 'oi', 'modo': 'ocioso', 'carrinho': []}
         node_router(state)  # type: ignore[arg-type]
 
-        assert mock_funil.registrar.called
-        assert mock_handler.registrar.called
+        assert mock_loggers.decisor.registrar.called
+        assert mock_loggers.fluxo.registrar.called
 
     @patch('src.graph.nodes.get_config')
-    @patch('src.graph.nodes.get_funil_logger')
-    @patch('src.graph.nodes.get_handler_logger')
-    @patch('src.graph.nodes.get_obs_logger')
     @patch('src.graph.nodes._classificar_intencao')
     def test_node_router_loggers_nulos_nao_quebram(
         self,
         mock_classificar,
-        mock_get_obs,
-        mock_get_handler,
-        mock_get_funil,
         mock_get_config,
     ):
         """Loggers nulos nao devem causar erro."""
         mock_get_config.return_value = {'configurable': {'thread_id': 't1'}}
-        mock_get_funil.return_value = None
-        mock_get_handler.return_value = None
-        mock_get_obs.return_value = MagicMock()
+        set_global_loggers(None)
         mock_classificar.return_value = {
             'intent': 'saudacao',
             'confidence': 0.9,
@@ -788,15 +749,14 @@ class TestNodesObservabilidade:
         assert result['intent'] == 'saudacao'
 
     @patch('src.graph.nodes.get_config')
-    @patch('src.graph.nodes.get_extracao_logger')
     @patch('src.graph.nodes.extrair')
-    def test_node_extrator_registra_extracao(
-        self, mock_extrair, mock_get_ext, mock_get_config
-    ):
+    def test_node_extrator_registra_extracao(self, mock_extrair, mock_get_config):
         """Node extrator deve registrar log de extracao quando intent e pedir."""
+        from src.observabilidade.loggers import ObservabilidadeLoggers
+
         mock_get_config.return_value = {'configurable': {'thread_id': 't1'}}
-        mock_ext = MagicMock()
-        mock_get_ext.return_value = mock_ext
+        mock_loggers = MagicMock(spec=ObservabilidadeLoggers)
+        set_global_loggers(mock_loggers)
         mock_extrair.return_value = [{'item_id': 'lanche_001', 'quantidade': 1}]
 
         state = {
@@ -805,17 +765,14 @@ class TestNodesObservabilidade:
         }
         node_extrator(state)  # type: ignore[arg-type]
 
-        assert mock_ext.registrar.called
+        assert mock_loggers.decisor.registrar.called
 
     @patch('src.graph.nodes.get_config')
-    @patch('src.graph.nodes.get_extracao_logger')
     @patch('src.graph.nodes.extrair')
-    def test_node_extrator_logger_nulo_nao_quebra(
-        self, mock_extrair, mock_get_ext, mock_get_config
-    ):
+    def test_node_extrator_logger_nulo_nao_quebra(self, mock_extrair, mock_get_config):
         """Logger nulo nao deve causar erro no extrator."""
         mock_get_config.return_value = {'configurable': {'thread_id': 't1'}}
-        mock_get_ext.return_value = None
+        set_global_loggers(None)
         mock_extrair.return_value = []
 
         state = {

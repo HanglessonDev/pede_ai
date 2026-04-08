@@ -21,6 +21,7 @@ Example:
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import asdict
 from typing import cast
@@ -29,13 +30,18 @@ from src.extratores.complementos import detectar_complementos
 from src.extratores.config import ExtratorConfig
 from src.extratores.itens_ids import build_itens_ids
 from src.extratores.modelos import ItemExtraido
-from src.extratores.negacao import detectar_negacao
+from src.extratores.negacao import (
+    detectar_negacao,
+    EXPRESSOES_NEGACAO,
+    PALAVRAS_CANCELAMENTO,
+    PADROES_ESPECIAIS,
+    PALAVRAS_NEGACAO_CONTEXTUAL,
+)
 from src.observabilidade.contexto import (
     extrair_contexto_extracao,
     extrair_contexto_negacao,
 )
-from src.observabilidade.loggers import ObservabilidadeLoggers
-from src.observabilidade.registry import get_extrator_detail_logger
+from src.observabilidade.loggers import ObservabilidadeLoggers, get_global_loggers
 from src.extratores.nlp_engine import NlpEngine
 from src.extratores.observacoes import detectar_observacoes
 from src.extratores.quantidade import resolver_quantidade, extrair_quantidade_do_texto
@@ -103,7 +109,9 @@ class Extrator:
         tem_negacao = detectar_negacao(mensagem)
         decisao_logger = loggers.decisor if loggers else None
         if decisao_logger:
-            tokens_neg = self._tokens_negacao_encontrados(mensagem) if tem_negacao else []
+            tokens_neg = (
+                self._tokens_negacao_encontrados(mensagem) if tem_negacao else []
+            )
             decisao_logger.registrar(
                 thread_id=thread_id,
                 turn_id=turn_id,
@@ -112,7 +120,9 @@ class Extrator:
                 alternativas=['retornar_lista_vazia', 'continuar_extracao'],
                 criterio=f'detectar_negacao retornou {tem_negacao}',
                 threshold='qualquer_match_negacao==True',
-                resultado='retornar_lista_vazia' if tem_negacao else 'continuar_extracao',
+                resultado='retornar_lista_vazia'
+                if tem_negacao
+                else 'continuar_extracao',
                 contexto=extrair_contexto_negacao(mensagem, tokens_neg),
             )
         if tem_negacao:
@@ -138,7 +148,13 @@ class Extrator:
                     threshold='spacy_count>0 or fuzzy_parcial_count>0',
                     resultado='itens_encontrados',
                     contexto=extrair_contexto_extracao(
-                        mensagem, [i.__dict__ if hasattr(i, '__dict__') else {'item_id': i.item_id} for i in itens]
+                        mensagem,
+                        [
+                            i.__dict__
+                            if hasattr(i, '__dict__')
+                            else {'item_id': i.item_id}
+                            for i in itens
+                        ],
                     ),
                 )
             return itens
@@ -155,7 +171,7 @@ class Extrator:
                 componente='extracao_fallback_total',
                 decisao='fuzzy_total' if itens else 'sem_itens',
                 alternativas=['itens_encontrados', 'sem_itens'],
-                criterio=f'spacy=0, fuzzy_parcial=0, tentando fuzzy na mensagem inteira',
+                criterio='spacy=0, fuzzy_parcial=0, tentando fuzzy na mensagem inteira',
                 threshold='fallback',
                 resultado='fuzzy_total' if itens else 'sem_itens',
                 contexto=extrair_contexto_extracao(
@@ -166,28 +182,22 @@ class Extrator:
 
     def _tokens_negacao_encontrados(self, mensagem: str) -> list[str]:
         """Extrai tokens de negacao encontrados para logging."""
-        from src.extratores.negacao import (
-            EXPRESSOES_NEGACAO,
-            PALAVRAS_CANCELAMENTO,
-            PADROES_ESPECIAIS,
-            PALAVRAS_NEGACAO_CONTEXTUAL,
-        )
-        import re
-
         tokens: list[str] = []
         texto_lower = mensagem.lower()
-        for expr in EXPRESSOES_NEGACAO:
-            if expr.lower() in texto_lower:
-                tokens.append(expr)
-        for palavra in PALAVRAS_CANCELAMENTO:
-            if re.search(rf'\b{re.escape(palavra.lower())}\b', texto_lower):
-                tokens.append(palavra)
-        for padrao in PADROES_ESPECIAIS:
-            if re.search(padrao, texto_lower):
-                tokens.append(padrao)
-        for palavra in PALAVRAS_NEGACAO_CONTEXTUAL:
-            if re.search(rf'\b{re.escape(palavra.lower())}\b', texto_lower):
-                tokens.append(palavra)
+        tokens.extend(
+            expr for expr in EXPRESSOES_NEGACAO if expr.lower() in texto_lower
+        )
+        tokens.extend(
+            p
+            for p in PALAVRAS_CANCELAMENTO
+            if re.search(rf'\b{re.escape(p.lower())}\b', texto_lower)
+        )
+        tokens.extend(p for p in PADROES_ESPECIAIS if re.search(p, texto_lower))
+        tokens.extend(
+            p
+            for p in PALAVRAS_NEGACAO_CONTEXTUAL
+            if re.search(rf'\b{re.escape(p.lower())}\b', texto_lower)
+        )
         return tokens
 
     def _extrair_qtd_do_doc(self, doc) -> int:
@@ -597,24 +607,27 @@ def extrair(
     tempo_ms = (time.monotonic() - inicio) * 1000
 
     # Logging interno — qual estratégia funcionou
-    ext_logger = get_extrator_detail_logger()
-    if ext_logger:
+    loggers = get_global_loggers()
+    if loggers and loggers.decisor:
         spacy_count = sum(1 for i in itens if i.fonte == 'spacy')
         fuzzy_count = sum(1 for i in itens if i.fonte == 'fuzzy')
-        ext_logger.registrar(
+        loggers.decisor.registrar(
             thread_id=thread_id,
             turn_id=turn_id,
-            extrator='extrator',
-            estrategia='spacy+fuzzy',
-            itens_encontrados=len(itens),
-            detalhes={
+            componente='extrator',
+            decisao='extracao_concluida',
+            alternativas=['spacy', 'fuzzy'],
+            criterio=f'spacy={spacy_count}, fuzzy={fuzzy_count}',
+            threshold='fallback',
+            resultado='extracao_concluida',
+            contexto={
                 'spacy_count': spacy_count,
                 'fuzzy_count': fuzzy_count,
                 'scores_fuzzy': [
                     round(i.confianca, 2) for i in itens if i.fonte == 'fuzzy'
                 ],
+                'tempo_ms': tempo_ms,
             },
-            tempo_ms=tempo_ms,
         )
 
     return [asdict(item) for item in itens]

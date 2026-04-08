@@ -112,9 +112,11 @@ class ClassificadorRAG(ClassificadorBase):
                     turn_id=turn_id,
                     componente='classificacao_rag_caminho',
                     decisao='retorno_direto',
-                    alternativas=[f'{s.intencao}({s.similaridade})' for s in similares[:5]],
-                    criterio=f"confidence={confidence}",
-                    threshold=f">={self._config.rag_forte_threshold}",
+                    alternativas=[
+                        f'{s.intencao}({s.similaridade})' for s in similares[:5]
+                    ],
+                    criterio=f'confidence={confidence}',
+                    threshold=f'>={self._config.rag_forte_threshold}',
                     resultado=intent,
                     contexto={
                         'mensagem': mensagem,
@@ -140,9 +142,11 @@ class ClassificadorRAG(ClassificadorBase):
                     turn_id=turn_id,
                     componente='classificacao_rag_caminho',
                     decisao='fallback_llm',
-                    alternativas=[f'{s.intencao}({s.similaridade})' for s in similares[:5]],
-                    criterio=f"confidence={confidence}",
-                    threshold=f"<{self._config.rag_fraco_threshold}",
+                    alternativas=[
+                        f'{s.intencao}({s.similaridade})' for s in similares[:5]
+                    ],
+                    criterio=f'confidence={confidence}',
+                    threshold=f'<{self._config.rag_fraco_threshold}',
                     resultado='None',
                     contexto={
                         'mensagem': mensagem,
@@ -162,8 +166,8 @@ class ClassificadorRAG(ClassificadorBase):
                 componente='classificacao_rag_caminho',
                 decisao='validacao_llm',
                 alternativas=[f'{s.intencao}({s.similaridade})' for s in similares[:5]],
-                criterio=f"confidence={confidence}",
-                threshold=f"{self._config.rag_fraco_threshold}..{self._config.rag_forte_threshold}",
+                criterio=f'confidence={confidence}',
+                threshold=f'{self._config.rag_fraco_threshold}..{self._config.rag_forte_threshold}',
                 resultado=intent,
                 contexto={
                     'mensagem': mensagem,

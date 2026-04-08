@@ -70,7 +70,9 @@ def processar_remocao(
             resposta='Seu carrinho esta vazio! Nao ha nada para remover.',
             modo='ocioso',
         )
-        return _log_remocao(resultado, carrinho_dicts, loggers, thread_id, turn_id, 'remover')
+        return _log_remocao(
+            resultado, carrinho_dicts, loggers, thread_id, turn_id, 'remover'
+        )
 
     itens_para_remover = extrair_item_carrinho(mensagem, carrinho_dicts)
 
@@ -80,7 +82,9 @@ def processar_remocao(
             resposta='Não encontrei esse item no seu carrinho.',
             modo='coletando',
         )
-        return _log_remocao(resultado, carrinho_dicts, loggers, thread_id, turn_id, 'remover')
+        return _log_remocao(
+            resultado, carrinho_dicts, loggers, thread_id, turn_id, 'remover'
+        )
 
     indices_para_remover: set[int] = set()
     for item in itens_para_remover:
@@ -95,7 +99,9 @@ def processar_remocao(
             resposta='Todos os itens foram removidos do seu pedido.',
             modo='ocioso',
         )
-        return _log_remocao(resultado, carrinho_dicts, loggers, thread_id, turn_id, 'remover')
+        return _log_remocao(
+            resultado, carrinho_dicts, loggers, thread_id, turn_id, 'remover'
+        )
 
     resposta = 'Itens removidos!\nSeu pedido:\n' + carrinho.formatar()
     resultado = ResultadoRemover(
@@ -103,7 +109,9 @@ def processar_remocao(
         resposta=resposta,
         modo='coletando',
     )
-    return _log_remocao(resultado, carrinho_dicts, loggers, thread_id, turn_id, 'remover')
+    return _log_remocao(
+        resultado, carrinho_dicts, loggers, thread_id, turn_id, 'remover'
+    )
 
 
 def _log_remocao(
@@ -117,7 +125,9 @@ def _log_remocao(
     """Registra evento de negocio se loggers disponiveis."""
     if loggers and loggers.negocio is not None:
         carrinho_resultado = resultado.carrinho
-        preco_total = sum(i.get('preco_centavos', i.get('preco', 0)) for i in carrinho_resultado)
+        preco_total = sum(
+            i.get('preco_centavos', i.get('preco', 0)) for i in carrinho_resultado
+        )
         loggers.negocio.registrar(
             thread_id=thread_id,
             turn_id=turn_id,

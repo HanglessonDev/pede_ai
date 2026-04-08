@@ -30,10 +30,11 @@ import functools
 import json
 import threading
 import traceback
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
-from collections.abc import Callable
+
 
 if TYPE_CHECKING:
     from src.observabilidade.loggers import ObservabilidadeLoggers
@@ -120,16 +121,6 @@ def captura_excecao(
                 exc_logger = None
                 if loggers:
                     exc_logger = loggers.excecoes
-                if exc_logger is None:
-                    # Fallback: tentar obter do registry legado
-                    try:
-                        from src.observabilidade.registry import (  # noqa: PLC0415
-                            get_exception_logger,
-                        )
-
-                        exc_logger = get_exception_logger()
-                    except ImportError:
-                        pass
 
                 if exc_logger:
                     # Extrair thread_id e turn_id dos args

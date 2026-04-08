@@ -35,7 +35,7 @@ from src.extratores import extrair_variante
 from src.extratores.fuzzy_extrator import fuzzy_match_variante
 from src.graph.handlers.carrinho import Carrinho
 from src.graph.state import MODOS, RetornoNode
-from src.observabilidade.registry import get_clarificacao_logger
+from src.observabilidade.loggers import get_global_loggers
 
 
 MAX_TENTATIVAS = 3
@@ -170,25 +170,28 @@ def _log_clarificacao(
     variante: str | None,
 ) -> None:
     """Registra evento de clarificação no logger se configurado."""
-    logger = get_clarificacao_logger()
-    if logger is None:
+    loggers = get_global_loggers()
+    if loggers is None or loggers.decisor is None:
         return
 
-    # Mapeia tipo interno para valores válidos do logger
     tipo_logger = resultado.tipo
     if tipo_logger == 'invalida':
         tipo_logger = 'invalida_reprompt' if tentativas < 2 else 'invalida_desistiu'
 
-    logger.registrar(
+    loggers.decisor.registrar(
         thread_id=thread_id,
-        item_id=item_id,
-        nome_item=nome_item,
-        campo='variante',
-        opcoes=opcoes,
-        mensagem=mensagem,
-        tentativas=tentativas,
+        turn_id='',
+        componente='clarificacao',
+        decisao=tipo_logger,
+        alternativas=opcoes,
+        criterio=f'campo=variante, tentativas={tentativas}',
+        threshold='max_2_tentativas',
         resultado=tipo_logger,
-        variante_escolhida=variante or '',
+        contexto={
+            'item_id': item_id,
+            'nome_item': nome_item,
+            'variante_escolhida': variante or '',
+        },
     )
 
 

@@ -119,7 +119,11 @@ class TrocaExtrator:
                     contexto=extrair_contexto_extracao(
                         mensagem,
                         [
-                            {'texto': it.texto, 'variante': it.variante, 'ent_id': it.ent_id}
+                            {
+                                'texto': it.texto,
+                                'variante': it.variante,
+                                'ent_id': it.ent_id,
+                            }
                             for it in itens_mencionados
                         ],
                     ),

@@ -20,21 +20,13 @@ from __future__ import annotations
 import re
 
 from src.config.roteador_config import RoteadorConfig
-from src.observabilidade.loggers import ObservabilidadeLoggers
+from src.observabilidade.loggers import ObservabilidadeLoggers, get_global_loggers
 from src.roteador.classificadores.llm import ClassificadorLLM
-from src.roteador.classificadores.lookup import ClassificadorLookup, TOKENS_UNICOS
+from src.roteador.classificadores.lookup import TOKENS_UNICOS, ClassificadorLookup
 from src.roteador.classificadores.rag import ClassificadorRAG
 from src.roteador.embedding_service import EmbeddingService
 from src.roteador.modelos import ResultadoClassificacao
 from src.roteador.protocolos import LLMProvider
-from src.roteador.voting import votar_com_prioridade
-
-
-def _get_exception_logger():
-    """Lazy import para evitar dependencia circular."""
-    from src.observabilidade.registry import get_exception_logger  # noqa: PLC0415
-
-    return get_exception_logger()
 
 
 class ClassificadorIntencoes:
@@ -111,9 +103,9 @@ class ClassificadorIntencoes:
         try:
             return self._classificar_interno(mensagem, thread_id, turn_id)
         except Exception as e:
-            exc_logger = _get_exception_logger()
-            if exc_logger:
-                exc_logger.registrar(
+            loggers = get_global_loggers()
+            if loggers and loggers.excecoes:
+                loggers.excecoes.registrar(
                     thread_id=thread_id,
                     turn_id=turn_id,
                     componente='ClassificadorIntencoes.classificar',

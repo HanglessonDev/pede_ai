@@ -37,18 +37,7 @@ from src.graph.handlers.saudacao_handler import processar_saudacao
 from src.graph.handlers.troca_handler import processar_troca
 from src.graph.state import RetornoNode, State
 from src.observabilidade.contexto import extrair_contexto_dispatcher
-from src.observabilidade.loggers import ObservabilidadeLoggers
-from src.observabilidade.registry import (
-    get_debug_session_logger,
-    get_dispatcher_logger,
-    get_exception_logger,
-    get_extracao_logger,
-    get_funil_logger,
-    get_handler_logger,
-    get_negocio_logger,
-    get_obs_logger,
-    get_pedido_logger,
-)
+from src.observabilidade.loggers import ObservabilidadeLoggers, get_global_loggers
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -66,8 +55,8 @@ def _get_turn_id(state: State) -> str:
 
 def _log_negocio(state: State, evento: str, resultado: RetornoNode) -> None:
     """Helper para logar eventos de negocio."""
-    negocio_logger = get_negocio_logger()
-    if not negocio_logger:
+    loggers = get_global_loggers()
+    if not loggers or not loggers.negocio:
         return
 
     carrinho = state.get('carrinho', [])
@@ -76,7 +65,7 @@ def _log_negocio(state: State, evento: str, resultado: RetornoNode) -> None:
     for item in resultado.get('carrinho', carrinho):
         preco_total += item.get('preco_centavos', item.get('preco', 0))
 
-    negocio_logger.registrar(
+    loggers.negocio.registrar(
         thread_id=_get_thread_id(),
         turn_id=_get_turn_id(state),
         evento=evento,
@@ -91,18 +80,17 @@ def _log_negocio(state: State, evento: str, resultado: RetornoNode) -> None:
 def _log_debug(
     state: State, node: str, fase: str, dados_brutos: dict | None = None
 ) -> None:
-    """Helper para debug mode — logga estado completo no JSONL da sessão."""
-    debug_logger = get_debug_session_logger()
-    if debug_logger:
-        debug_logger.registrar(
+    """Helper para debug mode — logga estado completo."""
+    loggers = get_global_loggers()
+    if loggers and loggers.decisor:
+        loggers.decisor.registrar(
             thread_id=_get_thread_id(),
             turn_id=_get_turn_id(state),
-            node=node,
-            fase=fase,
-            estado={
-                k: v for k, v in state.items() if k != 'carrinho'
-            },  # carrinho pode ser grande
-            dados_brutos=dados_brutos,
+            componente='debug',
+            decisao=f'{node}_{fase}',
+            alternativas=[],
+            criterio=f'node={node}, fase={fase}',
+            contexto={k: v for k, v in state.items() if k not in ('carrinho',)},
         )
 
 
@@ -113,14 +101,18 @@ def _log_dispatcher(
     tempo_ms: float,
 ) -> None:
     """Helper para logar decisao do dispatcher."""
-    dispatcher_logger = get_dispatcher_logger()
-    if dispatcher_logger:
-        dispatcher_logger.registrar(
+    loggers = get_global_loggers()
+    if loggers and loggers.decisor:
+        loggers.decisor.registrar(
             thread_id=_get_thread_id(),
             turn_id=_get_turn_id(state),
-            acao_final=acao_final,
-            passos=passos,
-            tempo_ms=tempo_ms,
+            componente='dispatcher',
+            decisao=acao_final,
+            alternativas=list(passos.keys()) if isinstance(passos, dict) else [],
+            criterio='dispatcher_interno',
+            threshold='passo_a_passo',
+            resultado=acao_final,
+            contexto=extrair_contexto_dispatcher(state),
         )
 
 
@@ -132,50 +124,31 @@ def _log_node_event(
     output_dados: dict,
     tempo_ms: float,
 ) -> None:
-    """Registra evento de observabilidade para um node.
-
-    Args:
-        handler_name: Nome do handler (ex: 'node_router').
-        mensagem: Mensagem original do usuario.
-        intent: Intencao classificada.
-        input_dados: Dados de entrada do handler.
-        output_dados: Dados de saida do handler.
-        tempo_ms: Tempo de execucao em milissegundos.
-    """
+    """Registra evento de observabilidade para um node."""
+    loggers = get_global_loggers()
     thread_id = _get_thread_id()
 
-    obs_logger = get_obs_logger()
-    if obs_logger:
-        obs_logger.registrar(
+    if loggers and loggers.decisor:
+        loggers.decisor.registrar(
             thread_id=thread_id,
-            mensagem=mensagem,
-            mensagem_norm='',
-            intent=intent,
-            confidence=0.0,
-            caminho='',
-            top1_texto='',
-            top1_intencao='',
+            turn_id='',
+            componente=handler_name,
+            decisao=intent,
+            alternativas=[],
+            criterio=f'handler={handler_name}',
+            resultado=intent,
+            contexto={'input': input_dados, 'output': output_dados},
         )
 
-    funil_logger = get_funil_logger()
-    if funil_logger:
-        funil_logger.registrar(
+    if loggers and loggers.fluxo:
+        loggers.fluxo.registrar(
             thread_id=thread_id,
-            modo_anterior='',
-            modo_atual=handler_name,
-            intent=intent,
-            carrinho_size=0,
-        )
-
-    handler_logger = get_handler_logger()
-    if handler_logger:
-        handler_logger.registrar(
-            thread_id=thread_id,
-            handler=handler_name,
-            intent=intent,
-            input_dados=input_dados,
-            output_dados=output_dados,
+            turn_id='',
+            componente=handler_name,
+            acao='processar',
             tempo_ms=tempo_ms,
+            estado_antes=input_dados,
+            estado_depois=output_dados,
         )
 
 
@@ -194,6 +167,7 @@ def _criar_node_router(classificador):
 
     def node_router(state: State) -> RetornoNode:
         """Classifica a intencao da mensagem e atualiza o estado."""
+        loggers = get_global_loggers()
         mensagem = state.get('mensagem_atual', '')
         thread_id = _get_thread_id()
         inicio = time.monotonic()
@@ -202,54 +176,38 @@ def _criar_node_router(classificador):
         resultado = classificador.classificar(mensagem)
         meta = resultado.metadados
 
-        # Registra evento de observabilidade
-        obs_logger = get_obs_logger()
-        obs_logger.registrar(
-            thread_id=thread_id,
-            mensagem=mensagem,
-            mensagem_norm=resultado.mensagem_norm,
-            intent=resultado.intent,
-            confidence=resultado.confidence,
-            caminho=resultado.caminho,
-            top1_texto=resultado.top1_texto,
-            top1_intencao=resultado.top1_intencao,
-            lookup=meta.get('lookup', '') or '',
-            rag_top1=meta.get('rag_top1', '') or '',
-            rag_sim=str(meta.get('rag_sim', '')),
-            rag_intent=meta.get('rag_intent', '') or '',
-            llm_raw=meta.get('llm_raw', '') or '',
-            llm_intent=meta.get('llm_intent', '') or '',
-        )
-
-        # Log de funil
-        funil_logger = get_funil_logger()
-        if funil_logger:
-            funil_logger.registrar(
+        # Registra evento de decision tracing
+        if loggers and loggers.decisor:
+            loggers.decisor.registrar(
                 thread_id=thread_id,
-                modo_anterior=modo_anterior,
-                modo_atual='roteado',
-                intent=resultado.intent,
-                carrinho_size=len(state.get('carrinho', [])),
+                turn_id=state.get('turn_id', ''),
+                componente='node_router',
+                decisao=resultado.intent,
+                alternativas=[
+                    f'lookup={meta.get("lookup", "")}',
+                    f'rag={meta.get("rag_top1", "")}',
+                ],
+                criterio=f'caminho={resultado.caminho}, confidence={resultado.confidence}',
+                threshold=resultado.caminho,
+                resultado=resultado.intent,
+                contexto={
+                    'mensagem': mensagem,
+                    'caminho': resultado.caminho,
+                    'confidence': resultado.confidence,
+                },
             )
 
-        tempo_ms = (time.monotonic() - inicio) * 1000
-
-        # Log de handler
-        handler_logger = get_handler_logger()
-        if handler_logger:
-            handler_logger.registrar(
+        # Log de funil
+        if loggers and loggers.fluxo:
+            loggers.fluxo.registrar(
                 thread_id=thread_id,
-                handler='node_router',
-                intent=resultado.intent,
-                input_dados={'mensagem': mensagem},
-                output_dados={
-                    'intent': resultado.intent,
-                    'confidence': resultado.confidence,
-                    'caminho': resultado.caminho,
-                    'top1_texto': resultado.top1_texto,
-                    'top1_intencao': resultado.top1_intencao,
-                },
-                tempo_ms=tempo_ms,
+                turn_id=state.get('turn_id', ''),
+                componente='node_router',
+                acao='classificar',
+                tempo_ms=(time.monotonic() - inicio) * 1000,
+                estado_antes={'modo': modo_anterior},
+                estado_depois={'intent': resultado.intent},
+                observacao=f'caminho={resultado.caminho}',
             )
 
         return {
@@ -297,6 +255,7 @@ def node_router(state: State) -> RetornoNode:
     Versao standalone para testes — usa _classificar_intencao
     que pode ser mockado.
     """
+    loggers = get_global_loggers()
     mensagem = state.get('mensagem_atual', '')
     thread_id = _get_thread_id()
     inicio = time.monotonic()
@@ -304,39 +263,27 @@ def node_router(state: State) -> RetornoNode:
 
     resultado = _classificar_intencao(mensagem, thread_id=thread_id)
 
-    obs_logger = get_obs_logger()
-    obs_logger.registrar(
-        thread_id=thread_id,
-        mensagem=mensagem,
-        mensagem_norm=resultado['mensagem_norm'],
-        intent=resultado['intent'],
-        confidence=resultado['confidence'],
-        caminho=resultado['caminho'],
-        top1_texto=resultado['top1_texto'],
-        top1_intencao=resultado['top1_intencao'],
-    )
-
-    funil_logger = get_funil_logger()
-    if funil_logger:
-        funil_logger.registrar(
+    if loggers and loggers.decisor:
+        loggers.decisor.registrar(
             thread_id=thread_id,
-            modo_anterior=modo_anterior,
-            modo_atual='roteado',
-            intent=resultado['intent'],
-            carrinho_size=len(state.get('carrinho', [])),
+            turn_id=state.get('turn_id', ''),
+            componente='node_router_standalone',
+            decisao=resultado['intent'],
+            alternativas=[],
+            criterio=f'caminho={resultado["caminho"]}',
+            resultado=resultado['intent'],
+            contexto={'mensagem': mensagem, 'confidence': resultado['confidence']},
         )
 
-    tempo_ms = (time.monotonic() - inicio) * 1000
-
-    handler_logger = get_handler_logger()
-    if handler_logger:
-        handler_logger.registrar(
+    if loggers and loggers.fluxo:
+        loggers.fluxo.registrar(
             thread_id=thread_id,
-            handler='node_router',
-            intent=resultado['intent'],
-            input_dados={'mensagem': mensagem},
-            output_dados=resultado,
-            tempo_ms=tempo_ms,
+            turn_id=state.get('turn_id', ''),
+            componente='node_router_standalone',
+            acao='classificar',
+            tempo_ms=(time.monotonic() - inicio) * 1000,
+            estado_antes={'modo': modo_anterior},
+            estado_depois={'intent': resultado['intent']},
         )
 
     return {
@@ -376,9 +323,9 @@ def node_clarificacao(state: State) -> RetornoNode:
             'modo': resultado.modo,
         }
     except Exception as e:
-        exc_logger = get_exception_logger()
-        if exc_logger:
-            exc_logger.registrar(
+        loggers = get_global_loggers()
+        if loggers and loggers.excecoes:
+            loggers.excecoes.registrar(
                 thread_id=_get_thread_id(),
                 turn_id=_get_turn_id(state),
                 componente='node_clarificacao',
@@ -407,23 +354,29 @@ def node_extrator(state: State) -> RetornoNode:
             except RuntimeError:
                 thread_id = ''
             turn_id = _get_turn_id(state)
-            itens = extrair(mensagem, loggers=loggers, thread_id=thread_id, turn_id=turn_id)
-            tempo_ms = (time.monotonic() - inicio) * 1000
+            itens = extrair(
+                mensagem, loggers=loggers, thread_id=thread_id, turn_id=turn_id
+            )
+            (time.monotonic() - inicio) * 1000
 
-            ext_logger = get_extracao_logger()
-            if ext_logger:
-                ext_logger.registrar(
+            global_loggers = get_global_loggers()
+            if global_loggers and global_loggers.decisor:
+                global_loggers.decisor.registrar(
                     thread_id=thread_id,
-                    mensagem=mensagem,
-                    itens_extraidos=itens,
-                    tempo_ms=tempo_ms,
+                    turn_id=turn_id,
+                    componente='node_extrator',
+                    decisao='itens_encontrados' if itens else 'sem_itens',
+                    alternativas=['spacy', 'fuzzy', 'fuzzy_total'],
+                    criterio=f'extrair_retornou={len(itens)}_itens',
+                    resultado=f'{len(itens)}_itens',
+                    contexto={'mensagem': mensagem},
                 )
             return {'itens_extraidos': itens}
         return {'itens_extraidos': []}
     except Exception as e:
-        exc_logger = get_exception_logger()
-        if exc_logger:
-            exc_logger.registrar(
+        global_loggers = get_global_loggers()
+        if global_loggers and global_loggers.excecoes:
+            global_loggers.excecoes.registrar(
                 thread_id=_get_thread_id(),
                 turn_id=_get_turn_id(state),
                 componente='node_extrator',
@@ -439,30 +392,29 @@ def node_extrator(state: State) -> RetornoNode:
 def node_handler_pedir(state: State) -> RetornoNode:
     """Processa itens extraidos e os adiciona ao carrinho."""
     try:
+        loggers = get_global_loggers()
         itens_extraidos = state.get('itens_extraidos') or []
         carrinho = state.get('carrinho', [])
         resultado = processar_pedido(itens_extraidos, carrinho)
 
-        pedido_logger = get_pedido_logger()
-        if pedido_logger:
-            itens_adicionados_dicts = resultado.carrinho
+        if loggers and loggers.negocio:
             preco_total = sum(i.get('preco_centavos', 0) for i in resultado.carrinho)
-            pedido_logger.registrar(
+            loggers.negocio.registrar(
                 thread_id=_get_thread_id(),
                 turn_id=_get_turn_id(state),
-                itens_adicionados=itens_adicionados_dicts,
-                itens_fila=resultado.fila,
-                total_itens=len(resultado.carrinho),
+                evento='pedir',
+                carrinho_size=len(resultado.carrinho),
                 preco_total_centavos=preco_total,
-                modo_saida=resultado.to_dict().get('modo', 'coletando'),
+                intent='pedir',
                 resposta=resultado.resposta,
+                tentativas_clarificacao=len(resultado.fila),
             )
 
         return resultado.to_dict()
     except Exception as e:
-        exc_logger = get_exception_logger()
-        if exc_logger:
-            exc_logger.registrar(
+        loggers = get_global_loggers()
+        if loggers and loggers.excecoes:
+            loggers.excecoes.registrar(
                 thread_id=_get_thread_id(),
                 turn_id=_get_turn_id(state),
                 componente='node_handler_pedir',
@@ -482,9 +434,9 @@ def node_handler_pedir(state: State) -> RetornoNode:
 
 def _handler_fallback(componente: str, state: State) -> RetornoNode:
     """Retorno padrao para handlers com excecao."""
-    exc_logger = get_exception_logger()
-    if exc_logger:
-        exc_logger.registrar(
+    loggers = get_global_loggers()
+    if loggers and loggers.excecoes:
+        loggers.excecoes.registrar(
             thread_id=_get_thread_id(),
             turn_id=_get_turn_id(state),
             componente=componente,
@@ -611,13 +563,13 @@ def node_dispatcher_modificar(state: State) -> RetornoNode:
             state, loggers=loggers, thread_id=thread_id, turn_id=turn_id
         )
     except Exception as e:
-        exc_logger = get_exception_logger()
-        if exc_logger:
+        global_loggers = get_global_loggers()
+        if global_loggers and global_loggers.excecoes:
             try:
                 exc_thread_id = _get_thread_id()
             except RuntimeError:
                 exc_thread_id = ''
-            exc_logger.registrar(
+            global_loggers.excecoes.registrar(
                 thread_id=exc_thread_id,
                 turn_id=_get_turn_id(state),
                 componente='node_dispatcher_modificar',
@@ -663,7 +615,14 @@ def _dispatcher_interno(  # noqa: PLR0911,PLR0915
     contexto = extrair_contexto_dispatcher(state)
     decisao_logger = loggers.decisor if loggers else None
 
-    def _log_decisao(componente: str, decisao: str, alternativas: list[str], criterio: str, threshold: str = '', resultado: str = '') -> None:
+    def _log_decisao(
+        componente: str,
+        decisao: str,
+        alternativas: list[str],
+        criterio: str,
+        threshold: str = '',
+        resultado: str = '',
+    ) -> None:
         if decisao_logger:
             decisao_logger.registrar(
                 thread_id=thread_id,
@@ -683,7 +642,7 @@ def _dispatcher_interno(  # noqa: PLR0911,PLR0915
             componente='dispatcher_passo1_troca',
             decisao=f'caso_{caso}',
             alternativas=['caso_A', 'caso_B', 'caso_C', 'caso_vazio'],
-            criterio=f"num_items>={2}",
+            criterio=f'num_items>={2}',
             threshold='caso_A=2+items, caso_B=1item, caso_C=1variante',
             resultado='tentar_extrair_itens',
         )
@@ -719,7 +678,7 @@ def _dispatcher_interno(  # noqa: PLR0911,PLR0915
             componente='dispatcher_passo1_troca',
             decisao=f'caso_{caso}',
             alternativas=['caso_A', 'caso_B', 'caso_C', 'caso_vazio'],
-            criterio=f"num_items==1, item_original={'sim' if item_original else 'nao'}, variante_nova={'sim' if variante_nova else 'nao'}",
+            criterio=f'num_items==1, item_original={"sim" if item_original else "nao"}, variante_nova={"sim" if variante_nova else "nao"}',
             threshold='caso_A=2+items, caso_B=1item, caso_C=1variante',
             resultado='avaliar_subcasos_B',
         )
@@ -766,7 +725,7 @@ def _dispatcher_interno(  # noqa: PLR0911,PLR0915
     elif caso == 'C' and carrinho:
         _log_decisao(
             componente='dispatcher_passo1_troca',
-            decisao=f'caso_C_com_carrinho',
+            decisao='caso_C_com_carrinho',
             alternativas=['caso_A', 'caso_B', 'caso_C', 'caso_vazio'],
             criterio='num_items==0, 1 variante isolada, carrinho nao vazio',
             threshold='caso_C and len(carrinho)>0',

@@ -81,7 +81,7 @@ def votar_com_prioridade(
                 componente='classificacao_voting',
                 decisao='top1_confianca',
                 alternativas=[f'{e.intencao}({e.similaridade})' for e in exemplos[:5]],
-                criterio=f"top1_similaridade={exemplos[0].similaridade}",
+                criterio=f'top1_similaridade={exemplos[0].similaridade}',
                 threshold=f'>={_TOP1_CONFIANCA}',
                 resultado=exemplos[0].intencao,
                 contexto={'num_exemplos': len(exemplos)},

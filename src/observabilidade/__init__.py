@@ -54,38 +54,12 @@ from src.observabilidade.contexto import (
 from src.observabilidade.decisor_logger import DecisorLogger
 from src.observabilidade.exception_logger import ExceptionLogger, captura_excecao
 from src.observabilidade.fluxo_logger import FluxoLogger
-from src.observabilidade.loggers import ObservabilidadeLoggers
+from src.observabilidade.loggers import (
+    ObservabilidadeLoggers,
+    get_global_loggers,
+    set_global_loggers,
+)
 from src.observabilidade.negocio_logger import NegocioLogger
-
-# Manter compatibilidade com código legado durante transição
-import contextlib
-
-with contextlib.suppress(ImportError):
-    from src.observabilidade.registry import (
-        get_clarificacao_logger,
-        get_classificador_logger,
-        get_debug_session_logger,
-        get_dispatcher_logger,
-        get_exception_logger,
-        get_extracao_logger,
-        get_extrator_detail_logger,
-        get_funil_logger,
-        get_handler_logger,
-        get_negocio_logger,
-        get_obs_logger,
-        get_pedido_logger,
-        set_clarificacao_logger,
-        set_classificador_logger,
-        set_dispatcher_logger,
-        set_exception_logger,
-        set_extracao_logger,
-        set_extrator_detail_logger,
-        set_funil_logger,
-        set_handler_logger,
-        set_negocio_logger,
-        set_obs_logger,
-        set_pedido_logger,
-    )
 
 __all__ = [
     'BaseCsvLogger',
@@ -99,27 +73,6 @@ __all__ = [
     'extrair_contexto_dispatcher',
     'extrair_contexto_extracao',
     'extrair_contexto_negacao',
-    'get_clarificacao_logger',
-    'get_classificador_logger',
-    'get_debug_session_logger',
-    'get_dispatcher_logger',
-    'get_exception_logger',
-    'get_extracao_logger',
-    'get_extrator_detail_logger',
-    'get_funil_logger',
-    'get_handler_logger',
-    'get_negocio_logger',
-    'get_obs_logger',
-    'get_pedido_logger',
-    'set_clarificacao_logger',
-    'set_classificador_logger',
-    'set_dispatcher_logger',
-    'set_exception_logger',
-    'set_extracao_logger',
-    'set_extrator_detail_logger',
-    'set_funil_logger',
-    'set_handler_logger',
-    'set_negocio_logger',
-    'set_obs_logger',
-    'set_pedido_logger',
+    'get_global_loggers',
+    'set_global_loggers',
 ]
