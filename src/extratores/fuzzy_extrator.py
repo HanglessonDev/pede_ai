@@ -20,6 +20,8 @@ from rapidfuzz import fuzz, process
 from src.extratores.config import get_extrator_config
 from src.extratores.modelos import ItemExtraido
 from src.extratores.normalizador import normalizar_para_busca, normalizar_para_fuzzy
+from src.observabilidade.contexto import extrair_contexto_extracao
+from src.observabilidade.loggers import ObservabilidadeLoggers
 
 
 # ── Matching de variante numerica ──────────────────────────────────────────
@@ -187,6 +189,9 @@ def fuzzy_match_variante(
 def extrair_item_fuzzy(
     mensagem: str,
     quantidade: int = 1,
+    loggers: ObservabilidadeLoggers | None = None,
+    thread_id: str = '',
+    turn_id: str = '',
 ) -> list[ItemExtraido]:
     """Fallback fuzzy completo quando EntityRuler nao encontra itens.
 
@@ -196,6 +201,9 @@ def extrair_item_fuzzy(
     Args:
         mensagem: Mensagem original do usuario.
         quantidade: Quantidade extraida de outra fonte (ou 1).
+        loggers: Container de loggers para decision tracing.
+        thread_id: ID da sessao.
+        turn_id: ID do turno.
 
     Returns:
         Lista com 0 ou 1 ItemExtraido encontrado via fuzzy.
@@ -215,9 +223,36 @@ def extrair_item_fuzzy(
         for alias in item.get('aliases', []):
             alias_para_id[alias.lower()] = item['id']
 
-    alias, _score, item_id = fuzzy_match_item(mensagem, alias_para_id)
+    alias, score, item_id = fuzzy_match_item(mensagem, alias_para_id)
+    decisao_logger = loggers.decisor if loggers else None
+
     if item_id is None:
+        if decisao_logger:
+            decisao_logger.registrar(
+                thread_id=thread_id,
+                turn_id=turn_id,
+                componente='extracao_fuzzy',
+                decisao='sem_match_ou_ambiguo',
+                alternativas=['match_encontrado', 'sem_match_ou_ambiguo'],
+                criterio=f'fuzzy_match_item nao encontrou match com cutoff',
+                threshold='score>=cutoff',
+                resultado='sem_match_ou_ambiguo',
+                contexto=extrair_contexto_extracao(mensagem, []),
+            )
         return []
+
+    if decisao_logger:
+        decisao_logger.registrar(
+            thread_id=thread_id,
+            turn_id=turn_id,
+            componente='extracao_fuzzy',
+            decisao='match_encontrado',
+            alternativas=['match_encontrado', 'sem_match_ou_ambiguo'],
+            criterio=f'alias={alias}, score={score:.1f}, item_id={item_id}',
+            threshold='score>=cutoff',
+            resultado='match_encontrado',
+            contexto=extrair_contexto_extracao(mensagem, [{'item_id': item_id}]),
+        )
 
     # Tenta extrair variante dos tokens significativos,
     # filtrando o token do item (mesmo com typo).

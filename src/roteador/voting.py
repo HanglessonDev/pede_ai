@@ -20,8 +20,12 @@ Example:
 from __future__ import annotations
 
 from collections import Counter
+from typing import TYPE_CHECKING
 
 from src.roteador.modelos import ExemploSimilar
+
+if TYPE_CHECKING:
+    from src.observabilidade.loggers import ObservabilidadeLoggers
 
 
 # Threshold para confianca absoluta no top-1
@@ -32,6 +36,9 @@ def votar_com_prioridade(
     exemplos: list[ExemploSimilar],
     alta_prioridade: frozenset[str],
     min_similarity: float = 0.55,
+    loggers: ObservabilidadeLoggers | None = None,
+    thread_id: str = '',
+    turn_id: str = '',
 ) -> str:
     """Votacao com prioridade de intents no top-K.
 
@@ -45,6 +52,9 @@ def votar_com_prioridade(
         exemplos: Lista de exemplos similares ordenados por similaridade decrescente.
         alta_prioridade: Conjunto de intents de alta prioridade.
         min_similarity: Similaridade minima para considerar intent prioritaria.
+        loggers: Loggers de observabilidade para decision tracing.
+        thread_id: ID da sessao para correlacao de logs.
+        turn_id: ID do turno para correlacao de logs.
 
     Returns:
         Nome da intencao vencedora ou 'desconhecido' se lista vazia.
@@ -64,6 +74,18 @@ def votar_com_prioridade(
 
     # Regra 1: confianca absoluta no top-1
     if exemplos[0].similaridade >= _TOP1_CONFIANCA:
+        if loggers and loggers.decisor:
+            loggers.decisor.registrar(
+                thread_id=thread_id,
+                turn_id=turn_id,
+                componente='classificacao_voting',
+                decisao='top1_confianca',
+                alternativas=[f'{e.intencao}({e.similaridade})' for e in exemplos[:5]],
+                criterio=f"top1_similaridade={exemplos[0].similaridade}",
+                threshold=f'>={_TOP1_CONFIANCA}',
+                resultado=exemplos[0].intencao,
+                contexto={'num_exemplos': len(exemplos)},
+            )
         return exemplos[0].intencao
 
     # Regra 2: alta prioridade no top-K
@@ -76,8 +98,35 @@ def votar_com_prioridade(
             melhor_sim_prioritaria = ex.similaridade
 
     if melhor_prioritaria and melhor_sim_prioritaria >= min_similarity:
+        if loggers and loggers.decisor:
+            loggers.decisor.registrar(
+                thread_id=thread_id,
+                turn_id=turn_id,
+                componente='classificacao_voting',
+                decisao='alta_prioridade',
+                alternativas=[f'{e.intencao}({e.similaridade})' for e in exemplos[:5]],
+                criterio=f"prioritaria='{melhor_prioritaria}' sim={melhor_sim_prioritaria}",
+                threshold=f'>={min_similarity}',
+                resultado=melhor_prioritaria,
+                contexto={'num_exemplos': len(exemplos)},
+            )
         return melhor_prioritaria
 
     # Regra 3: maioria simples
     votos = Counter(ex.intencao for ex in exemplos)
-    return votos.most_common(1)[0][0]
+    resultado = votos.most_common(1)[0][0]
+
+    if loggers and loggers.decisor:
+        loggers.decisor.registrar(
+            thread_id=thread_id,
+            turn_id=turn_id,
+            componente='classificacao_voting',
+            decisao='voto_majoritario',
+            alternativas=[f'{e.intencao}({e.similaridade})' for e in exemplos[:5]],
+            criterio=f'maioria_simples votos={dict(votos)}',
+            threshold='nenhum (fallback)',
+            resultado=resultado,
+            contexto={'num_exemplos': len(exemplos)},
+        )
+
+    return resultado

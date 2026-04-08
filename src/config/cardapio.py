@@ -1,16 +1,16 @@
 """
-Módulo de Cardápio do Pede AI.
+    Módulo de Cardápio do Pede AI.
 
-Fornece acesso centralizado aos dados do cardápio.
+    Fornece acesso centralizado aos dados do cardápio.
 
-Example:
-    ```python
-    from src.config import get_cardapio, get_item_por_id, get_variantes
+    Example:
+        ```python
+        from src.config import get_cardapio, get_item_por_id, get_variantes
 
-    cardapio = get_cardapio()
-    item = get_item_por_id('lanche_001')
-    variantes = get_variantes('lanche_001')
-    ```
+        cardapio = get_cardapio()
+        item = get_item_por_id('lanche_001')
+        variantes = get_variantes('lanche_001')
+        ```
 """
 
 from __future__ import annotations

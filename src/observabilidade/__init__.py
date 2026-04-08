@@ -1,104 +1,109 @@
-"""Módulo de observabilidade para classificação de intents.
+"""Modulo de observabilidade para o Pede AI.
 
-Este módulo fornece ferramentas para registrar e analisar eventos de
-classificação do Pede AI. Permite:
-
-- **Registrar eventos**: Cada classificação é logada em um CSV com
-  detalhes como confiança, caminho usado (lookup, RAG, LLM) e o
-  exemplo mais similar.
-- **Analisar dados**: Consultas DuckDB prontas para extrair insights
-  dos logs, como casos de baixa confiança e distribuição de caminhos.
+Fornece ferramentas para registrar e analisar eventos do sistema:
+- **Decision tracing**: Cada bifurcação de decisão com alternativas consideradas
+- **Fluxo de execução**: Por onde passou, tempos, estado antes/depois
+- **Metricas de negocio**: Confirmacoes, cancelamentos, ticket medio
+- **Exception handling**: Stack traces com estado no momento do erro
 
 Componentes principais:
 
-- `ObservabilidadeLogger`: Logger thread-safe para registrar eventos
-  de classificação em CSV.
+- `DecisorLogger`: Registra CADA decisão com alternativas, criterio, threshold
+- `FluxoLogger`: Registra caminho de execução e tempos
+- `NegocioLogger`: Metricas de negocio (confirmar, cancelar, etc)
+- `ExceptionLogger`: Exceções com stack trace + estado
+- `ObservabilidadeLoggers`: Container para injeção direta (zero registry)
 
 Example:
     ```python
-    from src.observabilidade import ObservabilidadeLogger
-    from src.observabilidade.consultas import distribuicao_caminhos
+    from src.observabilidade.loggers import ObservabilidadeLoggers
 
-    # Registrar evento
-    logger = ObservabilidadeLogger('logs/eventos.csv')
-    logger.registrar(
-        thread_id='sessao_123',
-        mensagem='Quero um X-Burguer',
-        mensagem_norm='querer x-burguer',
-        intent='pedido_lanche',
-        confidence=0.95,
-        caminho='rag_forte',
-        top1_texto='quero um x-burguer',
-        top1_intencao='pedido_lanche',
+    # Criar todos os loggers
+    loggers = ObservabilidadeLoggers.criar_padrao('logs')
+
+    # Decision tracing
+    loggers.decisor.registrar(
+        thread_id='sessao_001',
+        turn_id='turn_0003',
+        componente='classificacao_lookup',
+        decisao='retornar_saudacao',
+        alternativas=['saudacao(1.0)', 'pedir(0.0)'],
+        criterio="token_exato: 'oi'",
+        threshold='match_exato',
+        resultado='saudacao',
     )
 
-    # Analisar distribuição de caminhos
-    dist = distribuicao_caminhos('logs/eventos.csv')
-    for item in dist:
-        print(f'{item["caminho"]}: {item["total"]} eventos')
+    # Fluxo
+    loggers.fluxo.registrar(
+        thread_id='sessao_001',
+        turn_id='turn_0003',
+        componente='node_router',
+        acao='classificar_mensagem',
+        tempo_ms=245.3,
+    )
     ```
-
-Note:
-    Os logs são armazenados em CSV para facilitar análise posterior
-    com DuckDB, pandas ou ferramentas de visualização.
-
-See Also:
-    - `ObservabilidadeLogger`: Classe principal para registrar eventos.
-    - `src.observabilidade.consultas`: Funções de análise com DuckDB.
 """
 
-from src.observabilidade.clarificacao_logger import ClarificacaoLogger
-from src.observabilidade.extracao_logger import ExtracaoLogger
-from src.observabilidade.funil_logger import FunilLogger
-from src.observabilidade.handler_logger import HandlerLogger
-from src.observabilidade import registry
-from src.observabilidade.logger import ObservabilidadeLogger
-from src.observabilidade.negocio_logger import NegocioLogger
-from src.observabilidade.pedido_logger import PedidoLogger
-from src.observabilidade.classificador_logger import ClassificadorLogger
-from src.observabilidade.dispatcher_logger import DispatcherLogger
-from src.observabilidade.extrator_detail_logger import ExtratorDetailLogger
-from src.observabilidade.debug_logger import DebugSessionLogger
-from src.observabilidade.registry import (
-    get_classificador_logger,
-    get_clarificacao_logger,
-    get_debug_session_logger,
-    get_dispatcher_logger,
-    get_extracao_logger,
-    get_extrator_detail_logger,
-    get_funil_logger,
-    get_handler_logger,
-    get_negocio_logger,
-    get_obs_logger,
-    get_pedido_logger,
-    set_classificador_logger,
-    set_clarificacao_logger,
-    set_dispatcher_logger,
-    set_extracao_logger,
-    set_extrator_detail_logger,
-    set_funil_logger,
-    set_handler_logger,
-    set_negocio_logger,
-    set_obs_logger,
-    set_pedido_logger,
+from src.observabilidade.base_logger import BaseCsvLogger
+from src.observabilidade.contexto import (
+    extrair_contexto_classificacao,
+    extrair_contexto_dispatcher,
+    extrair_contexto_extracao,
+    extrair_contexto_negacao,
 )
+from src.observabilidade.decisor_logger import DecisorLogger
+from src.observabilidade.exception_logger import ExceptionLogger, captura_excecao
+from src.observabilidade.fluxo_logger import FluxoLogger
+from src.observabilidade.loggers import ObservabilidadeLoggers
+from src.observabilidade.negocio_logger import NegocioLogger
+
+# Manter compatibilidade com código legado durante transição
+import contextlib
+
+with contextlib.suppress(ImportError):
+    from src.observabilidade.registry import (
+        get_clarificacao_logger,
+        get_classificador_logger,
+        get_debug_session_logger,
+        get_dispatcher_logger,
+        get_exception_logger,
+        get_extracao_logger,
+        get_extrator_detail_logger,
+        get_funil_logger,
+        get_handler_logger,
+        get_negocio_logger,
+        get_obs_logger,
+        get_pedido_logger,
+        set_clarificacao_logger,
+        set_classificador_logger,
+        set_dispatcher_logger,
+        set_exception_logger,
+        set_extracao_logger,
+        set_extrator_detail_logger,
+        set_funil_logger,
+        set_handler_logger,
+        set_negocio_logger,
+        set_obs_logger,
+        set_pedido_logger,
+    )
 
 __all__ = [
-    'ClarificacaoLogger',
-    'ClassificadorLogger',
-    'DebugSessionLogger',
-    'DispatcherLogger',
-    'ExtracaoLogger',
-    'ExtratorDetailLogger',
-    'FunilLogger',
-    'HandlerLogger',
+    'BaseCsvLogger',
+    'DecisorLogger',
+    'ExceptionLogger',
+    'FluxoLogger',
     'NegocioLogger',
-    'ObservabilidadeLogger',
-    'PedidoLogger',
+    'ObservabilidadeLoggers',
+    'captura_excecao',
+    'extrair_contexto_classificacao',
+    'extrair_contexto_dispatcher',
+    'extrair_contexto_extracao',
+    'extrair_contexto_negacao',
     'get_clarificacao_logger',
     'get_classificador_logger',
     'get_debug_session_logger',
     'get_dispatcher_logger',
+    'get_exception_logger',
     'get_extracao_logger',
     'get_extrator_detail_logger',
     'get_funil_logger',
@@ -106,10 +111,10 @@ __all__ = [
     'get_negocio_logger',
     'get_obs_logger',
     'get_pedido_logger',
-    'registry',
     'set_clarificacao_logger',
     'set_classificador_logger',
     'set_dispatcher_logger',
+    'set_exception_logger',
     'set_extracao_logger',
     'set_extrator_detail_logger',
     'set_funil_logger',

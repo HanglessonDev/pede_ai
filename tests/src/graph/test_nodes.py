@@ -130,7 +130,8 @@ class TestNodeExtrator:
         """Quando intent e 'pedir', deve chamar extrair."""
         mock_extrair.return_value = [{'item_id': 'lanche_001', 'quantidade': 1}]
         node_extrator({'intent': 'pedir', 'mensagem_atual': 'xbacon'})  # type: ignore
-        mock_extrair.assert_called_once_with('xbacon')
+        mock_extrair.assert_called_once()
+        assert mock_extrair.call_args.args[0] == 'xbacon'
 
     @patch('src.graph.nodes.extrair')
     def test_outra_intent_nao_chama_extrair(self, mock_extrair):

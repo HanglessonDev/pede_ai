@@ -20,12 +20,14 @@ from __future__ import annotations
 import re
 
 from src.config.roteador_config import RoteadorConfig
+from src.observabilidade.loggers import ObservabilidadeLoggers
 from src.roteador.classificadores.llm import ClassificadorLLM
 from src.roteador.classificadores.lookup import ClassificadorLookup, TOKENS_UNICOS
 from src.roteador.classificadores.rag import ClassificadorRAG
 from src.roteador.embedding_service import EmbeddingService
 from src.roteador.modelos import ResultadoClassificacao
 from src.roteador.protocolos import LLMProvider
+from src.roteador.voting import votar_com_prioridade
 
 
 def _get_exception_logger():
@@ -51,6 +53,7 @@ class ClassificadorIntencoes:
         config: RoteadorConfig,
         prompt_template: str,
         intencoes_validas: list[str],
+        loggers: ObservabilidadeLoggers | None = None,
     ) -> None:
         """Inicializa o classificador com todos os componentes.
 
@@ -60,29 +63,40 @@ class ClassificadorIntencoes:
             config: Configuracao com thresholds e prioridades.
             prompt_template: Template do prompt de classificacao LLM.
             intencoes_validas: Lista de intents validas para validacao.
+            loggers: Loggers de observabilidade para decision tracing.
         """
-        self._lookup = ClassificadorLookup(TOKENS_UNICOS)
+        self._lookup = ClassificadorLookup(TOKENS_UNICOS, loggers=loggers)
         self._rag = ClassificadorRAG(
             embedding_service=embedding_service,
             config=config,
             llm=llm,
             prompt_template=prompt_template,
             intencoes_validas=intencoes_validas,
+            loggers=loggers,
         )
         self._llm = ClassificadorLLM(
             llm=llm,
             prompt_template=prompt_template,
             intencoes_validas=intencoes_validas,
+            loggers=loggers,
         )
         self._config = config
+        self._loggers = loggers
 
-    def classificar(self, mensagem: str) -> ResultadoClassificacao:
+    def classificar(
+        self,
+        mensagem: str,
+        thread_id: str = '',
+        turn_id: str = '',
+    ) -> ResultadoClassificacao:
         """Classifica a intencao da mensagem usando cadeia de estrategias.
 
         Tenta lookup direto, depois RAG, e por fim LLM como fallback.
 
         Args:
             mensagem: Texto bruto da mensagem do usuario.
+            thread_id: ID da sessao para correlacao de logs.
+            turn_id: ID do turno para correlacao de logs.
 
         Returns:
             ResultadoClassificacao com intent, confianca e metadata.
@@ -95,13 +109,13 @@ class ClassificadorIntencoes:
             ```
         """
         try:
-            return self._classificar_interno(mensagem)
+            return self._classificar_interno(mensagem, thread_id, turn_id)
         except Exception as e:
             exc_logger = _get_exception_logger()
             if exc_logger:
                 exc_logger.registrar(
-                    thread_id='',
-                    turn_id='',
+                    thread_id=thread_id,
+                    turn_id=turn_id,
                     componente='ClassificadorIntencoes.classificar',
                     exception=e,
                     estado={'mensagem': mensagem, 'mensagem_len': len(mensagem)},
@@ -117,14 +131,19 @@ class ClassificadorIntencoes:
                 metadados={'erro': str(e)},
             )
 
-    def _classificar_interno(self, mensagem: str) -> ResultadoClassificacao:
+    def _classificar_interno(
+        self,
+        mensagem: str,
+        thread_id: str = '',
+        turn_id: str = '',
+    ) -> ResultadoClassificacao:
         """Logica interna de classificacao — separada para exception handling."""
         mensagem_norm = self._normalizar(mensagem)
         meta: dict = {}
 
         # Mensagem vazia ou so espacos: LLM fallback
         if not mensagem_norm or not mensagem_norm.strip():
-            resultado = self._llm.classificar(mensagem)
+            resultado = self._llm.classificar(mensagem, thread_id, turn_id)
             meta['llm_raw'] = resultado.metadados.get('llm_raw', '')
             meta['llm_intent'] = resultado.metadados.get('llm_intent', '')
             return ResultadoClassificacao(
@@ -140,21 +159,21 @@ class ClassificadorIntencoes:
             )
 
         # 1. Lookup direto
-        resultado = self._lookup.classificar(mensagem_norm)
+        resultado = self._lookup.classificar(mensagem_norm, thread_id, turn_id)
         if resultado is not None:
             return resultado
 
         meta['lookup'] = None
 
         # 2. RAG
-        resultado = self._rag.classificar(mensagem_norm)
+        resultado = self._rag.classificar(mensagem_norm, thread_id, turn_id)
         if resultado is not None:
             return resultado
 
         meta['rag'] = None
 
         # 3. LLM fallback
-        resultado = self._llm.classificar(mensagem_norm)
+        resultado = self._llm.classificar(mensagem_norm, thread_id, turn_id)
         meta['llm_raw'] = resultado.metadados.get('llm_raw', '')
         meta['llm_intent'] = resultado.metadados.get('llm_intent', '')
         return ResultadoClassificacao(

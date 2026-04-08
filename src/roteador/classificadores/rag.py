@@ -14,12 +14,17 @@ Example:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from src.roteador.classificadores.base import ClassificadorBase
 from src.roteador.embedding_service import EmbeddingService
 from src.roteador.modelos import ResultadoClassificacao
 from src.roteador.protocolos import LLMProvider
 from src.config.roteador_config import RoteadorConfig
 from src.roteador.voting import votar_com_prioridade
+
+if TYPE_CHECKING:
+    from src.observabilidade.loggers import ObservabilidadeLoggers
 
 
 class ClassificadorRAG(ClassificadorBase):
@@ -40,6 +45,7 @@ class ClassificadorRAG(ClassificadorBase):
         llm: LLMProvider,
         prompt_template: str,
         intencoes_validas: list[str],
+        loggers: ObservabilidadeLoggers | None = None,
     ) -> None:
         """Inicializa o classificador RAG.
 
@@ -49,6 +55,7 @@ class ClassificadorRAG(ClassificadorBase):
             llm: Provider LLM para validacao.
             prompt_template: Template do prompt de classificacao.
             intencoes_validas: Lista de intents validas.
+            loggers: Loggers de observabilidade para decision tracing.
         """
         self._embedding_service = embedding_service
         self._config = config
@@ -56,12 +63,20 @@ class ClassificadorRAG(ClassificadorBase):
         self._prompt_template = prompt_template
         self._intencoes_validas = intencoes_validas
         self._votar = votar_com_prioridade
+        self._loggers = loggers
 
-    def classificar(self, mensagem: str) -> ResultadoClassificacao | None:
+    def classificar(
+        self,
+        mensagem: str,
+        thread_id: str = '',
+        turn_id: str = '',
+    ) -> ResultadoClassificacao | None:
         """Classifica via RAG com similaridade de embeddings.
 
         Args:
             mensagem: Texto normalizado do usuario.
+            thread_id: ID da sessao para correlacao de logs.
+            turn_id: ID do turno para correlacao de logs.
 
         Returns:
             ResultadoClassificacao se classificou, None se nao ha confianca.
@@ -84,7 +99,30 @@ class ClassificadorRAG(ClassificadorBase):
 
         # RAG forte: confianca acima do threshold, usa direto
         if confidence >= self._config.rag_forte_threshold:
-            intent = self._votar(similares, self._config.alta_prioridade)
+            intent = self._votar(
+                similares,
+                self._config.alta_prioridade,
+                loggers=self._loggers,
+                thread_id=thread_id,
+                turn_id=turn_id,
+            )
+            if self._loggers and self._loggers.decisor:
+                self._loggers.decisor.registrar(
+                    thread_id=thread_id,
+                    turn_id=turn_id,
+                    componente='classificacao_rag_caminho',
+                    decisao='retorno_direto',
+                    alternativas=[f'{s.intencao}({s.similaridade})' for s in similares[:5]],
+                    criterio=f"confidence={confidence}",
+                    threshold=f">={self._config.rag_forte_threshold}",
+                    resultado=intent,
+                    contexto={
+                        'mensagem': mensagem,
+                        'top1_texto': top1_texto,
+                        'top1_intencao': top1_intencao,
+                        'num_similares': len(similares),
+                    },
+                )
             return ResultadoClassificacao(
                 intent=intent,
                 confidence=confidence,
@@ -96,10 +134,43 @@ class ClassificadorRAG(ClassificadorBase):
 
         # RAG fraco: abaixo do threshold minimo, delega para LLM fallback
         if confidence < self._config.rag_fraco_threshold:
+            if self._loggers and self._loggers.decisor:
+                self._loggers.decisor.registrar(
+                    thread_id=thread_id,
+                    turn_id=turn_id,
+                    componente='classificacao_rag_caminho',
+                    decisao='fallback_llm',
+                    alternativas=[f'{s.intencao}({s.similaridade})' for s in similares[:5]],
+                    criterio=f"confidence={confidence}",
+                    threshold=f"<{self._config.rag_fraco_threshold}",
+                    resultado='None',
+                    contexto={
+                        'mensagem': mensagem,
+                        'top1_texto': top1_texto,
+                        'top1_intencao': top1_intencao,
+                    },
+                )
             return None
 
         # RAG medio: valida com LLM
-        intent = self._validar_com_llm(mensagem, similares)
+        intent = self._validar_com_llm(mensagem, similares, thread_id, turn_id)
+
+        if self._loggers and self._loggers.decisor:
+            self._loggers.decisor.registrar(
+                thread_id=thread_id,
+                turn_id=turn_id,
+                componente='classificacao_rag_caminho',
+                decisao='validacao_llm',
+                alternativas=[f'{s.intencao}({s.similaridade})' for s in similares[:5]],
+                criterio=f"confidence={confidence}",
+                threshold=f"{self._config.rag_fraco_threshold}..{self._config.rag_forte_threshold}",
+                resultado=intent,
+                contexto={
+                    'mensagem': mensagem,
+                    'top1_texto': top1_texto,
+                    'top1_intencao': top1_intencao,
+                },
+            )
 
         return ResultadoClassificacao(
             intent=intent,
@@ -115,18 +186,30 @@ class ClassificadorRAG(ClassificadorBase):
             },
         )
 
-    def _validar_com_llm(self, mensagem: str, similares: list) -> str:
+    def _validar_com_llm(
+        self,
+        mensagem: str,
+        similares: list,
+        thread_id: str = '',
+        turn_id: str = '',
+    ) -> str:
         """Valida classificacao RAG com LLM.
 
         Args:
             mensagem: Texto da mensagem.
             similares: Lista de exemplos similares.
+            thread_id: ID da sessao para correlacao de logs.
+            turn_id: ID do turno para correlacao de logs.
 
         Returns:
             Intencao validada pelo LLM.
         """
         intencao_dominante = votar_com_prioridade(
-            similares, self._config.alta_prioridade
+            similares,
+            self._config.alta_prioridade,
+            loggers=self._loggers,
+            thread_id=thread_id,
+            turn_id=turn_id,
         )
 
         exemplos_formatados = '\n'.join(
@@ -147,7 +230,27 @@ class ClassificadorRAG(ClassificadorBase):
         resposta = self._llm.completar(prompt, max_tokens=10)
         intencao = resposta.strip().lower().split()[0] if resposta.strip() else ''
 
-        if intencao not in self._intencoes_validas:
+        llm_validou = intencao in self._intencoes_validas
+        resultado_final = intencao if llm_validou else intencao_dominante
+
+        if self._loggers and self._loggers.decisor:
+            self._loggers.decisor.registrar(
+                thread_id=thread_id,
+                turn_id=turn_id,
+                componente='classificacao_rag_validacao_llm',
+                decisao='usar_llm' if llm_validou else 'fallback_rag',
+                alternativas=[f'rag={intencao_dominante}', f'llm={intencao}'],
+                criterio=f"llm_retornou='{intencao}', valida={llm_validou}",
+                threshold='intent_valida',
+                resultado=resultado_final,
+                contexto={
+                    'mensagem': mensagem,
+                    'intencao_dominante': intencao_dominante,
+                    'llm_resposta_bruta': resposta.strip(),
+                },
+            )
+
+        if not llm_validou:
             # Fallback: usa votacao RAG se LLM falhar
             return intencao_dominante
 

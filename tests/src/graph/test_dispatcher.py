@@ -363,4 +363,7 @@ class TestDispatcherEdgeCases:
         mock_troca.return_value = _mock_troca('B', None, None)
         mock_extrair.return_value = []
         node_dispatcher_modificar(_state('quero xbacon', []))
-        mock_extrair.assert_called_once_with('quero xbacon')
+        mock_extrair.assert_called_once()
+        call_args = mock_extrair.call_args
+        assert call_args.args[0] == 'quero xbacon'
+        assert call_args.kwargs.get('loggers') is None

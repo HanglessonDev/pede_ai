@@ -25,6 +25,7 @@ from src.extratores.fuzzy_extrator import (
 from src.extratores.modelos import ExtracaoTroca, ItemExtraido, MatchCarrinho
 from src.extratores.nlp_engine import NlpEngine
 from src.extratores.normalizador import normalizar_para_busca, normalizar_para_fuzzy
+from src.observabilidade.loggers import ObservabilidadeLoggers
 
 # Compatibilidade com codigo legado que importa normalizar()
 normalizar = normalizar_para_busca
@@ -81,7 +82,13 @@ def extrair_item_carrinho(mensagem: str, carrinho: list) -> list[dict]:
     return [asdict(m) for m in matches]
 
 
-def extrair_itens_troca(mensagem: str, carrinho: list[dict]) -> dict:
+def extrair_itens_troca(
+    mensagem: str,
+    carrinho: list[dict],
+    loggers: ObservabilidadeLoggers | None = None,
+    thread_id: str = '',
+    turn_id: str = '',
+) -> dict:
     """Extrai informacoes de troca da mensagem.
 
     API compativel com a versao procedural — retorna dict.
@@ -89,6 +96,9 @@ def extrair_itens_troca(mensagem: str, carrinho: list[dict]) -> dict:
     Args:
         mensagem: Mensagem do usuario.
         carrinho: Carrinho atual.
+        loggers: Container de loggers para decision tracing.
+        thread_id: ID da sessao.
+        turn_id: ID do turno.
 
     Returns:
         Dict com 'caso', 'item_original' e 'variante_nova'.
@@ -104,7 +114,9 @@ def extrair_itens_troca(mensagem: str, carrinho: list[dict]) -> dict:
     cardapio = get_cardapio()
     engine = NlpEngine(config, cardapio)
     extrator = TrocaExtrator(engine, config)
-    resultado = extrator.extrair(mensagem, carrinho)
+    resultado = extrator.extrair(
+        mensagem, carrinho, loggers=loggers, thread_id=thread_id, turn_id=turn_id
+    )
 
     return {
         'caso': resultado.caso,

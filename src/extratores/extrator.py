@@ -29,8 +29,13 @@ from src.extratores.complementos import detectar_complementos
 from src.extratores.config import ExtratorConfig
 from src.extratores.itens_ids import build_itens_ids
 from src.extratores.modelos import ItemExtraido
-from src.observabilidade.registry import get_extrator_detail_logger
 from src.extratores.negacao import detectar_negacao
+from src.observabilidade.contexto import (
+    extrair_contexto_extracao,
+    extrair_contexto_negacao,
+)
+from src.observabilidade.loggers import ObservabilidadeLoggers
+from src.observabilidade.registry import get_extrator_detail_logger
 from src.extratores.nlp_engine import NlpEngine
 from src.extratores.observacoes import detectar_observacoes
 from src.extratores.quantidade import resolver_quantidade, extrair_quantidade_do_texto
@@ -73,7 +78,13 @@ class Extrator:
         self._itens_ids = build_itens_ids(cardapio)
         self._cardapio = cardapio
 
-    def extrair(self, mensagem: str) -> list[ItemExtraido]:
+    def extrair(
+        self,
+        mensagem: str,
+        loggers: ObservabilidadeLoggers | None = None,
+        thread_id: str = '',
+        turn_id: str = '',
+    ) -> list[ItemExtraido]:
         """Extrai itens do cardapio de uma mensagem.
 
         Tenta EntityRuler (spaCy) primeiro. Se nao encontrar itens,
@@ -81,12 +92,30 @@ class Extrator:
 
         Args:
             mensagem: Texto da mensagem do usuario.
+            loggers: Container de loggers para decision tracing.
+            thread_id: ID da sessao.
+            turn_id: ID do turno.
 
         Returns:
             Lista de ItemExtraido.
         """
         # Verifica negacao primeiro — se usuario esta cancelando o pedido
-        if detectar_negacao(mensagem):
+        tem_negacao = detectar_negacao(mensagem)
+        decisao_logger = loggers.decisor if loggers else None
+        if decisao_logger:
+            tokens_neg = self._tokens_negacao_encontrados(mensagem) if tem_negacao else []
+            decisao_logger.registrar(
+                thread_id=thread_id,
+                turn_id=turn_id,
+                componente='extracao_negacao',
+                decisao='retornar_lista_vazia' if tem_negacao else 'continuar_extracao',
+                alternativas=['retornar_lista_vazia', 'continuar_extracao'],
+                criterio=f'detectar_negacao retornou {tem_negacao}',
+                threshold='qualquer_match_negacao==True',
+                resultado='retornar_lista_vazia' if tem_negacao else 'continuar_extracao',
+                contexto=extrair_contexto_negacao(mensagem, tokens_neg),
+            )
+        if tem_negacao:
             return []
 
         doc = self._engine.processar(mensagem)
@@ -97,13 +126,69 @@ class Extrator:
         itens_fuzzy = self._extrair_fuzzy_nao_coberto(doc, itens_spacy)
 
         if itens_spacy or itens_fuzzy:
-            return itens_spacy + itens_fuzzy
+            itens = itens_spacy + itens_fuzzy
+            if decisao_logger:
+                decisao_logger.registrar(
+                    thread_id=thread_id,
+                    turn_id=turn_id,
+                    componente='extracao_spacy_fuzzy',
+                    decisao='itens_encontrados',
+                    alternativas=['itens_encontrados', 'fallback_total'],
+                    criterio=f'spacy={len(itens_spacy)}, fuzzy_parcial={len(itens_fuzzy)}',
+                    threshold='spacy_count>0 or fuzzy_parcial_count>0',
+                    resultado='itens_encontrados',
+                    contexto=extrair_contexto_extracao(
+                        mensagem, [i.__dict__ if hasattr(i, '__dict__') else {'item_id': i.item_id} for i in itens]
+                    ),
+                )
+            return itens
 
         # Fallback total: fuzzy na mensagem inteira
         from src.extratores.fuzzy_extrator import extrair_item_fuzzy  # noqa: PLC0415
 
         qtd, _ = extrair_quantidade_do_texto(mensagem, self._config)
-        return extrair_item_fuzzy(mensagem, int(qtd) if qtd else 1)
+        itens = extrair_item_fuzzy(mensagem, int(qtd) if qtd else 1)
+        if decisao_logger:
+            decisao_logger.registrar(
+                thread_id=thread_id,
+                turn_id=turn_id,
+                componente='extracao_fallback_total',
+                decisao='fuzzy_total' if itens else 'sem_itens',
+                alternativas=['itens_encontrados', 'sem_itens'],
+                criterio=f'spacy=0, fuzzy_parcial=0, tentando fuzzy na mensagem inteira',
+                threshold='fallback',
+                resultado='fuzzy_total' if itens else 'sem_itens',
+                contexto=extrair_contexto_extracao(
+                    mensagem, [{'item_id': i.item_id} for i in itens]
+                ),
+            )
+        return itens
+
+    def _tokens_negacao_encontrados(self, mensagem: str) -> list[str]:
+        """Extrai tokens de negacao encontrados para logging."""
+        from src.extratores.negacao import (
+            EXPRESSOES_NEGACAO,
+            PALAVRAS_CANCELAMENTO,
+            PADROES_ESPECIAIS,
+            PALAVRAS_NEGACAO_CONTEXTUAL,
+        )
+        import re
+
+        tokens: list[str] = []
+        texto_lower = mensagem.lower()
+        for expr in EXPRESSOES_NEGACAO:
+            if expr.lower() in texto_lower:
+                tokens.append(expr)
+        for palavra in PALAVRAS_CANCELAMENTO:
+            if re.search(rf'\b{re.escape(palavra.lower())}\b', texto_lower):
+                tokens.append(palavra)
+        for padrao in PADROES_ESPECIAIS:
+            if re.search(padrao, texto_lower):
+                tokens.append(padrao)
+        for palavra in PALAVRAS_NEGACAO_CONTEXTUAL:
+            if re.search(rf'\b{re.escape(palavra.lower())}\b', texto_lower):
+                tokens.append(palavra)
+        return tokens
 
     def _extrair_qtd_do_doc(self, doc) -> int:
         """Extrai quantidade de entidades QTD/NUM_PENDING no doc."""
@@ -467,13 +552,21 @@ def _get_extrator() -> Extrator:
     return _extrator
 
 
-def extrair(mensagem: str) -> list[dict]:
+def extrair(
+    mensagem: str,
+    loggers: ObservabilidadeLoggers | None = None,
+    thread_id: str = '',
+    turn_id: str = '',
+) -> list[dict]:
     """Extrai itens do cardapio de uma mensagem do usuario.
 
     API compativel com a versao procedural — retorna list[dict].
 
     Args:
         mensagem: Texto da mensagem do usuario.
+        loggers: Container de loggers para decision tracing.
+        thread_id: ID da sessao.
+        turn_id: ID do turno.
 
     Returns:
         Lista de dicionarios com as chaves:
@@ -498,7 +591,9 @@ def extrair(mensagem: str) -> list[dict]:
         ```
     """
     inicio = time.monotonic()
-    itens = _get_extrator().extrair(mensagem)
+    itens = _get_extrator().extrair(
+        mensagem, loggers=loggers, thread_id=thread_id, turn_id=turn_id
+    )
     tempo_ms = (time.monotonic() - inicio) * 1000
 
     # Logging interno — qual estratégia funcionou
@@ -507,8 +602,8 @@ def extrair(mensagem: str) -> list[dict]:
         spacy_count = sum(1 for i in itens if i.fonte == 'spacy')
         fuzzy_count = sum(1 for i in itens if i.fonte == 'fuzzy')
         ext_logger.registrar(
-            thread_id='',
-            turn_id='',
+            thread_id=thread_id,
+            turn_id=turn_id,
             extrator='extrator',
             estrategia='spacy+fuzzy',
             itens_encontrados=len(itens),

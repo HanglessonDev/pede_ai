@@ -24,6 +24,8 @@ from src.extratores.modelos import (
 )
 from src.extratores.nlp_engine import NlpEngine
 from src.extratores.normalizador import normalizar_para_busca
+from src.observabilidade.contexto import extrair_contexto_extracao
+from src.observabilidade.loggers import ObservabilidadeLoggers
 
 
 class TrocaExtrator:
@@ -39,7 +41,14 @@ class TrocaExtrator:
         self._engine = engine
         self._config = config
 
-    def extrair(self, mensagem: str, carrinho: list[dict]) -> ExtracaoTroca:
+    def extrair(
+        self,
+        mensagem: str,
+        carrinho: list[dict],
+        loggers: ObservabilidadeLoggers | None = None,
+        thread_id: str = '',
+        turn_id: str = '',
+    ) -> ExtracaoTroca:
         """Extrai informacoes de troca da mensagem.
 
         Classifica em casos:
@@ -51,6 +60,9 @@ class TrocaExtrator:
         Args:
             mensagem: Mensagem do usuario.
             carrinho: Carrinho atual.
+            loggers: Container de loggers para decision tracing.
+            thread_id: ID da sessao.
+            turn_id: ID do turno.
 
         Returns:
             ExtracaoTroca com caso, item_original e variante_nova.
@@ -90,21 +102,64 @@ class TrocaExtrator:
         num_items = len(itens_mencionados)
         num_variantes = len(variantes_sozinhas)
 
+        decisao_logger = loggers.decisor if loggers else None
+
+        def _log_decisao(decisao: str, criterio: str, resultado: str = '') -> None:
+            if decisao_logger:
+                alternativas = ['caso_A', 'caso_B', 'caso_C', 'caso_vazio']
+                decisao_logger.registrar(
+                    thread_id=thread_id,
+                    turn_id=turn_id,
+                    componente='troca_extrator',
+                    decisao=decisao,
+                    alternativas=alternativas,
+                    criterio=criterio,
+                    threshold='caso_A=2+items, caso_B=1item, caso_C=1variante',
+                    resultado=resultado or decisao,
+                    contexto=extrair_contexto_extracao(
+                        mensagem,
+                        [
+                            {'texto': it.texto, 'variante': it.variante, 'ent_id': it.ent_id}
+                            for it in itens_mencionados
+                        ],
+                    ),
+                )
+
         # Caso A: 2+ ITEMs (troca item por item)
         if num_items >= 2:
+            _log_decisao(
+                decisao='caso_A',
+                criterio=f'num_items={num_items}>=2, num_variantes={num_variantes}',
+                resultado='troca_item_por_item',
+            )
             return ExtracaoTroca(caso='A', item_original=None, variante_nova=None)
 
         # Caso B: 1 ITEM (com ou sem variante)
         if num_items == 1:
+            _log_decisao(
+                decisao='caso_B',
+                criterio=f'num_items=1, variante_mencionada={itens_mencionados[0].variante}',
+                resultado='processar_caso_b',
+            )
             return self._processar_caso_b(itens_mencionados[0], carrinho, mensagem)
 
         # Caso C: 0 ITEMs + 1 VARIANTE isolada
         if num_items == 0 and num_variantes == 1:
+            _log_decisao(
+                decisao='caso_C',
+                criterio=f'num_items=0, num_variantes=1, variante={variantes_sozinhas[0]}',
+                resultado='trocar_variante_isolada',
+            )
             return ExtracaoTroca(
                 caso='C', item_original=None, variante_nova=variantes_sozinhas[0]
             )
 
-        # Fallback fuzzy: se nada foi extrai do, tentar fuzzy match
+        # Fallback fuzzy: se nada foi extraido, tentar fuzzy match
+        _log_decisao(
+            decisao='fallback_fuzzy',
+            criterio=f'num_items={num_items}, num_variantes={num_variantes} — nenhum caso classificado',
+            resultado='tentar_fuzzy',
+        )
         return self._fallback_fuzzy_completo(mensagem, carrinho)
 
     def _processar_caso_b(

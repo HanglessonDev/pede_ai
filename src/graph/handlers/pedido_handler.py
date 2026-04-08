@@ -19,11 +19,15 @@ Example:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from src.config import get_item_por_id, get_variantes
 from src.extratores.fuzzy_extrator import fuzzy_match_variante
 from src.graph.handlers.carrinho import Carrinho, CarrinhoItem
 from src.graph.state import RetornoNode
+
+if TYPE_CHECKING:
+    from src.observabilidade.loggers import ObservabilidadeLoggers
 
 
 @dataclass
@@ -101,6 +105,9 @@ def _calcular_preco_item(item: dict, item_data: dict) -> int | None:
 def processar_pedido(
     itens_extraidos: list[dict],
     carrinho_existente: list[dict],
+    loggers: ObservabilidadeLoggers | None = None,
+    thread_id: str = '',
+    turn_id: str = '',
 ) -> ResultadoPedir:
     """Processa itens extraidos e os adiciona ao carrinho.
 
@@ -111,6 +118,9 @@ def processar_pedido(
     Args:
         itens_extraidos: Lista de itens extraidos da mensagem.
         carrinho_existente: Carrinho atual do estado (para mesclar).
+        loggers: Loggers de observabilidade (opcional).
+        thread_id: ID da sessao (opcional).
+        turn_id: ID do turno (opcional).
 
     Returns:
         ResultadoPedir com carrinho, fila e resposta atualizados.
@@ -155,8 +165,24 @@ def processar_pedido(
     else:
         resposta = ''
 
-    return ResultadoPedir(
+    resultado = ResultadoPedir(
         carrinho=carrinho.to_state_dicts(),
         fila=fila,
         resposta=resposta,
     )
+
+    if loggers and loggers.negocio is not None:
+        carrinho_dicts = resultado.carrinho
+        preco_total_centavos = sum(i.get('preco_centavos', 0) for i in carrinho_dicts)
+        loggers.negocio.registrar(
+            thread_id=thread_id,
+            turn_id=turn_id,
+            evento='pedir',
+            carrinho_size=len(carrinho_dicts),
+            preco_total_centavos=preco_total_centavos,
+            intent='pedir',
+            resposta=resposta,
+            tentativas_clarificacao=len(fila),
+        )
+
+    return resultado

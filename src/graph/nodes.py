@@ -36,6 +36,8 @@ from src.graph.handlers.remocao_handler import processar_remocao
 from src.graph.handlers.saudacao_handler import processar_saudacao
 from src.graph.handlers.troca_handler import processar_troca
 from src.graph.state import RetornoNode, State
+from src.observabilidade.contexto import extrair_contexto_dispatcher
+from src.observabilidade.loggers import ObservabilidadeLoggers
 from src.observabilidade.registry import (
     get_debug_session_logger,
     get_dispatcher_logger,
@@ -399,13 +401,19 @@ def node_extrator(state: State) -> RetornoNode:
         if state.get('intent') == 'pedir':
             mensagem = state.get('mensagem_atual', '')
             inicio = time.monotonic()
-            itens = extrair(mensagem)
+            loggers: ObservabilidadeLoggers | None = state.get('loggers')  # type: ignore[assignment]
+            try:
+                thread_id = _get_thread_id()
+            except RuntimeError:
+                thread_id = ''
+            turn_id = _get_turn_id(state)
+            itens = extrair(mensagem, loggers=loggers, thread_id=thread_id, turn_id=turn_id)
             tempo_ms = (time.monotonic() - inicio) * 1000
 
             ext_logger = get_extracao_logger()
             if ext_logger:
                 ext_logger.registrar(
-                    thread_id=_get_thread_id(),
+                    thread_id=thread_id,
                     mensagem=mensagem,
                     itens_extraidos=itens,
                     tempo_ms=tempo_ms,
@@ -593,12 +601,24 @@ def _parece_remocao(mensagem: str) -> bool:
 def node_dispatcher_modificar(state: State) -> RetornoNode:
     """Decide qual ação executar para intent modificar_pedido."""
     try:
-        return _dispatcher_interno(state)
+        loggers: ObservabilidadeLoggers | None = state.get('loggers')  # type: ignore[assignment]
+        try:
+            thread_id = _get_thread_id()
+        except RuntimeError:
+            thread_id = ''
+        turn_id = _get_turn_id(state)
+        return _dispatcher_interno(
+            state, loggers=loggers, thread_id=thread_id, turn_id=turn_id
+        )
     except Exception as e:
         exc_logger = get_exception_logger()
         if exc_logger:
+            try:
+                exc_thread_id = _get_thread_id()
+            except RuntimeError:
+                exc_thread_id = ''
             exc_logger.registrar(
-                thread_id=_get_thread_id(),
+                thread_id=exc_thread_id,
                 turn_id=_get_turn_id(state),
                 componente='node_dispatcher_modificar',
                 exception=e,
@@ -613,14 +633,21 @@ def node_dispatcher_modificar(state: State) -> RetornoNode:
         }
 
 
-def _dispatcher_interno(state: State) -> RetornoNode:  # noqa: PLR0911,PLR0915
+def _dispatcher_interno(  # noqa: PLR0911,PLR0915
+    state: State,
+    loggers: ObservabilidadeLoggers | None = None,
+    thread_id: str = '',
+    turn_id: str = '',
+) -> RetornoNode:
     """Logica interna do dispatcher — separada para exception handling."""
     inicio = time.monotonic()
     mensagem = state['mensagem_atual']
     carrinho = state.get('carrinho', [])
 
     # ── Passo 1: TrocaExtrator ──────────────────────────────────────────────
-    trocas = extrair_itens_troca(mensagem, carrinho)
+    trocas = extrair_itens_troca(
+        mensagem, carrinho, loggers=loggers, thread_id=thread_id, turn_id=turn_id
+    )
     caso = trocas['caso']
     item_original = trocas['item_original']
     variante_nova = trocas['variante_nova']
@@ -633,15 +660,54 @@ def _dispatcher_interno(state: State) -> RetornoNode:  # noqa: PLR0911,PLR0915
         },
     }
 
+    contexto = extrair_contexto_dispatcher(state)
+    decisao_logger = loggers.decisor if loggers else None
+
+    def _log_decisao(componente: str, decisao: str, alternativas: list[str], criterio: str, threshold: str = '', resultado: str = '') -> None:
+        if decisao_logger:
+            decisao_logger.registrar(
+                thread_id=thread_id,
+                turn_id=turn_id,
+                componente=componente,
+                decisao=decisao,
+                alternativas=alternativas,
+                criterio=criterio,
+                threshold=threshold,
+                resultado=resultado or decisao,
+                contexto=contexto,
+            )
+
     # Caso A: 2+ ITEMs mencionados
     if caso == 'A':
-        itens = extrair(mensagem)
+        _log_decisao(
+            componente='dispatcher_passo1_troca',
+            decisao=f'caso_{caso}',
+            alternativas=['caso_A', 'caso_B', 'caso_C', 'caso_vazio'],
+            criterio=f"num_items>={2}",
+            threshold='caso_A=2+items, caso_B=1item, caso_C=1variante',
+            resultado='tentar_extrair_itens',
+        )
+        itens = extrair(mensagem, loggers=loggers, thread_id=thread_id, turn_id=turn_id)
         if itens:
             passos['acao_final'] = 'adicionar_item'
             passos['extrair'] = {'itens_count': len(itens)}
+            _log_decisao(
+                componente='dispatcher_passo1_casoA',
+                decisao='adicionar_item',
+                alternativas=['adicionar_item', 'sem_entidade'],
+                criterio=f'extrair retornou {len(itens)} itens',
+                threshold='itens_count>0',
+            )
             tempo_ms = (time.monotonic() - inicio) * 1000
             _log_dispatcher(state, 'adicionar_item', passos, tempo_ms)
             return {'acao': 'adicionar_item', 'itens_extraidos': itens}
+        _log_decisao(
+            componente='dispatcher_passo1_casoA',
+            decisao='sem_entidade',
+            alternativas=['adicionar_item', 'sem_entidade'],
+            criterio='extrair retornou lista vazia no caso A',
+            threshold='itens_count==0',
+        )
         passos['acao_final'] = 'sem_entidade'
         tempo_ms = (time.monotonic() - inicio) * 1000
         _log_dispatcher(state, 'sem_entidade', passos, tempo_ms)
@@ -649,7 +715,22 @@ def _dispatcher_interno(state: State) -> RetornoNode:  # noqa: PLR0911,PLR0915
 
     # Caso B: 1 ITEM mencionado
     elif caso == 'B':
+        _log_decisao(
+            componente='dispatcher_passo1_troca',
+            decisao=f'caso_{caso}',
+            alternativas=['caso_A', 'caso_B', 'caso_C', 'caso_vazio'],
+            criterio=f"num_items==1, item_original={'sim' if item_original else 'nao'}, variante_nova={'sim' if variante_nova else 'nao'}",
+            threshold='caso_A=2+items, caso_B=1item, caso_C=1variante',
+            resultado='avaliar_subcasos_B',
+        )
         if item_original is not None and variante_nova is not None:
+            _log_decisao(
+                componente='dispatcher_passo1_casoB',
+                decisao='trocar_variante',
+                alternativas=['trocar_variante', 'remover_item', 'sem_entidade'],
+                criterio='item_original e variante_nova ambos presentes',
+                threshold='item_original!=None and variante_nova!=None',
+            )
             passos['acao_final'] = 'trocar_variante'
             tempo_ms = (time.monotonic() - inicio) * 1000
             _log_dispatcher(state, 'trocar_variante', passos, tempo_ms)
@@ -657,11 +738,25 @@ def _dispatcher_interno(state: State) -> RetornoNode:  # noqa: PLR0911,PLR0915
 
         if item_original is not None and variante_nova is None:
             if _parece_remocao(mensagem):
+                _log_decisao(
+                    componente='dispatcher_passo1_casoB',
+                    decisao='remover_item',
+                    alternativas=['trocar_variante', 'remover_item', 'sem_entidade'],
+                    criterio='item_original presente, sem variante, verbo de remocao detectado',
+                    threshold='_parece_remocao==True',
+                )
                 passos['acao_final'] = 'remover_item'
                 tempo_ms = (time.monotonic() - inicio) * 1000
                 _log_dispatcher(state, 'remover_item', passos, tempo_ms)
                 return {'acao': 'remover_item', 'dados_extracao': trocas}
             else:
+                _log_decisao(
+                    componente='dispatcher_passo1_casoB',
+                    decisao='sem_entidade',
+                    alternativas=['trocar_variante', 'remover_item', 'sem_entidade'],
+                    criterio='item_original presente, sem variante, sem verbo de remocao',
+                    threshold='_parece_remocao==False',
+                )
                 passos['acao_final'] = 'sem_entidade'
                 tempo_ms = (time.monotonic() - inicio) * 1000
                 _log_dispatcher(state, 'sem_entidade', passos, tempo_ms)
@@ -669,15 +764,49 @@ def _dispatcher_interno(state: State) -> RetornoNode:  # noqa: PLR0911,PLR0915
 
     # Caso C: 0 ITEMs + 1 VARIANTE isolada
     elif caso == 'C' and carrinho:
+        _log_decisao(
+            componente='dispatcher_passo1_troca',
+            decisao=f'caso_C_com_carrinho',
+            alternativas=['caso_A', 'caso_B', 'caso_C', 'caso_vazio'],
+            criterio='num_items==0, 1 variante isolada, carrinho nao vazio',
+            threshold='caso_C and len(carrinho)>0',
+            resultado='trocar_variante',
+        )
         passos['acao_final'] = 'trocar_variante'
         tempo_ms = (time.monotonic() - inicio) * 1000
         _log_dispatcher(state, 'trocar_variante', passos, tempo_ms)
         return {'acao': 'trocar_variante', 'dados_extracao': trocas}
 
+    # Log caso C sem carrinho
+    if caso == 'C':
+        _log_decisao(
+            componente='dispatcher_passo1_troca',
+            decisao='caso_C_sem_carrinho',
+            alternativas=['caso_A', 'caso_B', 'caso_C', 'caso_vazio'],
+            criterio='num_items==0, 1 variante isolada, carrinho vazio — prosseguir para passo 2',
+            threshold='caso_C and len(carrinho)==0',
+            resultado='prosseguir_passo2',
+        )
+
     # ── Passo 2: Remoção de item do carrinho ────────────────────────────────
     if carrinho and _parece_remocao(mensagem):
+        _log_decisao(
+            componente='dispatcher_passo2_remocao',
+            decisao='tentar_remocao',
+            alternativas=['remover_item', 'prosseguir_passo3'],
+            criterio='carrinho nao vazio e verbo de remocao detectado',
+            threshold='len(carrinho)>0 and _parece_remocao==True',
+            resultado='tentar_extrair_item_carrinho',
+        )
         remocoes = extrair_item_carrinho(mensagem, carrinho)
         if remocoes:
+            _log_decisao(
+                componente='dispatcher_passo2_remocao',
+                decisao='remover_item',
+                alternativas=['remover_item', 'prosseguir_passo3'],
+                criterio=f'extrair_item_carrinho retornou {len(remocoes)} matches',
+                threshold='matches_count>0',
+            )
             passos['remocao'] = {'matches_count': len(remocoes)}
             passos['acao_final'] = 'remover_item'
             tempo_ms = (time.monotonic() - inicio) * 1000
@@ -686,10 +815,25 @@ def _dispatcher_interno(state: State) -> RetornoNode:  # noqa: PLR0911,PLR0915
                 'acao': 'remover_item',
                 'dados_extracao': {'matches': remocoes},
             }
+        _log_decisao(
+            componente='dispatcher_passo2_remocao',
+            decisao='sem_match_remocao',
+            alternativas=['remover_item', 'prosseguir_passo3'],
+            criterio='extrair_item_carrinho retornou lista vazia',
+            threshold='matches_count==0',
+            resultado='prosseguir_passo3',
+        )
 
     # ── Passo 3: Adição de item novo ────────────────────────────────────────
-    itens = extrair(mensagem)
+    itens = extrair(mensagem, loggers=loggers, thread_id=thread_id, turn_id=turn_id)
     if itens:
+        _log_decisao(
+            componente='dispatcher_passo3_adicao',
+            decisao='adicionar_item',
+            alternativas=['adicionar_item', 'sem_entidade'],
+            criterio=f'extrair retornou {len(itens)} itens',
+            threshold='itens_count>0',
+        )
         passos['extrair'] = {'itens_count': len(itens)}
         passos['acao_final'] = 'adicionar_item'
         tempo_ms = (time.monotonic() - inicio) * 1000
@@ -697,6 +841,13 @@ def _dispatcher_interno(state: State) -> RetornoNode:  # noqa: PLR0911,PLR0915
         return {'acao': 'adicionar_item', 'itens_extraidos': itens}
 
     # ── Passo 4: Nada encontrado ────────────────────────────────────────────
+    _log_decisao(
+        componente='dispatcher_passo4_fallback',
+        decisao='sem_entidade',
+        alternativas=['adicionar_item', 'sem_entidade'],
+        criterio='nenhum extrator encontrou itens relevantes',
+        threshold='itens_count==0',
+    )
     passos['acao_final'] = 'sem_entidade'
     tempo_ms = (time.monotonic() - inicio) * 1000
     _log_dispatcher(state, 'sem_entidade', passos, tempo_ms)

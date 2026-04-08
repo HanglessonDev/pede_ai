@@ -1,8 +1,28 @@
-"""Logger para eventos de negocio."""
+"""Logger para eventos de negocio.
+
+Registra eventos de metricas de negocio (confirmar, cancelar, etc)
+em CSV tabular para análise com DuckDB.
+
+Sem validação rígida de enums — logger nunca crasha.
+
+Example:
+    ```python
+    from src.observabilidade.negocio_logger import NegocioLogger
+
+    logger = NegocioLogger('logs/negocio.csv')
+    logger.registrar(
+        thread_id='sessao_001',
+        turn_id='turn_0003',
+        evento='confirmar',
+        carrinho_size=3,
+        preco_total_centavos=4500,
+        intent='confirmar',
+        resposta='Pedido confirmado!',
+    )
+    ```
+"""
 
 from __future__ import annotations
-
-from datetime import UTC, datetime
 
 from src.observabilidade.base_logger import BaseCsvLogger
 
@@ -10,7 +30,6 @@ HEADERS = [
     'timestamp',
     'thread_id',
     'turn_id',
-    'nivel',
     'evento',
     'carrinho_size',
     'preco_total_centavos',
@@ -18,13 +37,14 @@ HEADERS = [
     'resposta',
     'tentativas_clarificacao',
 ]
+"""Cabecalhos do CSV de negocio."""
 
 
 class NegocioLogger(BaseCsvLogger):
     """Logger thread-safe para registrar eventos de negocio.
 
     Eventos: confirmar, cancelar, saudacao, desconhecido,
-    carrinho, remover, trocar.
+    carrinho, remover, trocar, etc.
     """
 
     @property
@@ -33,10 +53,9 @@ class NegocioLogger(BaseCsvLogger):
 
     def _to_row(self, **kwargs) -> list:
         return [
-            datetime.now(UTC).isoformat(),
+            self._timestamp_utc(),
             kwargs.get('thread_id', ''),
             kwargs.get('turn_id', ''),
-            kwargs.get('nivel', 'INFO'),
             kwargs.get('evento', ''),
             kwargs.get('carrinho_size', 0),
             kwargs.get('preco_total_centavos', 0),
@@ -55,7 +74,6 @@ class NegocioLogger(BaseCsvLogger):
         intent: str,
         resposta: str = '',
         tentativas_clarificacao: int = 0,
-        nivel: str = 'INFO',
     ) -> None:
         """Registra um evento de negocio no CSV.
 
@@ -68,14 +86,10 @@ class NegocioLogger(BaseCsvLogger):
             intent: Intencao classificada.
             resposta: Texto gerado para o usuario.
             tentativas_clarificacao: Contador de tentativas de clarificacao.
-            nivel: Nivel de log (INFO, DEBUG, TRACE).
         """
-        if not self.deve_logar(nivel):
-            return
         super().registrar(
             thread_id=thread_id,
             turn_id=turn_id,
-            nivel=nivel,
             evento=evento,
             carrinho_size=carrinho_size,
             preco_total_centavos=preco_total_centavos,

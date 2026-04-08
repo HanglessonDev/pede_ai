@@ -10,30 +10,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from src.config import get_intencoes_validas, get_prompt, get_roteador_config
 from src.graph.builder import criar_graph
 from src.infra import GroqProvider, SentenceTransformerEmbeddings
-from src.observabilidade.clarificacao_logger import ClarificacaoLogger
-from src.observabilidade.extracao_logger import ExtracaoLogger
-from src.observabilidade.funil_logger import FunilLogger
-from src.observabilidade.handler_logger import HandlerLogger
-from src.observabilidade.logger import ObservabilidadeLogger
-from src.observabilidade.negocio_logger import NegocioLogger
-from src.observabilidade.pedido_logger import PedidoLogger
-from src.observabilidade.classificador_logger import ClassificadorLogger
-from src.observabilidade.dispatcher_logger import DispatcherLogger
-from src.observabilidade.extrator_detail_logger import ExtratorDetailLogger
-from src.observabilidade.exception_logger import ExceptionLogger
-from src.observabilidade.registry import (
-    set_classificador_logger,
-    set_clarificacao_logger,
-    set_dispatcher_logger,
-    set_exception_logger,
-    set_extracao_logger,
-    set_extrator_detail_logger,
-    set_funil_logger,
-    set_handler_logger,
-    set_negocio_logger,
-    set_obs_logger,
-    set_pedido_logger,
-)
+from src.observabilidade.loggers import ObservabilidadeLoggers
 from src.roteador.embedding_service import EmbeddingService
 from src.roteador.service import ClassificadorIntencoes
 
@@ -41,19 +18,18 @@ from src.roteador.service import ClassificadorIntencoes
 # Carrega variaveis do .env
 load_dotenv()
 
-# Configura loggers de observabilidade
+# Configura loggers de observabilidade (novo sistema unificado)
 LOG_DIR = Path('logs')
-set_obs_logger(ObservabilidadeLogger(LOG_DIR / 'classificacoes.csv'))
-set_clarificacao_logger(ClarificacaoLogger(LOG_DIR / 'clarificacoes.csv'))
-set_extracao_logger(ExtracaoLogger(LOG_DIR / 'extracoes.csv'))
-set_handler_logger(HandlerLogger(LOG_DIR / 'handlers.csv'))
-set_funil_logger(FunilLogger(LOG_DIR / 'funil.csv'))
-set_pedido_logger(PedidoLogger(LOG_DIR / 'pedidos.csv'))
-set_negocio_logger(NegocioLogger(LOG_DIR / 'negocio.csv'))
-set_classificador_logger(ClassificadorLogger(LOG_DIR / 'classificadores.csv'))
-set_dispatcher_logger(DispatcherLogger(LOG_DIR / 'dispatcher.csv'))
-set_extrator_detail_logger(ExtratorDetailLogger(LOG_DIR / 'extratores.csv'))
-set_exception_logger(ExceptionLogger(LOG_DIR / 'erros.jsonl'))
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+loggers = ObservabilidadeLoggers.criar_padrao(LOG_DIR)
+
+# Manter compatibilidade com registry legado (para codigo nao migrado)
+try:
+    from src.observabilidade.registry import set_exception_logger
+
+    set_exception_logger(loggers.excecoes)
+except ImportError:
+    pass
 
 
 def criar_classificador() -> ClassificadorIntencoes:
@@ -75,6 +51,7 @@ def criar_classificador() -> ClassificadorIntencoes:
         config=config,
         prompt_template=prompt,
         intencoes_validas=intencoes,
+        loggers=loggers,
     )
 
 

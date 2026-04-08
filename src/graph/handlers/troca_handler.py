@@ -24,11 +24,15 @@ Example:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from src.config import get_item_por_id, get_nome_item
 from src.extratores import extrair, extrair_itens_troca, normalizar
 from src.graph.handlers.carrinho import Carrinho, CarrinhoItem
 from src.graph.state import MODOS, RetornoNode
+
+if TYPE_CHECKING:
+    from src.observabilidade.loggers import ObservabilidadeLoggers
 
 
 @dataclass
@@ -95,13 +99,17 @@ def _extrair_primeiro_item_da_mensagem(mensagem: str) -> str:
 def processar_troca(
     carrinho_dicts: list[dict],
     mensagem: str,
+    loggers: ObservabilidadeLoggers | None = None,
+    thread_id: str = '',
+    turn_id: str = '',
 ) -> ResultadoTrocar:
     """Processa troca de variantes de itens no carrinho."""
     if not carrinho_dicts:
-        return ResultadoTrocar(
+        resultado = ResultadoTrocar(
             resposta='Não há pedido para trocar.',
             modo='ocioso',
         )
+        return _log_troca(resultado, carrinho_dicts, loggers, thread_id, turn_id)
 
     extracao = extrair_itens_troca(mensagem, carrinho_dicts)
     caso = extracao['caso']
@@ -109,32 +117,61 @@ def processar_troca(
     variante_nova = extracao['variante_nova']
 
     if caso == 'vazio':
-        return ResultadoTrocar(
+        resultado = ResultadoTrocar(
             carrinho=carrinho_dicts,
             resposta="Não entendi o que quer trocar. Ex: 'muda pra duplo'",
         )
+        return _log_troca(resultado, carrinho_dicts, loggers, thread_id, turn_id)
 
     if caso == 'A':
-        return ResultadoTrocar(
+        resultado = ResultadoTrocar(
             carrinho=carrinho_dicts,
             resposta="Por enquanto só consigo trocar variantes. Ex: 'muda pra duplo'",
         )
+        return _log_troca(resultado, carrinho_dicts, loggers, thread_id, turn_id)
 
     if caso == 'B':
         nome_item_mencionado = None
         if item_original is None:
             nome_item_mencionado = _extrair_primeiro_item_da_mensagem(mensagem)
-        return _processar_caso_b(
+        resultado = _processar_caso_b(
             carrinho_dicts, item_original, variante_nova, nome_item_mencionado
         )
+        return _log_troca(resultado, carrinho_dicts, loggers, thread_id, turn_id)
 
     if caso == 'C':
-        return _processar_caso_c(carrinho_dicts, variante_nova)
+        resultado = _processar_caso_c(carrinho_dicts, variante_nova)
+        return _log_troca(resultado, carrinho_dicts, loggers, thread_id, turn_id)
 
-    return ResultadoTrocar(
+    resultado = ResultadoTrocar(
         carrinho=carrinho_dicts,
         resposta="Não entendi o que quer trocar. Ex: 'muda pra duplo'",
     )
+    return _log_troca(resultado, carrinho_dicts, loggers, thread_id, turn_id)
+
+
+def _log_troca(
+    resultado: ResultadoTrocar,
+    carrinho_original: list[dict],
+    loggers: ObservabilidadeLoggers | None,
+    thread_id: str,
+    turn_id: str,
+) -> ResultadoTrocar:
+    """Registra evento de negocio se loggers disponiveis."""
+    if loggers and loggers.negocio is not None:
+        carrinho_resultado = resultado.carrinho
+        preco_total = sum(i.get('preco_centavos', i.get('preco', 0)) for i in carrinho_resultado)
+        loggers.negocio.registrar(
+            thread_id=thread_id,
+            turn_id=turn_id,
+            evento='trocar',
+            carrinho_size=len(carrinho_resultado),
+            preco_total_centavos=preco_total,
+            intent='trocar',
+            resposta=resultado.resposta,
+            tentativas_clarificacao=0,
+        )
+    return resultado
 
 
 def _processar_caso_b(

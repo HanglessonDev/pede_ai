@@ -15,9 +15,14 @@ Example:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from src.roteador.classificadores.base import ClassificadorBase
 from src.roteador.modelos import ResultadoClassificacao
 from src.roteador.protocolos import LLMProvider
+
+if TYPE_CHECKING:
+    from src.observabilidade.loggers import ObservabilidadeLoggers
 
 
 class ClassificadorLLM(ClassificadorBase):
@@ -32,6 +37,7 @@ class ClassificadorLLM(ClassificadorBase):
         llm: LLMProvider,
         prompt_template: str,
         intencoes_validas: list[str],
+        loggers: ObservabilidadeLoggers | None = None,
     ) -> None:
         """Inicializa o classificador LLM.
 
@@ -39,16 +45,25 @@ class ClassificadorLLM(ClassificadorBase):
             llm: Provider concreto de LLM.
             prompt_template: Template do prompt com placeholder {mensagem}.
             intencoes_validas: Lista de intents validas para validacao.
+            loggers: Loggers de observabilidade para decision tracing.
         """
         self._llm = llm
         self._prompt_template = prompt_template
         self._intencoes_validas = intencoes_validas
+        self._loggers = loggers
 
-    def classificar(self, mensagem: str) -> ResultadoClassificacao:
+    def classificar(
+        self,
+        mensagem: str,
+        thread_id: str = '',
+        turn_id: str = '',
+    ) -> ResultadoClassificacao:
         """Classifica via LLM puro — sempre retorna algo.
 
         Args:
             mensagem: Texto da mensagem do usuario.
+            thread_id: ID da sessao para correlacao de logs.
+            turn_id: ID do turno para correlacao de logs.
 
         Returns:
             ResultadoClassificacao com intent do LLM.
@@ -65,6 +80,22 @@ class ClassificadorLLM(ClassificadorBase):
         resposta = self._llm.completar(prompt, max_tokens=10)
 
         intencao = self._extrair_intencao(resposta)
+
+        if self._loggers and self._loggers.decisor:
+            self._loggers.decisor.registrar(
+                thread_id=thread_id,
+                turn_id=turn_id,
+                componente='classificacao_llm_fallback',
+                decisao='retornar_llm',
+                alternativas=list(self._intencoes_validas)[:5],
+                criterio=f"llm_retornou='{resposta.strip()}'",
+                threshold='llm_fixo',
+                resultado=intencao,
+                contexto={
+                    'mensagem': mensagem,
+                    'llm_raw': resposta.strip(),
+                },
+            )
 
         return ResultadoClassificacao(
             intent=intencao,

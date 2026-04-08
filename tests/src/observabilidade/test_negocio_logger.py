@@ -20,12 +20,14 @@ class TestNegocioLogger:
         return NegocioLogger(csv_path)
 
     def test_headers_contem_campos_obrigatorios(self, logger: NegocioLogger):
-        """Headers devem conter campos obrigatorios."""
+        """Headers devem conter campos obrigatorios.
+
+        Versao simplificada: sem campo 'nivel' (nao necessario para metricas).
+        """
         expected = [
             'timestamp',
             'thread_id',
             'turn_id',
-            'nivel',
             'evento',
             'carrinho_size',
             'preco_total_centavos',
@@ -54,9 +56,9 @@ class TestNegocioLogger:
             rows = list(reader)
 
         assert len(rows) == 1
-        assert rows[0][4] == 'confirmar'  # evento
-        assert rows[0][5] == '2'  # carrinho_size
-        assert rows[0][6] == '3500'  # preco_total_centavos
+        assert rows[0][3] == 'confirmar'  # evento (index 3 sem nivel)
+        assert rows[0][4] == '2'  # carrinho_size
+        assert rows[0][5] == '3500'  # preco_total_centavos
 
     def test_registrar_cancelamento(self, logger: NegocioLogger):
         """Deve registrar evento de cancelamento."""
@@ -77,8 +79,8 @@ class TestNegocioLogger:
             rows = list(reader)
 
         assert len(rows) == 1
-        assert rows[0][4] == 'cancelar'
-        assert rows[0][9] == '2'  # tentativas_clarificacao
+        assert rows[0][3] == 'cancelar'  # evento
+        assert rows[0][8] == '2'  # tentativas_clarificacao
 
     def test_registrar_saudacao(self, logger: NegocioLogger):
         """Deve registrar evento de saudacao."""
@@ -99,7 +101,7 @@ class TestNegocioLogger:
             rows = list(reader)
 
         assert len(rows) == 1
-        assert rows[0][4] == 'saudacao'
+        assert rows[0][3] == 'saudacao'  # evento
 
     def test_registrar_desconhecido(self, logger: NegocioLogger):
         """Deve registrar evento desconhecido."""
@@ -120,7 +122,7 @@ class TestNegocioLogger:
             rows = list(reader)
 
         assert len(rows) == 1
-        assert rows[0][4] == 'desconhecido'
+        assert rows[0][3] == 'desconhecido'  # evento
 
     def test_registrar_remocao(self, logger: NegocioLogger):
         """Deve registrar evento de remocao."""
@@ -141,8 +143,8 @@ class TestNegocioLogger:
             rows = list(reader)
 
         assert len(rows) == 1
-        assert rows[0][4] == 'remover'
-        assert rows[0][5] == '1'  # carrinho_size apos remocao
+        assert rows[0][3] == 'remover'  # evento
+        assert rows[0][4] == '1'  # carrinho_size
 
     def test_registrar_troca(self, logger: NegocioLogger):
         """Deve registrar evento de troca."""
@@ -163,7 +165,7 @@ class TestNegocioLogger:
             rows = list(reader)
 
         assert len(rows) == 1
-        assert rows[0][4] == 'trocar'
+        assert rows[0][3] == 'trocar'  # evento
 
     def test_registrar_carrinho(self, logger: NegocioLogger):
         """Deve registrar evento de consulta ao carrinho."""
@@ -184,33 +186,11 @@ class TestNegocioLogger:
             rows = list(reader)
 
         assert len(rows) == 1
-        assert rows[0][4] == 'carrinho'
+        assert rows[0][3] == 'carrinho'  # evento
 
     def test_nivel_padrao_info(self, logger: NegocioLogger):
         """Nivel padrao deve ser INFO."""
         assert logger.nivel == 'INFO'
-
-    def test_filtro_nivel(self, csv_path: Path):
-        """Nivel inferior nao deve loggar."""
-        logger = NegocioLogger(csv_path, nivel='INFO')
-        logger.registrar(
-            thread_id='sessao_8',
-            turn_id='turn_008',
-            evento='debug_event',
-            carrinho_size=0,
-            preco_total_centavos=0,
-            intent='',
-            resposta='',
-            tentativas_clarificacao=0,
-            nivel='DEBUG',
-        )
-
-        with open(logger.csv_path, encoding='utf-8') as f:
-            reader = csv.reader(f)
-            next(reader)
-            rows = list(reader)
-
-        assert len(rows) == 0
 
     def test_thread_safe(self, logger: NegocioLogger):
         """Deve ser thread-safe."""

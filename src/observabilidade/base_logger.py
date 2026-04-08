@@ -22,7 +22,9 @@ from __future__ import annotations
 
 import csv
 import threading
+import warnings
 from abc import ABC, abstractmethod
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -73,6 +75,33 @@ class BaseCsvLogger(ABC):
             return self.NIVEIS.index(self._nivel) >= self.NIVEIS.index(nivel_requerido)
         except ValueError:
             return True
+
+    def _validar_enum(self, campo: str, valor: str, validos: frozenset[str]) -> str:
+        """Valida valor de enum, emite warning se invalido, nunca crasha.
+
+        Logger e infraestrutura de observabilidade — ele nunca pode ser
+        a causa de um crash em producao.
+
+        Args:
+            campo: Nome do campo sendo validado.
+            valor: Valor a validar.
+            validos: Valores aceitos.
+
+        Returns:
+            O proprio valor (sempre retorna, mesmo se invalido).
+        """
+        if valor not in validos:
+            warnings.warn(
+                f'[{self.__class__.__name__}] Valor inesperado em {campo}: '
+                f"'{valor}'. Validos: {validos}",
+                stacklevel=2,
+            )
+        return valor
+
+    @staticmethod
+    def _timestamp_utc() -> str:
+        """Retorna timestamp UTC em formato ISO 8601."""
+        return datetime.now(UTC).isoformat()
 
     @property
     @abstractmethod
